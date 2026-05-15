@@ -1,0 +1,61 @@
+# Single source of truth for implementation phase status.
+# Agents: read this file first. Update status here AND in the matching Phase_X.md frontmatter + banner.
+#
+# status values: not_started | in_progress | done
+
+phases:
+  - id: phase-0
+    file: Phase_0.md
+    title: Project foundation
+    status: not_started
+    depends_on: []
+    completed_at: null
+    plan_reference: "Bootstrap (prerequisite for PLAN.md §16)"
+
+  - id: phase-1
+    file: Phase_1.md
+    title: Minimal prototype
+    status: not_started
+    depends_on: [phase-0]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 1"
+
+  - id: phase-2
+    file: Phase_2.md
+    title: Local GUI
+    status: not_started
+    depends_on: [phase-1]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 2"
+
+  - id: phase-3
+    file: Phase_3.md
+    title: Analysis system
+    status: not_started
+    depends_on: [phase-1]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 3"
+
+  - id: phase-4
+    file: Phase_4.md
+    title: AI feedback
+    status: not_started
+    depends_on: [phase-3]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 4"
+
+  - id: phase-5
+    file: Phase_5.md
+    title: Tournament mode
+    status: not_started
+    depends_on: [phase-2, phase-3]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 5"
+
+  - id: phase-6
+    file: Phase_6.md
+    title: Advanced scenarios
+    status: not_started
+    depends_on: [phase-5]
+    completed_at: null
+    plan_reference: "PLAN.md §16 Phase 6"
