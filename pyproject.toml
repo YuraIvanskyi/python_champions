@@ -1,0 +1,42 @@
+[project]
+name = "code-scenarios"
+version = "0.1.0"
+description = "Educational turn-based game framework for student Python bots"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pygame-ce",
+    "pytest",
+    "ruff",
+    "radon",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+dev = ["rich"]
+
+[project.scripts]
+code-scenarios = "engine.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["engine", "tests", "scenarios", "ui"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["engine", "scenarios", "ui"]

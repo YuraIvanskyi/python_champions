@@ -7,9 +7,9 @@ phases:
   - id: phase-0
     file: Phase_0.md
     title: Project foundation
-    status: not_started
+    status: done
     depends_on: []
-    completed_at: null
+    completed_at: "2026-05-17"
     plan_reference: "Bootstrap (prerequisite for PLAN.md §16)"
 
   - id: phase-1

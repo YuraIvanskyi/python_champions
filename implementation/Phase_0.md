@@ -1,11 +1,11 @@
 ---
 phase_id: phase-0
-status: not_started
+status: done
 depends_on: []
 source_plan: PLAN.md §5, §9, §20
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 0 — Project foundation
 
@@ -119,14 +119,14 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
 
 ## Definition of done
 
-- [ ] `pyproject.toml` exists with Python 3.12+ and dependencies from PLAN §20
-- [ ] Directory layout matches PLAN §5 (all packages have `__init__.py`)
-- [ ] `configs/default.toml` exists with `[engine]` and `[analysis]` sections
-- [ ] `.gitignore` excludes venv, caches, and `results/` session output
-- [ ] Root `README.md` documents install and test commands
-- [ ] `tests/test_smoke.py` passes
-- [ ] `engine.cli:main` entry point is declared (stub OK)
-- [ ] `uv run pytest` or `pytest` exits 0
+- [x] `pyproject.toml` exists with Python 3.12+ and dependencies from PLAN §20
+- [x] Directory layout matches PLAN §5 (all packages have `__init__.py`)
+- [x] `configs/default.toml` exists with `[engine]` and `[analysis]` sections
+- [x] `.gitignore` excludes venv, caches, and `results/` session output
+- [x] Root `README.md` documents install and test commands
+- [x] `tests/test_smoke.py` passes
+- [x] `engine.cli:main` entry point is declared (stub OK)
+- [x] `uv run pytest` or `pytest` exits 0
 
 ## Verification
 
