@@ -1,1 +1,1 @@
-"""Simulation: map, entities, built-in AI."""
+"""Simulation primitives: map, entities, built-in AI."""

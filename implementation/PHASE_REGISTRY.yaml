@@ -15,17 +15,17 @@ phases:
   - id: phase-1
     file: Phase_1.md
     title: Minimal prototype
-    status: not_started
+    status: done
     depends_on: [phase-0]
-    completed_at: null
+    completed_at: "2026-05-18"
     plan_reference: "PLAN.md §16 Phase 1"
 
   - id: phase-2
     file: Phase_2.md
     title: Local GUI
-    status: not_started
+    status: done
     depends_on: [phase-1]
-    completed_at: null
+    completed_at: "2026-05-18"
     plan_reference: "PLAN.md §16 Phase 2"
 
   - id: phase-3

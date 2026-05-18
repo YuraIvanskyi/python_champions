@@ -1,0 +1,42 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "UI: Manual test flight (python -m ui)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ui",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "CLI: Run resource_wars (example bot)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "engine.cli",
+      "args": [
+        "run",
+        "--scenario",
+        "resource_wars",
+        "--bot",
+        "student_bots/example_bot.py",
+        "--seed",
+        "42"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "CLI: Launch GUI (code-scenarios gui)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "engine.cli",
+      "args": ["gui"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

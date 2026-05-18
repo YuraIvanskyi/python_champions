@@ -1,11 +1,11 @@
 ---
 phase_id: phase-2
-status: not_started
+status: done
 depends_on: [phase-1]
 source_plan: PLAN.md §16 Phase 2, §11
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 2 — Local GUI
 
@@ -82,14 +82,14 @@ Add a **Pygame CE** desktop interface: scenario selection, visual map, simulatio
 
 ## Definition of done
 
-- [ ] `python -m ui` or `code-scenarios gui` opens scenario selection
-- [ ] User can pick scenario + bot file and run full simulation visually
-- [ ] Map renders grid, resources, obstacles, and entities correctly
-- [ ] Score screen shows end-of-game results
-- [ ] Replay viewer loads and steps through an existing `replay.json`
-- [ ] UI uses engine from Phase 1 (no forked rules)
-- [ ] Step/auto modes work without desyncing state
-- [ ] Sandbox errors display user-friendly message in UI
+- [x] `python -m ui` or `code-scenarios gui` opens scenario selection
+- [x] User can pick scenario + bot file and run full simulation visually
+- [x] Map renders grid, resources, obstacles, and entities correctly
+- [x] Score screen shows end-of-game results
+- [x] Replay viewer loads and steps through an existing `replay.json`
+- [x] UI uses engine from Phase 1 (no forked rules)
+- [x] Step/auto modes work without desyncing state
+- [x] Sandbox errors display user-friendly message in UI
 
 ## Verification
 

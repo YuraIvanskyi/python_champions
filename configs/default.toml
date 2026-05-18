@@ -1,5 +1,5 @@
 [engine]
-turn_timeout_ms = 100
+turn_timeout_ms = 500
 max_turns = 300
 
 [analysis]

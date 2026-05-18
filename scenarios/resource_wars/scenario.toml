@@ -1,0 +1,9 @@
+[scenario]
+id = "resource_wars"
+name = "Resource Wars"
+map_width = 8
+map_height = 8
+resource_count = 12
+obstacle_count = 8
+score_threshold = 15
+max_turns = 300

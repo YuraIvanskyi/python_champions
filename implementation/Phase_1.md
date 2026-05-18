@@ -1,11 +1,11 @@
 ---
 phase_id: phase-1
-status: not_started
+status: done
 depends_on: [phase-0]
 source_plan: PLAN.md §16 Phase 1, §6, §5, §10, §12–14, §17, §22
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 1 — Minimal prototype
 
@@ -105,16 +105,16 @@ Deliver a **headless** single-player turn simulation: basic engine, one scenario
 
 ## Definition of done
 
-- [ ] `engine/core/` turn loop runs headless for at least 10 turns without error
-- [ ] `scenarios/resource_wars/` loads and runs via CLI
-- [ ] Student bot loads from `student_bots/` via importlib (simple or class API)
-- [ ] Subprocess sandbox enforces timeout on malicious/slow bot
-- [ ] Same `--seed` produces identical `replay.json` on two runs
-- [ ] Built-in AI opponent participates in simulation
-- [ ] `results/<session>/replay.json` contains seed, turns, and scores
-- [ ] Terminal CLI prints readable turn-by-turn summary
-- [ ] `student_bots/example_bot.py` runs successfully as reference submission
-- [ ] All Phase 1 tests pass
+- [x] `engine/core/` turn loop runs headless for at least 10 turns without error
+- [x] `scenarios/resource_wars/` loads and runs via CLI
+- [x] Student bot loads from `student_bots/` via importlib (simple or class API)
+- [x] Subprocess sandbox enforces timeout on malicious/slow bot
+- [x] Same `--seed` produces identical `replay.json` on two runs
+- [x] Built-in AI opponent participates in simulation
+- [x] `results/<session>/replay.json` contains seed, turns, and scores
+- [x] Terminal CLI prints readable turn-by-turn summary
+- [x] `student_bots/example_bot.py` runs successfully as reference submission
+- [x] All Phase 1 tests pass
 
 ## Verification
 

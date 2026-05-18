@@ -1,1 +1,1 @@
-"""Sandbox: subprocess execution and timeouts for student bots."""
+"""Subprocess sandbox for student bot turns."""
