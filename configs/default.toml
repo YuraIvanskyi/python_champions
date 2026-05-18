@@ -2,6 +2,9 @@
 turn_timeout_ms = 500
 max_turns = 300
 
+[game]
+default_opponent = "greedy"
+
 [analysis]
 enable_ai = false
 enable_static_analysis = true

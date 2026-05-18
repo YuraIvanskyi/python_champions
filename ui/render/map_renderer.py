@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import pygame
 
+from ui.render.icons import load_icon
 from ui.theme import (
     COLOR_ENTITY_OPPONENT,
     COLOR_ENTITY_STUDENT,
+    COLOR_MUTED,
+    COLOR_TEXT,
     MAP_PADDING,
     TILE_COLORS,
     TILE_SIZE,
@@ -15,6 +18,10 @@ from ui.theme import (
 
 def _tile_color(tile_type: str) -> tuple[int, int, int]:
     return TILE_COLORS.get(tile_type, TILE_COLORS["empty"])
+
+
+def _entity_color(player_id: str) -> tuple[int, int, int]:
+    return COLOR_ENTITY_STUDENT if player_id == "student" else COLOR_ENTITY_OPPONENT
 
 
 def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) -> pygame.Rect:
@@ -39,13 +46,36 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
         pygame.draw.rect(surface, _tile_color(str(tile["type"])), rect)
         pygame.draw.rect(surface, (30, 34, 42), rect, 1)
 
+    name_font = pygame.font.SysFont("consolas,courier,monospace", 11)
+    icon_size = max(16, TILE_SIZE - 8)
+
     for entity in render_state["entities"]:
         player_id = str(entity["id"])
         px, py = entity["position"]
         center_x = origin_x + int(px) * TILE_SIZE + TILE_SIZE // 2
         center_y = origin_y + int(py) * TILE_SIZE + TILE_SIZE // 2
-        color = COLOR_ENTITY_STUDENT if player_id == "student" else COLOR_ENTITY_OPPONENT
-        pygame.draw.circle(surface, color, (center_x, center_y), TILE_SIZE // 3)
-        pygame.draw.circle(surface, (20, 24, 30), (center_x, center_y), TILE_SIZE // 3, 2)
+        color = _entity_color(player_id)
+        display_name = str(entity.get("display_name", player_id))
+        icon_path = entity.get("icon")
+        sprite = load_icon(str(icon_path) if icon_path else None, size=icon_size)
+
+        if sprite is not None:
+            rect = sprite.get_rect(center=(center_x, center_y))
+            surface.blit(sprite, rect)
+        else:
+            radius = TILE_SIZE // 3
+            pygame.draw.circle(surface, color, (center_x, center_y), radius)
+            pygame.draw.circle(surface, (20, 24, 30), (center_x, center_y), radius, 2)
+            initial = display_name[:1].upper() if display_name else "?"
+            letter = name_font.render(initial, True, COLOR_TEXT)
+            surface.blit(
+                letter,
+                letter.get_rect(center=(center_x, center_y)),
+            )
+
+        label = display_name if len(display_name) <= 12 else display_name[:11] + "…"
+        name_surf = name_font.render(label, True, COLOR_MUTED)
+        name_rect = name_surf.get_rect(midtop=(center_x, center_y + TILE_SIZE // 2 + 2))
+        surface.blit(name_surf, name_rect)
 
     return map_rect

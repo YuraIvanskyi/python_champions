@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pygame
 
-from ui.theme import COLOR_ACCENT, COLOR_MUTED, COLOR_TEXT, HUD_HEIGHT
+from ui.theme import COLOR_ACCENT, COLOR_MUTED, COLOR_TEXT, HUD_TEXT_HEIGHT
 
 
 def _font(size: int = 18) -> pygame.font.Font:
@@ -18,19 +18,19 @@ def draw_hud(
     lines: list[str],
     footer: str = "",
     y_offset: int | None = None,
+    content_height: int = HUD_TEXT_HEIGHT,
 ) -> None:
-    height = surface.get_height()
-    panel_top = y_offset if y_offset is not None else height - HUD_HEIGHT
-    panel = pygame.Rect(0, panel_top, surface.get_width(), HUD_HEIGHT)
+    panel_top = y_offset if y_offset is not None else surface.get_height() - content_height
+    panel = pygame.Rect(0, panel_top, surface.get_width(), content_height)
     pygame.draw.rect(surface, (32, 38, 48), panel)
     pygame.draw.line(surface, (60, 68, 82), (0, panel_top), (surface.get_width(), panel_top), 1)
 
     title_font = _font(20)
     body_font = _font(16)
-    y = panel_top + 8
+    y = panel_top + 10
     title_surf = title_font.render(title, True, COLOR_ACCENT)
     surface.blit(title_surf, (16, y))
-    y += 28
+    y += 30
 
     for line in lines[:4]:
         text = body_font.render(line, True, COLOR_TEXT)
@@ -39,7 +39,14 @@ def draw_hud(
 
     if footer:
         foot = body_font.render(footer, True, COLOR_MUTED)
-        surface.blit(foot, (16, panel.bottom - 26))
+        surface.blit(foot, (16, panel.bottom - 24))
+
+
+def draw_toolbar_strip(surface: pygame.Surface, *, y: int, height: int) -> None:
+    """Background band for control buttons below HUD text."""
+    strip = pygame.Rect(0, y, surface.get_width(), height)
+    pygame.draw.rect(surface, (28, 32, 40), strip)
+    pygame.draw.line(surface, (60, 68, 82), (0, y), (surface.get_width(), y), 1)
 
 
 def draw_centered_text(

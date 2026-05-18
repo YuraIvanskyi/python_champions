@@ -10,7 +10,11 @@ from typing import Any
 
 from engine.core.action import Action
 from engine.core.bot_base import BotBase
+from engine.core.bot_profile import read_profile_from_module
+from engine.core.errors import BotLoadError  # re-exported for callers
 from engine.core.player import Bot, Player
+
+__all__ = ["BotLoadError", "load_bot"]
 
 DENIED_IMPORTS = frozenset(
     {
@@ -30,10 +34,6 @@ DENIED_IMPORTS = frozenset(
         "builtins",
     }
 )
-
-
-class BotLoadError(Exception):
-    pass
 
 
 def _check_imports(source: str, path: Path) -> None:
@@ -57,7 +57,11 @@ def _wrap_make_turn(fn: Any) -> Any:
     return caller
 
 
-def load_bot(path: Path, player_id: str = "student", display_name: str = "Student") -> Bot:
+def load_bot(
+    path: Path,
+    player_id: str = "student",
+    display_name: str | None = None,
+) -> Bot:
     if not path.is_file():
         raise BotLoadError(f"Bot file not found: {path}")
 
@@ -72,7 +76,19 @@ def load_bot(path: Path, player_id: str = "student", display_name: str = "Studen
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    player = Player(player_id=player_id, display_name=display_name, is_student=True)
+    profile_name, icon_path = read_profile_from_module(
+        module,
+        bot_file=path,
+        default_name=display_name or "You",
+    )
+    resolved_name = profile_name if display_name is None else display_name
+
+    player = Player(
+        player_id=player_id,
+        display_name=resolved_name,
+        is_student=True,
+        icon_path=icon_path,
+    )
 
     if hasattr(module, "make_turn") and callable(module.make_turn):
         return Bot(player=player, make_turn=_wrap_make_turn(module.make_turn), source_path=str(path))

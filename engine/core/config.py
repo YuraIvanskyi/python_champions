@@ -18,9 +18,14 @@ class AnalysisConfig(BaseModel):
     enable_static_analysis: bool = True
 
 
+class GameConfig(BaseModel):
+    default_opponent: str = "greedy"
+
+
 class AppConfig(BaseModel):
     engine: EngineConfig = Field(default_factory=EngineConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    game: GameConfig = Field(default_factory=GameConfig)
 
 
 def load_config(path: Path | None = None) -> AppConfig:

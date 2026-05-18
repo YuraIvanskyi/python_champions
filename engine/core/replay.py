@@ -8,6 +8,8 @@ from typing import Any
 
 from engine.core.action import parse_action
 from engine.core.live_game import build_render_state
+from engine.core.opponents import opponent_player
+from engine.core.player import Player
 from engine.core.scenario_registry import create_scenario
 from engine.core.turn_result import TurnResult
 
@@ -19,6 +21,32 @@ def load_replay(path: Path) -> dict[str, Any]:
         if key not in data:
             raise ValueError(f"Replay missing required field: {key}")
     return data
+
+
+def players_from_replay(replay: dict[str, Any]) -> dict[str, Player]:
+    """Build Player profiles from replay metadata, with defaults for older files."""
+    stored = replay.get("players")
+    if isinstance(stored, dict) and stored:
+        players: dict[str, Player] = {}
+        for player_id, meta in stored.items():
+            if not isinstance(meta, dict):
+                continue
+            name = str(meta.get("display_name", player_id))
+            icon = meta.get("icon")
+            icon_path = str(icon) if icon else None
+            players[player_id] = Player(
+                player_id=player_id,
+                display_name=name,
+                is_student=player_id == "student",
+                icon_path=icon_path,
+            )
+        return players
+
+    mode = str(replay.get("opponent_mode", "greedy"))
+    return {
+        "student": Player("student", "You", is_student=True),
+        "opponent": opponent_player(mode),
+    }
 
 
 def list_session_dirs(results_dir: Path) -> list[Path]:
@@ -37,6 +65,7 @@ class ReplaySession:
         self.seed = int(replay["seed"])
         self.final_scores = dict(replay["final_scores"])
         self.turns_data: list[dict[str, Any]] = list(replay.get("turns", []))
+        self.players = players_from_replay(replay)
         self.scenario = create_scenario(self.scenario_id, seed=self.seed)
         self.scenario.setup()
         self.turn_index = -1
@@ -58,7 +87,7 @@ class ReplaySession:
         self.last_turn = None
 
     def get_render_state(self) -> dict:
-        return build_render_state(self.scenario)
+        return build_render_state(self.scenario, players=self.players)
 
     def step_forward(self) -> TurnResult | None:
         next_index = self.turn_index + 1

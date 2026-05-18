@@ -54,6 +54,28 @@ def test_replay_session_steps(tmp_path: Path) -> None:
     assert after["turn"] == 1
 
 
+def test_replay_players_metadata(tmp_path: Path) -> None:
+    replay_path = tmp_path / "replay.json"
+    payload = {
+        "seed": 1,
+        "scenario": "resource_wars",
+        "bot": "student_bots/example_bot.py",
+        "opponent_mode": "dumb",
+        "players": {
+            "student": {"id": "student", "display_name": "Explorer", "icon": None},
+            "opponent": {"id": "opponent", "display_name": "Rookie", "icon": None},
+        },
+        "turns": [],
+        "final_scores": {"student": 0, "opponent": 0},
+    }
+    replay_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    session = ReplaySession.from_path(replay_path)
+    assert session.players["student"].display_name == "Explorer"
+    assert session.players["opponent"].display_name == "Rookie"
+    state = session.get_render_state()
+    assert state["display_names"]["student"] == "Explorer"
+
+
 def test_replay_session_from_cli_run(tmp_path: Path) -> None:
     results = tmp_path / "results"
     cmd = [

@@ -28,6 +28,14 @@ phases:
     completed_at: "2026-05-18"
     plan_reference: "PLAN.md §16 Phase 2"
 
+  - id: phase-2-5
+    file: Phase_2_5.md
+    title: Playable polish
+    status: done
+    depends_on: [phase-2]
+    completed_at: "2026-05-18"
+    plan_reference: "PLAN.md §11, §17 (UI polish + bot identity)"
+
   - id: phase-3
     file: Phase_3.md
     title: Analysis system

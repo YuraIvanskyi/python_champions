@@ -1,6 +1,10 @@
 """
 Example student bot for Resource Wars.
 
+Optional presentation (sandbox-safe — strings only):
+  BOT_DISPLAY_NAME = "Explorer"
+  BOT_ICON = "ui/assets/icons/student.png"   # under student_bots/ or ui/assets/icons/
+
 Allowed API:
   - game_state["position"] -> [x, y]
   - game_state["resources"] -> int (score)
@@ -11,6 +15,7 @@ Allowed API:
 Return one of: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, WAIT
 """
 
+BOT_DISPLAY_NAME = "Explorer"
 
 def make_turn(game_state):
     if game_state.get("on_resource"):

@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from engine.core.bot_profile import player_dict
+from engine.core.player import Player
 from engine.core.turn_result import TurnResult
 
 
@@ -19,6 +21,8 @@ def write_session(
     turn_log: list[TurnResult],
     final_scores: dict[str, int],
     text_log: list[str],
+    players: dict[str, Player] | None = None,
+    opponent_mode: str | None = None,
 ) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     session_dir = results_dir / f"session_{timestamp}"
@@ -39,6 +43,14 @@ def write_session(
         ],
         "final_scores": final_scores,
     }
+    if opponent_mode is not None:
+        replay["opponent_mode"] = opponent_mode
+    if players:
+        replay["players"] = {
+            pid: player_dict(pid, p.display_name, p.icon_path)
+            for pid, p in players.items()
+        }
+
     (session_dir / "replay.json").write_text(
         json.dumps(replay, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

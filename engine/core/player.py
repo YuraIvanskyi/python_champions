@@ -17,6 +17,7 @@ class Player:
     player_id: str
     display_name: str
     is_student: bool = False
+    icon_path: str | None = None
 
 
 @dataclass

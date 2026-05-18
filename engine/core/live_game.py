@@ -5,31 +5,55 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from engine.core.action import Action
 from engine.core.config import AppConfig
-from engine.core.player import Bot
+from engine.core.opponents import opponent_player, resolve_ai_turn
+from engine.core.player import Bot, Player
 from engine.core.scenario import ScenarioBase
 from engine.core.scenario_registry import create_scenario
 from engine.core.session import write_session
 from engine.core.turn_result import TurnResult
 from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
-from engine.simulation.simple_ai import greedy_turn
 
 
-def build_render_state(scenario: ScenarioBase, *, viewer: str = "student") -> dict:
+def build_render_state(
+    scenario: ScenarioBase,
+    *,
+    viewer: str = "student",
+    players: dict[str, Player] | None = None,
+) -> dict[str, Any]:
     """Readonly map snapshot for UI rendering."""
     state = scenario.build_game_state(viewer)
+    profiles = players or {}
+    entities = []
+    for entity_id, position_key in (
+        ("student", "position"),
+        ("opponent", "opponent_position"),
+    ):
+        profile = profiles.get(entity_id)
+        entry: dict[str, Any] = {
+            "id": entity_id,
+            "position": state[position_key],
+        }
+        if profile is not None:
+            entry["display_name"] = profile.display_name
+            if profile.icon_path:
+                entry["icon"] = profile.icon_path
+        entities.append(entry)
+
+    display_names = {
+        pid: p.display_name for pid, p in profiles.items()
+    }
     return {
         "turn": state["turn"],
         "map_width": state["map_width"],
         "map_height": state["map_height"],
         "tiles": state["visible_tiles"],
-        "entities": [
-            {"id": "student", "position": state["position"]},
-            {"id": "opponent", "position": state["opponent_position"]},
-        ],
+        "entities": entities,
         "scores": scenario.calculate_score(),
+        "display_names": display_names,
     }
 
 
@@ -43,6 +67,7 @@ class LiveGame:
         student_bot: Bot,
         seed: int,
         config: AppConfig,
+        opponent_mode: str | None = None,
         ai_turn: Callable[..., Action] | None = None,
         max_turns: int | None = None,
     ) -> None:
@@ -51,18 +76,35 @@ class LiveGame:
         self.student_bot = student_bot
         self.seed = seed
         self.config = config
+        mode = opponent_mode or config.game.default_opponent
+        self.opponent_mode = mode
+        self.opponent_player = opponent_player(mode)
+        self.players: dict[str, Player] = {
+            "student": student_bot.player,
+            "opponent": self.opponent_player,
+        }
         self.scenario = create_scenario(scenario_id, seed=seed, max_turns=effective_max)
         self.scenario.setup()
 
         rng = random.Random(seed)
-        self._ai_fn = ai_turn or (lambda state, r=rng: greedy_turn(state, r))
+        self._rng = rng
+        if ai_turn is not None:
+            self._ai_fn = ai_turn
+        else:
+            resolved = resolve_ai_turn(mode)
+
+            def _bound(state: dict[str, Any], r: random.Random = rng) -> Action:
+                return resolved(state, r)
+
+            self._ai_fn = _bound
         self._sandbox: SandboxedBot | None = None
         if student_bot.source_path:
             self._sandbox = SandboxedBot(Path(student_bot.source_path), config)
 
         self.turn_log: list[TurnResult] = []
         self.text_log: list[str] = [
-            f"scenario={scenario_id} seed={seed} bot={student_bot.source_path}",
+            f"scenario={scenario_id} seed={seed} bot={student_bot.source_path} "
+            f"opponent={mode}",
         ]
         self.last_turn: TurnResult | None = None
         self.status_message: str = ""
@@ -72,7 +114,7 @@ class LiveGame:
         return self.scenario.is_finished()
 
     def get_render_state(self) -> dict:
-        return build_render_state(self.scenario)
+        return build_render_state(self.scenario, players=self.players)
 
     def step(self) -> TurnResult | None:
         if self.is_finished():
@@ -106,9 +148,12 @@ class LiveGame:
         self.turn_log.append(turn_result)
         self.last_turn = turn_result
 
+        student_label = self.players["student"].display_name
+        opponent_label = self.players["opponent"].display_name
         line = (
             f"Turn {turn_result.turn_number}: "
-            f"student={actions['student'].value} opponent={actions['opponent'].value} "
+            f"{student_label}={actions['student'].value} "
+            f"{opponent_label}={actions['opponent'].value} "
             f"scores={turn_result.scores}"
         )
         self.text_log.append(line)
@@ -143,6 +188,8 @@ class LiveGame:
                 turn_log=self.turn_log,
                 final_scores=final_scores,
                 text_log=self.text_log,
+                players=self.players,
+                opponent_mode=self.opponent_mode,
             )
         return None
 

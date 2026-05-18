@@ -70,6 +70,7 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 0 | phase-0 | — | Scaffold, `pyproject.toml`, configs, smoke tests |
 | 1 | phase-1 | phase-0 | Headless engine, Resource Wars, sandbox, CLI, replay |
 | 2 | phase-2 | phase-1 | Pygame UI, replay viewer |
+| 2.5 | phase-2-5 | phase-2 | Mouse UI, bot name/icon, dumb opponent |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
 | 4 | phase-4 | phase-3 | Optional Ollama reports |
 | 5 | phase-5 | phase-2, phase-3 | Tournament batch + rankings |

@@ -51,12 +51,14 @@ class App:
         bot: Bot,
         bot_path: str,
         seed: int,
+        opponent_mode: str = "greedy",
     ) -> None:
         self.simulation.start(
             scenario_id=scenario_id,
             bot=bot,
             seed=seed,
             results_dir=self.results_dir,
+            opponent_mode=opponent_mode,
         )
         self._current = self.simulation
         self.simulation.on_enter()

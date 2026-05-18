@@ -30,12 +30,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
     seed = args.seed if args.seed is not None else 42
     results_dir = Path(args.results_dir)
 
+    opponent = args.opponent or config.game.default_opponent
     run_game(
         scenario_id=args.scenario,
         student_bot=student_bot,
         seed=seed,
         config=config,
         results_dir=results_dir,
+        opponent_mode=opponent,
         max_turns=config.engine.max_turns,
         write_results=True,
         print_summary=True,
@@ -63,6 +65,12 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--scenario", default="resource_wars", help="Scenario id")
     run_parser.add_argument("--bot", required=True, help="Path to student bot .py file")
     run_parser.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility")
+    run_parser.add_argument(
+        "--opponent",
+        choices=("greedy", "dumb"),
+        default=None,
+        help="Opponent AI: greedy (smart rival) or dumb (rookie practice)",
+    )
     run_parser.add_argument(
         "--config",
         default=None,

@@ -26,6 +26,7 @@ def run_game(
     seed: int,
     config: AppConfig,
     results_dir: Path | None = None,
+    opponent_mode: str | None = None,
     ai_turn=None,
     max_turns: int | None = None,
     write_results: bool = True,
@@ -36,6 +37,7 @@ def run_game(
         student_bot=student_bot,
         seed=seed,
         config=config,
+        opponent_mode=opponent_mode,
         ai_turn=ai_turn,
         max_turns=max_turns,
     )
