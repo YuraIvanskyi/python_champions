@@ -13,6 +13,7 @@ from engine.core.bot_base import BotBase
 from engine.core.bot_profile import read_profile_from_module
 from engine.core.errors import BotLoadError  # re-exported for callers
 from engine.core.player import Bot, Player
+from engine.student_api import GameView
 
 __all__ = ["BotLoadError", "load_bot"]
 
@@ -52,7 +53,7 @@ def _check_imports(source: str, path: Path) -> None:
 
 def _wrap_make_turn(fn: Any) -> Any:
     def caller(game_state: dict[str, Any]) -> str | Action:
-        return fn(game_state)
+        return fn(GameView.from_dict(game_state))
 
     return caller
 
@@ -91,7 +92,9 @@ def load_bot(
     )
 
     if hasattr(module, "make_turn") and callable(module.make_turn):
-        return Bot(player=player, make_turn=_wrap_make_turn(module.make_turn), source_path=str(path))
+        return Bot(
+            player=player, make_turn=_wrap_make_turn(module.make_turn), source_path=str(path)
+        )
 
     for _name, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, BotBase) and obj is not BotBase:
@@ -102,4 +105,4 @@ def load_bot(
                 source_path=str(path),
             )
 
-    raise BotLoadError("Bot file must define make_turn(game_state) or a BotBase subclass")
+    raise BotLoadError("Bot file must define make_turn(state) or a BotBase subclass")

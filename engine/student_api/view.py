@@ -1,0 +1,128 @@
+"""Readonly game view passed to student make_turn — use methods, not dict keys."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+_NO_RESOURCE_DISTANCE = 10_000
+
+
+class TileKind:
+    """Tile type strings for Resource Wars (and compatible scenarios)."""
+
+    EMPTY = "empty"
+    RESOURCE = "resource"
+    OBSTACLE = "obstacle"
+
+
+class GameView:
+    """Simplified, readonly snapshot for one bot's turn.
+
+    Scenarios still serialize to JSON dicts for the sandbox; the engine wraps
+    that payload in ``GameView`` before calling ``make_turn``.
+    """
+
+    __slots__ = (
+        "_height",
+        "_on_resource",
+        "_opp_x",
+        "_opp_y",
+        "_player_id",
+        "_score",
+        "_tiles",
+        "_turn",
+        "_width",
+        "_x",
+        "_y",
+    )
+
+    def __init__(self, data: Mapping[str, Any]) -> None:
+        self._turn = int(data.get("turn", 0))
+        self._player_id = str(data.get("player_id", "student"))
+        position = data["position"]
+        self._x = int(position[0])
+        self._y = int(position[1])
+        self._score = int(data.get("resources", 0))
+        self._on_resource = bool(data.get("on_resource", False))
+        self._width = int(data["map_width"])
+        self._height = int(data["map_height"])
+        opponent = data.get("opponent_position", [0, 0])
+        self._opp_x = int(opponent[0])
+        self._opp_y = int(opponent[1])
+        self._tiles: dict[tuple[int, int], str] = {}
+        for tile in data.get("visible_tiles", ()):
+            self._tiles[(int(tile["x"]), int(tile["y"]))] = str(tile["type"])
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> GameView:
+        return cls(data)
+
+    def turn(self) -> int:
+        return self._turn
+
+    def player_id(self) -> str:
+        return self._player_id
+
+    def my_x(self) -> int:
+        return self._x
+
+    def my_y(self) -> int:
+        return self._y
+
+    def position(self) -> tuple[int, int]:
+        return self._x, self._y
+
+    def score(self) -> int:
+        """Collected resources (gameplay score so far)."""
+        return self._score
+
+    def on_resource(self) -> bool:
+        return self._on_resource
+
+    def map_width(self) -> int:
+        return self._width
+
+    def map_height(self) -> int:
+        return self._height
+
+    def opponent_x(self) -> int:
+        return self._opp_x
+
+    def opponent_y(self) -> int:
+        return self._opp_y
+
+    def opponent_position(self) -> tuple[int, int]:
+        return self._opp_x, self._opp_y
+
+    def is_inside(self, x: int, y: int) -> bool:
+        return 0 <= x < self._width and 0 <= y < self._height
+
+    def tile_at(self, x: int, y: int) -> str | None:
+        """Tile type at (x, y), or None if off-map or not in visible data."""
+        if not self.is_inside(x, y):
+            return None
+        return self._tiles.get((x, y))
+
+    def is_obstacle(self, x: int, y: int) -> bool:
+        return self.tile_at(x, y) == TileKind.OBSTACLE
+
+    def is_walkable(self, x: int, y: int) -> bool:
+        if not self.is_inside(x, y):
+            return False
+        tile = self.tile_at(x, y)
+        if tile is None:
+            return False
+        return tile != TileKind.OBSTACLE
+
+    def has_resource_at(self, x: int, y: int) -> bool:
+        return self.tile_at(x, y) == TileKind.RESOURCE
+
+    def resource_tiles(self) -> list[tuple[int, int]]:
+        return [(x, y) for (x, y), kind in self._tiles.items() if kind == TileKind.RESOURCE]
+
+    def manhattan_to_nearest_resource(self, x: int, y: int) -> int:
+        best = _NO_RESOURCE_DISTANCE
+        for rx, ry in self.resource_tiles():
+            best = min(best, abs(rx - x) + abs(ry - y))
+        return best

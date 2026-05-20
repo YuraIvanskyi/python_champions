@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from engine.core.action import Action
+from engine.student_api import GameView
 
 
 class BotBase(ABC):
     @abstractmethod
-    def make_turn(self, game_state: dict[str, Any]) -> str | Action:
+    def make_turn(self, state: GameView) -> str | Action:
         """Return an action string or Action enum member."""

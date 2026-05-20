@@ -1,27 +1,32 @@
 """
-Example student bot for Resource Wars.
 
+Example student bot for Resource Wars.
 Optional presentation (sandbox-safe — strings only):
   BOT_DISPLAY_NAME = "Explorer"
   BOT_ICON = "ui/assets/icons/student.png"   # under student_bots/ or ui/assets/icons/
 
-Allowed API:
-  - game_state["position"] -> [x, y]
-  - game_state["resources"] -> int (score)
-  - game_state["on_resource"] -> bool
-  - game_state["visible_tiles"] -> list of {x, y, type}
-  - game_state["map_width"], game_state["map_height"]
+
+Turn function receives a readonly GameView (state). Common calls:
+  state.on_resource()          -> bool
+  state.my_x(), state.my_y()   -> int
+  state.score()                -> int (resources collected)
+  state.is_walkable(x, y)      -> bool
+  state.manhattan_to_nearest_resource(x, y) -> int
+
+Optional: from engine.student_api import GameView, TileKind
 
 Return one of: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, WAIT
 """
 
 BOT_DISPLAY_NAME = "Explorer"
 
-def make_turn(game_state):
-    if game_state.get("on_resource"):
+
+def make_turn(state):
+
+    if state.on_resource():
         return "GATHER"
 
-    px, py = game_state["position"]
+    px, py = state.position()
     best_action = "WAIT"
     best_dist = 10_000
 
@@ -32,28 +37,15 @@ def make_turn(game_state):
         ("MOVE_RIGHT", 1, 0),
     ):
         nx, ny = px + dx, py + dy
-        if not _walkable(game_state, nx, ny):
+
+        if not state.is_walkable(nx, ny):
             continue
-        dist = _manhattan_to_resource(game_state, nx, ny)
+
+        dist = state.manhattan_to_nearest_resource(nx, ny)
+
         if dist < best_dist:
             best_dist = dist
+
             best_action = action
 
     return best_action
-
-
-def _walkable(game_state, x, y):
-    if x < 0 or y < 0 or x >= game_state["map_width"] or y >= game_state["map_height"]:
-        return False
-    for tile in game_state["visible_tiles"]:
-        if tile["x"] == x and tile["y"] == y:
-            return tile["type"] != "obstacle"
-    return False
-
-
-def _manhattan_to_resource(game_state, x, y):
-    best = 10_000
-    for tile in game_state["visible_tiles"]:
-        if tile["type"] == "resource":
-            best = min(best, abs(tile["x"] - x) + abs(tile["y"] - y))
-    return best

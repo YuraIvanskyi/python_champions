@@ -71,6 +71,7 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 1 | phase-1 | phase-0 | Headless engine, Resource Wars, sandbox, CLI, replay |
 | 2 | phase-2 | phase-1 | Pygame UI, replay viewer |
 | 2.5 | phase-2-5 | phase-2 | Mouse UI, bot name/icon, dumb opponent |
+| 2.6 | phase-2-6 | phase-2-5 | `GameView` method API (readonly, no dict keys) |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
 | 4 | phase-4 | phase-3 | Optional Ollama reports |
 | 5 | phase-5 | phase-2, phase-3 | Tournament batch + rankings |
@@ -139,19 +140,23 @@ Scenarios implement `ScenarioBase` with `setup()`, `apply_turn(actions)`, `calcu
 **Simple API:**
 
 ```python
-def make_turn(game_state):
-    return "MOVE_RIGHT"  # or Action enum/dataclass
+def make_turn(state):
+    if state.on_resource():
+        return "GATHER"
+    return "MOVE_RIGHT"
 ```
+
+`state` is a readonly `GameView` (`engine.student_api`) with methods such as `my_x()`, `score()`, `is_walkable(x, y)` — not a mutable dict.
 
 **Advanced API:**
 
 ```python
 class StudentBot(BotBase):
-    def make_turn(self, state):
+    def make_turn(self, state: GameView):
         ...
 ```
 
-`game_state` is a readonly simplified dict (e.g. `position`, `resources`, `visible_tiles`). Document allowed actions per scenario in starter templates and comments.
+Document allowed actions per scenario in starter templates and comments.
 
 ### Sandbox and security
 
