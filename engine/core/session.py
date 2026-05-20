@@ -12,12 +12,19 @@ from engine.core.player import Player
 from engine.core.turn_result import TurnResult
 
 
+def _posix_bot_path(path_str: str) -> str:
+    """Normalize stored bot paths for cross-platform replays."""
+    return Path(path_str).as_posix()
+
+
 def write_session(
     results_dir: Path,
     *,
     seed: int,
     scenario_id: str,
     bot_path: str,
+    bot_paths: list[str] | None = None,
+    player_ids: list[str] | None = None,
     turn_log: list[TurnResult],
     final_scores: dict[str, int],
     text_log: list[str],
@@ -28,10 +35,14 @@ def write_session(
     session_dir = results_dir / f"session_{timestamp}"
     session_dir.mkdir(parents=True, exist_ok=True)
 
+    paths = [_posix_bot_path(p) for p in (bot_paths if bot_paths is not None else [bot_path])]
+
     replay: dict[str, Any] = {
+        "schema_version": 2,
         "seed": seed,
         "scenario": scenario_id,
-        "bot": bot_path,
+        "bot": _posix_bot_path(bot_path),
+        "bots": paths,
         "turns": [
             {
                 "turn": tr.turn_number,
@@ -43,12 +54,15 @@ def write_session(
         ],
         "final_scores": final_scores,
     }
+    if player_ids is not None:
+        replay["player_ids"] = list(player_ids)
     if opponent_mode is not None:
         replay["opponent_mode"] = opponent_mode
     if players:
         replay["players"] = {
-            pid: player_dict(pid, p.display_name, p.icon_path)
+            pid: player_dict(pid, p.display_name, p.icon_path, is_student=p.is_student)
             for pid, p in players.items()
+            if p.player_id != "_none"
         }
 
     (session_dir / "replay.json").write_text(

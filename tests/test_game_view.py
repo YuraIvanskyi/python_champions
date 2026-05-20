@@ -64,3 +64,16 @@ def test_on_resource_flag() -> None:
 def test_no_dict_access() -> None:
     state = GameView.from_dict(_sample_state())
     assert not hasattr(state, "__getitem__")
+
+
+def test_others_positions_multi_opponent() -> None:
+    state = GameView.from_dict(
+        _sample_state(
+            player_id="p0_a",
+            others={"p1_b": [1, 2], "p2_c": [3, 4]},
+            opponent_position=[1, 2],
+        )
+    )
+    assert state.others_positions() == [("p1_b", 1, 2), ("p2_c", 3, 4)]
+    assert state.position_of("p2_c") == (3, 4)
+    assert state.other_units() == {"p1_b": (1, 2), "p2_c": (3, 4)}

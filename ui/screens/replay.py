@@ -12,9 +12,11 @@ from ui.render.map_renderer import draw_map
 from ui.theme import (
     COLOR_BG,
     COLOR_MUTED,
+    FOOTER_PT,
     MAP_TOP,
     MARGIN_X,
     TOOLBAR_HEIGHT,
+    content_width,
     footer_top,
     hud_text_top,
     toolbar_top,
@@ -64,9 +66,10 @@ class ReplayScreen:
         self._picker_widgets = WidgetGroup()
         self._session_rows = []
         y = 100
+        row_w = content_width()
         for index, session in enumerate(self.sessions[:12]):
             row = ListRow(
-                pygame.Rect(MARGIN_X, y, 704, 28),
+                pygame.Rect(MARGIN_X, y, row_w, 28),
                 session.name,
                 selected=index == self.selected,
                 on_click=lambda i=index: self._select_session(i),
@@ -214,7 +217,7 @@ class ReplayScreen:
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._transport.draw(surface)
-        footer = pygame.font.SysFont("consolas,courier,monospace", 13)
+        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
         surface.blit(
             footer.render(
                 "Keyboard: ←/→ step · Home/End · Esc back",
@@ -240,7 +243,7 @@ class ReplayScreen:
             surface.blit(font.render("Click a session, then Load", True, COLOR_MUTED), (MARGIN_X, 72))
             self._picker_widgets.draw(surface)
 
-        footer = pygame.font.SysFont("consolas,courier,monospace", 13)
+        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
         surface.blit(
             footer.render("Keyboard: ↑↓ select · Enter load · Esc menu", True, COLOR_MUTED),
             (MARGIN_X, footer_top() + 4),

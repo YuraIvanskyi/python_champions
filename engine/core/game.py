@@ -22,7 +22,7 @@ class RunResult:
 def run_game(
     *,
     scenario_id: str,
-    student_bot: Bot,
+    student_bots: list[Bot],
     seed: int,
     config: AppConfig,
     results_dir: Path | None = None,
@@ -34,7 +34,7 @@ def run_game(
 ) -> RunResult:
     live = LiveGame(
         scenario_id=scenario_id,
-        student_bot=student_bot,
+        student_bots=student_bots,
         seed=seed,
         config=config,
         opponent_mode=opponent_mode,

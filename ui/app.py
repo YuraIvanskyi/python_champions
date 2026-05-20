@@ -6,19 +6,22 @@ from pathlib import Path
 
 import pygame
 
+from engine.core.config import load_config
 from engine.core.player import Bot
+from ui import theme
 from ui.screens.menu import MenuScreen
 from ui.screens.replay import ReplayScreen
 from ui.screens.scores import ScoresScreen
 from ui.screens.simulation import SimulationScreen
-from ui.theme import WINDOW_HEIGHT, WINDOW_WIDTH
 
 
 class App:
-    def __init__(self, *, results_dir: Path | None = None) -> None:
+    def __init__(self, *, results_dir: Path | None = None, config_path: Path | None = None) -> None:
+        cfg = load_config(config_path)
+        theme.apply_config(cfg.ui)
         pygame.init()
         pygame.display.set_caption("code-scenarios")
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.screen = pygame.display.set_mode((theme.WINDOW_WIDTH, theme.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
         self.results_dir = results_dir or Path("results")
@@ -48,14 +51,13 @@ class App:
         self,
         *,
         scenario_id: str,
-        bot: Bot,
-        bot_path: str,
+        student_bots: list[Bot],
         seed: int,
         opponent_mode: str = "greedy",
     ) -> None:
         self.simulation.start(
             scenario_id=scenario_id,
-            bot=bot,
+            student_bots=student_bots,
             seed=seed,
             results_dir=self.results_dir,
             opponent_mode=opponent_mode,

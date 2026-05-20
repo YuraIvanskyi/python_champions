@@ -12,16 +12,13 @@ Turn function receives a readonly GameView (state). Common calls:
   state.score()                -> int (resources collected)
   state.is_walkable(x, y)      -> bool
   state.manhattan_to_nearest_resource(x, y) -> int
-  state.others_positions()     -> list of (player_id, x, y) on classroom maps
-
-Legacy two-player helpers still work; with several rivals, opponent_x/y reflect the first other id.
 
 Optional: from engine.student_api import GameView, TileKind
 
 Return one of: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, WAIT
 """
 
-BOT_DISPLAY_NAME = "Explorer"
+BOT_DISPLAY_NAME = "Explorer 2"
 
 
 def make_turn(state):

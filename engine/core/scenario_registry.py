@@ -11,9 +11,15 @@ from scenarios.resource_wars import ResourceWarsScenario
 SCENARIOS_ROOT = Path(__file__).resolve().parents[2] / "scenarios"
 
 
-def create_scenario(scenario_id: str, seed: int, max_turns: int | None = None) -> ScenarioBase:
+def create_scenario(
+    scenario_id: str,
+    seed: int,
+    max_turns: int | None = None,
+    *,
+    player_ids: list[str] | None = None,
+) -> ScenarioBase:
     if scenario_id == "resource_wars":
-        return ResourceWarsScenario(seed=seed, max_turns=max_turns)
+        return ResourceWarsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
     raise ValueError(f"Unknown scenario: {scenario_id}")
 
 

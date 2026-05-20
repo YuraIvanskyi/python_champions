@@ -26,6 +26,7 @@ grep -r "PHASE_STATUS" implementation/
 | phase-2 | [Phase_2.md](Phase_2.md) | Local GUI | phase-1 | §16.2, §11 |
 | phase-2-5 | [Phase_2_5.md](Phase_2_5.md) | Playable polish | phase-2 | §11, §17 |
 | phase-2-6 | [Phase_2_6.md](Phase_2_6.md) | Simpler student bot API | phase-2-5 | §17 |
+| phase-2-7 | [Phase_2_7.md](Phase_2_7.md) | Multi-student match + projector UI | phase-2-6 | §11–12, §17 |
 | phase-3 | [Phase_3.md](Phase_3.md) | Analysis system | phase-1 | §16.3, §6.5, §15 |
 | phase-4 | [Phase_4.md](Phase_4.md) | AI feedback | phase-3 | §16.4, §7 |
 | phase-5 | [Phase_5.md](Phase_5.md) | Tournament mode | phase-2, phase-3 | §16.5, §13, §18 |

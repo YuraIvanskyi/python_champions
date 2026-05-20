@@ -28,6 +28,7 @@ class GameView:
         "_on_resource",
         "_opp_x",
         "_opp_y",
+        "_others",
         "_player_id",
         "_score",
         "_tiles",
@@ -50,6 +51,13 @@ class GameView:
         opponent = data.get("opponent_position", [0, 0])
         self._opp_x = int(opponent[0])
         self._opp_y = int(opponent[1])
+        others_raw = data.get("others")
+        if isinstance(others_raw, dict):
+            self._others: dict[str, tuple[int, int]] = {
+                str(k): (int(v[0]), int(v[1])) for k, v in others_raw.items()
+            }
+        else:
+            self._others = {}
         self._tiles: dict[tuple[int, int], str] = {}
         for tile in data.get("visible_tiles", ()):
             self._tiles[(int(tile["x"]), int(tile["y"]))] = str(tile["type"])
@@ -94,6 +102,21 @@ class GameView:
 
     def opponent_position(self) -> tuple[int, int]:
         return self._opp_x, self._opp_y
+
+    def others_positions(self) -> list[tuple[str, int, int]]:
+        """Other players' positions: (player_id, x, y) sorted by id."""
+        return [
+            (pid, xy[0], xy[1])
+            for pid, xy in sorted(self._others.items(), key=lambda item: item[0])
+        ]
+
+    def other_units(self) -> dict[str, tuple[int, int]]:
+        """Readonly map of other player_id -> (x, y)."""
+        return dict(self._others)
+
+    def position_of(self, player_id: str) -> tuple[int, int] | None:
+        """Position of another player, or None if missing."""
+        return self._others.get(player_id)
 
     def is_inside(self, x: int, y: int) -> bool:
         return 0 <= x < self._width and 0 <= y < self._height

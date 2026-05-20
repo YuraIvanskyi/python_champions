@@ -37,3 +37,5 @@ def test_replay_written_after_run(tmp_path: Path) -> None:
     assert replay["scenario"] == "resource_wars"
     assert len(replay["turns"]) > 0
     assert "final_scores" in replay
+    assert replay["bots"] == ["student_bots/example_bot.py"]
+    assert replay["player_ids"] == ["student", "opponent"]

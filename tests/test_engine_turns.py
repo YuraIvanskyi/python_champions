@@ -12,7 +12,7 @@ def test_ten_turns_headless() -> None:
     config = load_config()
     result = run_game(
         scenario_id="resource_wars",
-        student_bot=bot,
+        student_bots=[bot],
         seed=42,
         config=config,
         results_dir=None,

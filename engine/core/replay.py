@@ -34,10 +34,11 @@ def players_from_replay(replay: dict[str, Any]) -> dict[str, Player]:
             name = str(meta.get("display_name", player_id))
             icon = meta.get("icon")
             icon_path = str(icon) if icon else None
+            is_student = bool(meta["is_student"]) if "is_student" in meta else player_id == "student"
             players[player_id] = Player(
                 player_id=player_id,
                 display_name=name,
-                is_student=player_id == "student",
+                is_student=is_student,
                 icon_path=icon_path,
             )
         return players
@@ -66,7 +67,15 @@ class ReplaySession:
         self.final_scores = dict(replay["final_scores"])
         self.turns_data: list[dict[str, Any]] = list(replay.get("turns", []))
         self.players = players_from_replay(replay)
-        self.scenario = create_scenario(self.scenario_id, seed=self.seed)
+        raw_ids = replay.get("player_ids")
+        self.player_ids: list[str] | None = (
+            list(raw_ids) if isinstance(raw_ids, list) and raw_ids else None
+        )
+        self.scenario = create_scenario(
+            self.scenario_id,
+            seed=self.seed,
+            player_ids=self.player_ids,
+        )
         self.scenario.setup()
         self.turn_index = -1
         self.last_turn: TurnResult | None = None
@@ -81,7 +90,11 @@ class ReplaySession:
 
     def reset(self) -> None:
         """Rebuild scenario from seed (single setup — avoids double RNG consumption)."""
-        self.scenario = create_scenario(self.scenario_id, seed=self.seed)
+        self.scenario = create_scenario(
+            self.scenario_id,
+            seed=self.seed,
+            player_ids=self.player_ids,
+        )
         self.scenario.setup()
         self.turn_index = -1
         self.last_turn = None

@@ -52,7 +52,7 @@ def test_dumb_opponent_scores_lower_than_greedy() -> None:
 
     dumb_result = run_game(
         scenario_id="resource_wars",
-        student_bot=bot,
+        student_bots=[bot],
         seed=seed,
         config=config,
         opponent_mode="dumb",
@@ -62,7 +62,7 @@ def test_dumb_opponent_scores_lower_than_greedy() -> None:
     )
     greedy_result = run_game(
         scenario_id="resource_wars",
-        student_bot=bot,
+        student_bots=[bot],
         seed=seed,
         config=config,
         opponent_mode="greedy",

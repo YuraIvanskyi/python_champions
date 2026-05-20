@@ -14,6 +14,7 @@ from ui.render.map_renderer import draw_map
 from ui.theme import (
     COLOR_BG,
     COLOR_MUTED,
+    FOOTER_PT,
     MAP_TOP,
     TOOLBAR_HEIGHT,
     footer_top,
@@ -46,7 +47,7 @@ class SimulationScreen:
         self,
         *,
         scenario_id: str,
-        bot: Bot,
+        student_bots: list[Bot],
         seed: int,
         results_dir: Path,
         opponent_mode: str = "greedy",
@@ -54,7 +55,7 @@ class SimulationScreen:
         config = load_config()
         self.live = LiveGame(
             scenario_id=scenario_id,
-            student_bot=bot,
+            student_bots=student_bots,
             seed=seed,
             config=config,
             opponent_mode=opponent_mode,
@@ -151,12 +152,11 @@ class SimulationScreen:
         last = self.live.last_turn
         action_line = ""
         if last is not None:
-            student_name = names.get("student", "student")
-            opponent_name = names.get("opponent", "opponent")
-            action_line = (
-                f"Last: {student_name}={last.actions['student'].value} "
-                f"{opponent_name}={last.actions['opponent'].value}"
-            )
+            parts: list[str] = []
+            for pid in sorted(last.actions.keys()):
+                label = names.get(pid, pid)
+                parts.append(f"{label}={last.actions[pid].value}")
+            action_line = "Last: " + " ".join(parts)
 
         labeled_scores = {
             names.get(pid, pid): score for pid, score in render_state["scores"].items()
@@ -175,7 +175,7 @@ class SimulationScreen:
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._toolbar.draw(surface)
 
-        footer_font = pygame.font.SysFont("consolas,courier,monospace", 13)
+        footer_font = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
         surface.blit(
             footer_font.render(
                 "Keyboard: Space step · A play/pause · P pause · Esc quit",

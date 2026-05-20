@@ -62,8 +62,18 @@ def test_replay_players_metadata(tmp_path: Path) -> None:
         "bot": "student_bots/example_bot.py",
         "opponent_mode": "dumb",
         "players": {
-            "student": {"id": "student", "display_name": "Explorer", "icon": None},
-            "opponent": {"id": "opponent", "display_name": "Rookie", "icon": None},
+            "student": {
+                "id": "student",
+                "display_name": "Explorer",
+                "icon": None,
+                "is_student": True,
+            },
+            "opponent": {
+                "id": "opponent",
+                "display_name": "Rookie",
+                "icon": None,
+                "is_student": False,
+            },
         },
         "turns": [],
         "final_scores": {"student": 0, "opponent": 0},

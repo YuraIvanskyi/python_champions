@@ -8,3 +8,19 @@ default_opponent = "greedy"
 [analysis]
 enable_ai = false
 enable_static_analysis = true
+
+[ui]
+tile_size = 40
+map_padding = 24
+map_top = 16
+window_width = 1024
+window_height = 800
+margin_x = 48
+label_font_pt = 14
+hud_title_pt = 24
+hud_body_pt = 18
+hud_line_spacing = 24
+center_title_pt = 28
+center_subtitle_pt = 16
+footer_pt = 15
+menu_hint_pt = 15

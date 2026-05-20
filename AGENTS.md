@@ -72,6 +72,7 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 2 | phase-2 | phase-1 | Pygame UI, replay viewer |
 | 2.5 | phase-2-5 | phase-2 | Mouse UI, bot name/icon, dumb opponent |
 | 2.6 | phase-2-6 | phase-2-5 | `GameView` method API (readonly, no dict keys) |
+| 2.7 | phase-2-7 | phase-2-6 | Many student bots, one match; larger tiles/window for projectors |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
 | 4 | phase-4 | phase-3 | Optional Ollama reports |
 | 5 | phase-5 | phase-2, phase-3 | Tournament batch + rankings |
@@ -99,6 +100,8 @@ uv run python -c "import engine"
 
 # Phase 1+
 uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+uv run code-scenarios run --scenario resource_wars --bots path/a.py path/b.py --seed 42
+uv run code-scenarios run --scenario resource_wars --bots-dir student_bots --seed 42
 uv run code-scenarios --help
 
 # Phase 2+

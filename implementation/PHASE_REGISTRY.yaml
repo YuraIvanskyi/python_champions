@@ -44,6 +44,14 @@ phases:
     completed_at: "2026-05-20"
     plan_reference: "PLAN.md §17 (GameView method API)"
 
+  - id: phase-2-7
+    file: Phase_2_7.md
+    title: Multi-student match + projector UI
+    status: done
+    depends_on: [phase-2-6]
+    completed_at: "2026-05-20"
+    plan_reference: "PLAN.md §11–12, §17; classroom simultaneous match (extends Phase 2)"
+
   - id: phase-3
     file: Phase_3.md
     title: Analysis system

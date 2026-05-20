@@ -2,23 +2,34 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pygame
 
-from engine.core.loader import BotLoadError, load_bot
+from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
 from engine.core.opponents import OPPONENT_MODES, opponent_button_label, opponent_description
 from engine.core.scenario_registry import list_scenarios
+from scenarios.resource_wars.game import ResourceWarsScenario
 from ui.render.hud import draw_centered_text
 from ui.theme import (
     COLOR_ACCENT,
     COLOR_BG,
     COLOR_MUTED,
+    CENTER_SUBTITLE_PT,
+    CENTER_TITLE_PT,
+    FOOTER_PT,
     MARGIN_X,
+    MENU_HINT_PT,
     content_width,
     footer_top,
 )
 from ui.widgets import Button, ListRow, Stepper, TextField, WidgetGroup
+
+
+def _parse_bot_path_lines(text: str) -> list[Path]:
+    parts = re.split(r"[\n;,]+", text)
+    return [Path(p.strip()) for p in parts if p.strip()]
 
 
 class MenuScreen:
@@ -28,7 +39,7 @@ class MenuScreen:
             {"id": "resource_wars", "name": "Resource Wars", "description": ""}
         ]
         self.selected = 0
-        self.bot_path = "student_bots/example_bot.py"
+        self.bot_paths_text = "student_bots/example_bot.py"
         self.seed = 42
         self.opponent_mode = "dumb"
         self.error = ""
@@ -56,23 +67,30 @@ class MenuScreen:
             self._widgets.add(row)
             y += 34
 
-        y += 20
+        y += 16
         self._bot_label_y = y
         y += 22
         self._bot_field = TextField(
-            pygame.Rect(x, y, width - 108, 36),
-            text=self.bot_path,
-            on_change=self._set_bot_path,
+            pygame.Rect(x, y, width - 220, 40),
+            text=self.bot_paths_text,
+            on_change=self._set_bot_paths_text,
+            max_length=4000,
         )
         self._widgets.add(self._bot_field)
         self._browse_btn = Button(
-            pygame.Rect(x + width - 100, y, 100, 36),
+            pygame.Rect(x + width - 210, y, 100, 40),
             "Browse…",
             on_click=self._browse_bot,
         )
+        self._folder_btn = Button(
+            pygame.Rect(x + width - 100, y, 100, 40),
+            "Folder…",
+            on_click=self._browse_folder,
+        )
         self._widgets.add(self._browse_btn)
+        self._widgets.add(self._folder_btn)
 
-        y += 52
+        y += 56
         self._seed_label_y = y
         y += 22
         self._seed_stepper = Stepper(
@@ -113,8 +131,8 @@ class MenuScreen:
         self.selected = index
         self._sync_scenario_selection()
 
-    def _set_bot_path(self, path: str) -> None:
-        self.bot_path = path
+    def _set_bot_paths_text(self, text: str) -> None:
+        self.bot_paths_text = text
 
     def _set_seed(self, seed: int) -> None:
         self.seed = seed
@@ -129,7 +147,7 @@ class MenuScreen:
 
     def on_enter(self) -> None:
         self.error = ""
-        self._bot_field.text = self.bot_path
+        self._bot_field.text = self.bot_paths_text
         self._seed_stepper.set_value(self.seed)
         self._sync_scenario_selection()
 
@@ -168,26 +186,77 @@ class MenuScreen:
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)
-            chosen = filedialog.askopenfilename(
-                title="Select student bot",
+            chosen = filedialog.askopenfilenames(
+                title="Select student bot(s)",
                 filetypes=[("Python", "*.py")],
                 initialdir=str(Path.cwd() / "student_bots"),
             )
             root.destroy()
             if chosen:
-                self.bot_path = chosen
-                self._bot_field.text = chosen
+                joined = ", ".join(chosen)
+                if self.bot_paths_text.strip():
+                    self.bot_paths_text = self.bot_paths_text.rstrip(" ,") + ", " + joined
+                else:
+                    self.bot_paths_text = joined
+                self._bot_field.text = self.bot_paths_text
         except Exception:
-            self.error = "File browser unavailable — click the bot path field to edit."
+            self.error = "File browser unavailable — edit the bot path(s) field manually."
+
+    def _browse_folder(self) -> None:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            chosen = filedialog.askdirectory(
+                initialdir=str(Path.cwd() / "student_bots"),
+            )
+            root.destroy()
+            if chosen:
+                _, cap = ResourceWarsScenario.player_limits()
+                py_files = sorted(Path(chosen).glob("*.py"))[:cap]
+                joined = ", ".join(str(p) for p in py_files)
+                self.bot_paths_text = joined
+                self._bot_field.text = self.bot_paths_text
+        except Exception:
+            self.error = "Folder browser unavailable — paste paths into the field."
 
     def _start_run(self) -> None:
         self.error = ""
-        bot_file = Path(self.bot_path)
-        if not bot_file.is_file():
-            self.error = f"Bot file not found: {self.bot_path}"
+        paths = _parse_bot_path_lines(self.bot_paths_text)
+        if not paths:
+            self.error = "Enter at least one bot .py path (comma or newline separated)."
             return
+
+        for path in paths:
+            if not path.is_file():
+                self.error = f"Bot file not found: {path}"
+                return
+
+        resolved = [p.resolve() for p in paths]
+        if len(set(resolved)) != len(resolved):
+            self.error = "Duplicate bot paths are not allowed."
+            return
+
+        min_p, max_p = ResourceWarsScenario.player_limits()
+        if len(paths) > max_p:
+            self.error = f"At most {max_p} bots for Resource Wars (got {len(paths)})."
+            return
+
+        if len(paths) >= 2 and len(paths) < min_p:
+            self.error = f"Need at least {min_p} bots for a classroom match."
+            return
+
         try:
-            bot = load_bot(bot_file)
+            if len(paths) == 1:
+                bots = [load_bot(paths[0])]
+            else:
+                bots = []
+                for index, path in enumerate(paths):
+                    pid = student_player_id_for_path(path, index)
+                    bots.append(load_bot(path, player_id=pid))
         except BotLoadError as exc:
             self.error = str(exc)
             return
@@ -195,29 +264,32 @@ class MenuScreen:
         scenario = self.scenarios[self.selected]
         self.app.start_simulation(
             scenario_id=scenario["id"],
-            bot=bot,
-            bot_path=str(bot_file),
+            student_bots=bots,
             seed=self.seed,
             opponent_mode=self.opponent_mode,
         )
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(COLOR_BG)
-        draw_centered_text(surface, ["code-scenarios"], y_start=28, color=COLOR_ACCENT, size=30)
+        draw_centered_text(surface, ["code-scenarios"], y_start=28, color=COLOR_ACCENT, size=CENTER_TITLE_PT)
         draw_centered_text(
             surface,
-            ["Click to play — keyboard shortcuts still work (see footer)"],
-            y_start=62,
+            ["Multiple bots: comma- or newline-separated paths, or Folder…"],
+            y_start=58,
             color=COLOR_MUTED,
-            size=14,
+            size=CENTER_SUBTITLE_PT,
         )
 
-        font = pygame.font.SysFont("consolas,courier,monospace", 16)
-        label = pygame.font.SysFont("consolas,courier,monospace", 15)
+        label = pygame.font.SysFont("consolas,courier,monospace", MENU_HINT_PT)
         surface.blit(label.render("Scenario", True, COLOR_MUTED), (MARGIN_X, 88))
-        surface.blit(label.render("Bot file", True, COLOR_MUTED), (MARGIN_X, self._bot_label_y))
+        surface.blit(label.render("Bot path(s)", True, COLOR_MUTED), (MARGIN_X, self._bot_label_y))
         surface.blit(label.render("Seed", True, COLOR_MUTED), (MARGIN_X, self._seed_label_y))
-        surface.blit(label.render("Opponent", True, COLOR_MUTED), (MARGIN_X, self._opponent_label_y))
+        surface.blit(label.render("Opponent (--bot only)", True, COLOR_MUTED), (MARGIN_X, self._opponent_label_y))
+
+        paths = _parse_bot_path_lines(self._bot_field.text)
+        if len(paths) >= 2:
+            hint = label.render("Classroom match: built-in opponent is ignored", True, COLOR_MUTED)
+            surface.blit(hint, (MARGIN_X, self._opponent_label_y - 18))
 
         for index, btn in enumerate(self._opponent_buttons):
             mode = OPPONENT_MODES[index]
@@ -230,13 +302,13 @@ class MenuScreen:
                 border_radius=4,
             )
 
-        hint_font = pygame.font.SysFont("consolas,courier,monospace", 14)
+        hint_font = pygame.font.SysFont("consolas,courier,monospace", MENU_HINT_PT)
         hint = hint_font.render(opponent_description(self.opponent_mode), True, COLOR_MUTED)
         surface.blit(hint, (MARGIN_X, self._opponent_hint_y))
 
         self._widgets.draw(surface)
 
-        footer = pygame.font.SysFont("consolas,courier,monospace", 13)
+        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
         surface.blit(
             footer.render(
                 "Keyboard: ↑↓ scenario · ←→ seed · Enter run · Esc back",
@@ -247,5 +319,5 @@ class MenuScreen:
         )
 
         if self.error:
-            err = font.render(self.error, True, (255, 120, 120))
+            err = hint_font.render(self.error, True, (255, 120, 120))
             surface.blit(err, (MARGIN_X, self._run_btn.rect.bottom + 12))

@@ -23,7 +23,13 @@ MOVE_DELTAS = {
 
 
 class ResourceWarsScenario(ScenarioBase):
-    def __init__(self, seed: int, max_turns: int | None = None) -> None:
+    def __init__(
+        self,
+        seed: int,
+        max_turns: int | None = None,
+        *,
+        player_ids: list[str] | None = None,
+    ) -> None:
         self._seed = seed
         self._rng = random.Random(seed)
         self._config = self._load_config()
@@ -33,16 +39,45 @@ class ResourceWarsScenario(ScenarioBase):
             self._max_turns = int(self._config["max_turns"])
 
         self._score_threshold = int(self._config["score_threshold"])
+        self._min_players = int(self._config.get("min_players", 2))
+        self._max_players = int(self._config.get("max_players", 8))
+
+        if player_ids is None:
+            self._player_ids = ["student", "opponent"]
+        else:
+            cleaned = list(player_ids)
+            if len(cleaned) < self._min_players or len(cleaned) > self._max_players:
+                raise ValueError(
+                    f"Resource Wars supports {self._min_players}–{self._max_players} players; "
+                    f"got {len(cleaned)}"
+                )
+            if len(set(cleaned)) != len(cleaned):
+                raise ValueError("Duplicate player_id in Resource Wars setup")
+            self._player_ids = cleaned
+
         self._map: Map | None = None
         self._entities: dict[str, Entity] = {}
-        self._scores: dict[str, int] = {"student": 0, "opponent": 0}
+        self._scores: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._turn = 0
 
     @staticmethod
-    def _load_config() -> dict[str, int | str]:
+    def _load_config() -> dict[str, Any]:
         with (SCENARIO_DIR / "scenario.toml").open("rb") as handle:
             data = tomllib.load(handle)
         return data["scenario"]
+
+    @classmethod
+    def player_limits(cls) -> tuple[int, int]:
+        cfg = cls._load_config()
+        return int(cfg.get("min_players", 2)), int(cfg.get("max_players", 8))
+
+    def player_ids(self) -> list[str]:
+        """Stable order: input order from setup (file / CLI order)."""
+        return list(self._player_ids)
+
+    def positions_snapshot(self) -> dict[str, tuple[int, int]]:
+        assert self._entities
+        return {pid: (entity.x, entity.y) for pid, entity in self._entities.items()}
 
     def setup(self) -> None:
         width = int(self._config["map_width"])
@@ -50,10 +85,50 @@ class ResourceWarsScenario(ScenarioBase):
         self._map = Map(width, height)
         self._place_obstacles(int(self._config["obstacle_count"]))
         self._place_resources(int(self._config["resource_count"]))
-        self._entities = {
-            "student": Entity("student_unit", "student", 0, 0),
-            "opponent": Entity("opponent_unit", "opponent", width - 1, height - 1),
-        }
+        self._scores = {pid: 0 for pid in self._player_ids}
+
+        if self._player_ids == ["student", "opponent"]:
+            self._entities = {
+                "student": Entity("student_unit", "student", 0, 0),
+                "opponent": Entity("opponent_unit", "opponent", width - 1, height - 1),
+            }
+            return
+
+        positions = self._spawn_positions_free_cells(len(self._player_ids), width, height)
+        self._entities = {}
+        for player_id, (sx, sy) in zip(self._player_ids, positions, strict=True):
+            suffix = player_id.replace("-", "_")
+            self._entities[player_id] = Entity(f"unit_{suffix}", player_id, sx, sy)
+
+    def _spawn_positions_free_cells(
+        self,
+        count: int,
+        width: int,
+        height: int,
+    ) -> list[tuple[int, int]]:
+        """Deterministic empty cells (no obstacle, no resource) for N players."""
+        assert self._map is not None
+        candidates: list[tuple[int, int]] = []
+        for y in range(height):
+            for x in range(width):
+                if self._map.get_tile(x, y) is TileType.EMPTY:
+                    candidates.append((x, y))
+        # Spread starts: sort by (x+y, x) then take evenly spaced indices in a deterministic way
+        candidates.sort(key=lambda p: (p[0] + p[1], p[0]))
+        if len(candidates) < count:
+            raise ValueError(
+                f"Not enough empty tiles for {count} players "
+                f"(only {len(candidates)} on this map)"
+            )
+        if count == 1:
+            return [candidates[0]]
+        step = max(1, (len(candidates) - 1) // (count - 1))
+        picks: list[tuple[int, int]] = []
+        idx = 0
+        for _ in range(count):
+            picks.append(candidates[min(idx, len(candidates) - 1)])
+            idx += step
+        return picks
 
     def _place_obstacles(self, count: int) -> None:
         assert self._map is not None
@@ -85,8 +160,12 @@ class ResourceWarsScenario(ScenarioBase):
         assert self._map is not None
         self._turn += 1
         events: list[str] = []
+        missing = set(self._player_ids) - set(actions)
+        if missing:
+            raise KeyError(f"Missing actions for players: {sorted(missing)}")
 
-        for player_id, action in actions.items():
+        for player_id in sorted(actions.keys()):
+            action = actions[player_id]
             entity = self._entities[player_id]
             if action in MOVE_DELTAS:
                 dx, dy = MOVE_DELTAS[action]
@@ -140,6 +219,21 @@ class ResourceWarsScenario(ScenarioBase):
             {"x": x, "y": y, "type": tile.value}
             for x, y, tile in self._map.iter_tiles()
         ]
+        others: dict[str, list[int]] = {
+            oid: [self._entities[oid].x, self._entities[oid].y]
+            for oid in self._player_ids
+            if oid != player_id
+        }
+        other_ids_sorted = sorted(others.keys())
+        if len(other_ids_sorted) == 1:
+            lone = other_ids_sorted[0]
+            opponent_position = others[lone]
+        elif other_ids_sorted:
+            first = other_ids_sorted[0]
+            opponent_position = others[first]
+        else:
+            opponent_position = [entity.x, entity.y]
+
         return {
             "turn": self._turn,
             "player_id": player_id,
@@ -149,8 +243,6 @@ class ResourceWarsScenario(ScenarioBase):
             "map_width": self._map.width,
             "map_height": self._map.height,
             "visible_tiles": visible_tiles,
-            "opponent_position": [
-                self._entities["opponent" if player_id == "student" else "student"].x,
-                self._entities["opponent" if player_id == "student" else "student"].y,
-            ],
+            "others": others,
+            "opponent_position": opponent_position,
         }

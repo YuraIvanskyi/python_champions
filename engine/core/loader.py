@@ -15,7 +15,16 @@ from engine.core.errors import BotLoadError  # re-exported for callers
 from engine.core.player import Bot, Player
 from engine.student_api import GameView
 
-__all__ = ["BotLoadError", "load_bot"]
+def student_player_id_for_path(path: Path, index: int) -> str:
+    """Stable id for multi-bot matches (file order + sanitized stem)."""
+    stem = path.stem
+    safe = "".join(c if c.isalnum() or c in "_-" else "_" for c in stem)
+    if not safe:
+        safe = "bot"
+    return f"p{index}_{safe}"
+
+
+__all__ = ["BotLoadError", "load_bot", "student_player_id_for_path"]
 
 DENIED_IMPORTS = frozenset(
     {

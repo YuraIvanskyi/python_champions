@@ -7,7 +7,7 @@ from pathlib import Path
 import pygame
 
 from ui.render.hud import draw_centered_text
-from ui.theme import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_TEXT, MARGIN_X, footer_top
+from ui.theme import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_TEXT, FOOTER_PT, MARGIN_X, footer_top
 from ui.widgets import Button, WidgetGroup
 
 
@@ -92,7 +92,7 @@ class ScoresScreen:
 
         self._widgets.draw(surface)
 
-        footer = pygame.font.SysFont("consolas,courier,monospace", 13)
+        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
         surface.blit(
             footer.render("Keyboard: Enter menu · V replay", True, COLOR_MUTED),
             (MARGIN_X, footer_top() + 4),

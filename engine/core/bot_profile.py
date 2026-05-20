@@ -99,9 +99,16 @@ def _coerce_name(value: Any, *, field: str) -> str:
     return name
 
 
-def player_dict(player_id: str, display_name: str, icon_path: str | None) -> dict[str, Any]:
+def player_dict(
+    player_id: str,
+    display_name: str,
+    icon_path: str | None,
+    *,
+    is_student: bool = True,
+) -> dict[str, Any]:
     return {
         "id": player_id,
         "display_name": display_name,
         "icon": icon_path,
+        "is_student": is_student,
     }
