@@ -16,6 +16,19 @@ class EngineConfig(BaseModel):
 class AnalysisConfig(BaseModel):
     enable_ai: bool = False
     enable_static_analysis: bool = True
+    ruff_select: list[str] = Field(default_factory=lambda: ["E", "F", "W"])
+    forbidden_imports: list[str] = Field(
+        default_factory=lambda: [
+            "os",
+            "sys",
+            "subprocess",
+            "socket",
+            "pathlib",
+            "shutil",
+            "eval",
+            "exec",
+        ]
+    )
 
 
 class GameConfig(BaseModel):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pygame
@@ -16,6 +17,7 @@ class ScoresScreen:
         self.app = app
         self.final_scores: dict[str, int] = {}
         self.session_dir: Path | None = None
+        self.metrics: dict | None = None
         y = 280
         self._play_again = Button(
             pygame.Rect(120, y, 160, 40),
@@ -37,6 +39,11 @@ class ScoresScreen:
     def set_results(self, final_scores: dict[str, int], session_dir: Path | None) -> None:
         self.final_scores = final_scores
         self.session_dir = session_dir
+        self.metrics = None
+        if session_dir is not None:
+            metrics_path = session_dir / "metrics.json"
+            if metrics_path.is_file():
+                self.metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
         has_replay = session_dir is not None and (session_dir / "replay.json").is_file()
         self._view_replay.enabled = has_replay
 
@@ -88,7 +95,29 @@ class ScoresScreen:
         session_line = (
             f"Session: {self.session_dir.name}" if self.session_dir else "Session not saved"
         )
-        draw_centered_text(surface, [session_line], y_start=210, color=COLOR_MUTED, size=16)
+        draw_centered_text(surface, [session_line], y_start=200, color=COLOR_MUTED, size=16)
+
+        analysis_lines: list[str] = []
+        if self.metrics:
+            block = self.metrics
+            if "players" in self.metrics:
+                players = self.metrics["players"]
+                if players:
+                    first_id = next(iter(players))
+                    block = players[first_id]
+                    if len(players) > 1:
+                        analysis_lines.append(f"Analysis shown for {first_id} ({len(players)} bots)")
+            scores = block.get("scores", {})
+            final = scores.get("final", "—")
+            code_q = scores.get("code_quality", "—")
+            analysis_lines.append(f"Final score: {final}  (code quality {code_q})")
+            feedback = block.get("feedback", [])
+            for hint in feedback[:2]:
+                if len(hint) > 72:
+                    hint = hint[:69] + "..."
+                analysis_lines.append(hint)
+        if analysis_lines:
+            draw_centered_text(surface, analysis_lines, y_start=230, color=COLOR_MUTED, size=14)
 
         self._widgets.draw(surface)
 

@@ -15,6 +15,7 @@ from engine.core.scenario import ScenarioBase
 from engine.core.scenario_registry import create_scenario
 from engine.core.session import write_session
 from engine.core.turn_result import TurnResult
+from engine.analysis.runtime import RuntimeCollector
 from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
@@ -136,7 +137,10 @@ class LiveGame:
             self._ai_fn = _bound
 
         self._sandboxes: dict[str, SandboxedBot] = {}
+        self._runtime_collectors: dict[str, RuntimeCollector] = {}
         for bot in student_bots:
+            pid = bot.player.player_id
+            self._runtime_collectors[pid] = RuntimeCollector()
             if bot.source_path:
                 key = str(Path(bot.source_path).resolve())
                 if key not in self._sandboxes:
@@ -173,16 +177,19 @@ class LiveGame:
         for bot in self.student_bots:
             pid = bot.player.player_id
             state = self.scenario.build_game_state(pid)
+            turn_events: list[str] = []
+            turn_time_ms = 0.0
             if bot.source_path:
                 key = str(Path(bot.source_path).resolve())
                 sandbox = self._sandboxes.get(key)
                 if sandbox is not None:
-                    action, sandbox_events, _ = run_turn_sandboxed(
+                    action, sandbox_events, turn_time_ms, _ = run_turn_sandboxed(
                         Path(bot.source_path),
                         state,
                         self.config,
                         session=sandbox,
                     )
+                    turn_events.extend(sandbox_events)
                     events_extra.extend(sandbox_events)
                     if "sandbox_timeout" in sandbox_events:
                         label = bot.player.display_name
@@ -194,6 +201,14 @@ class LiveGame:
                     action = bot.make_turn(state)
             else:
                 action = bot.make_turn(state)
+
+            collector = self._runtime_collectors.get(pid)
+            if collector is not None:
+                collector.record_turn(
+                    events=turn_events,
+                    turn_time_ms=turn_time_ms,
+                    player_id=pid,
+                )
             actions[pid] = action
 
         if not self.multi_student_match and self._ai_fn is not None:
@@ -218,6 +233,7 @@ class LiveGame:
         *,
         results_dir: Path | None = None,
         write_results: bool = True,
+        run_analysis: bool = True,
     ) -> Path | None:
         if self._closed:
             return None
@@ -238,7 +254,7 @@ class LiveGame:
             and results_dir is not None
             and bot_paths
         ):
-            return write_session(
+            session_dir = write_session(
                 results_dir,
                 seed=self.seed,
                 scenario_id=self.scenario_id,
@@ -251,6 +267,23 @@ class LiveGame:
                 players=self.players,
                 opponent_mode=self.opponent_mode,
             )
+            if run_analysis:
+                from engine.analysis.pipeline import run_analysis_for_session
+
+                for bot in self.student_bots:
+                    if not bot.source_path:
+                        continue
+                    pid = bot.player.player_id
+                    run_analysis_for_session(
+                        session_dir,
+                        bot_path=Path(bot.source_path),
+                        config=self.config,
+                        final_scores=final_scores,
+                        scenario_id=self.scenario_id,
+                        runtime_collector=self._runtime_collectors.get(pid),
+                        player_id=pid,
+                    )
+            return session_dir
         return None
 
     def close(self) -> None:

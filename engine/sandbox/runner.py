@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -56,11 +57,13 @@ class SandboxedBot:
         except json.JSONDecodeError:
             return {"error": "invalid_json"}
 
-    def run_turn(self, game_state: dict[str, Any]) -> tuple[Action, list[str]]:
+    def run_turn(self, game_state: dict[str, Any]) -> tuple[Action, list[str], float]:
         events: list[str] = []
+        started = time.perf_counter()
         if self._proc.poll() is not None:
             events.append("sandbox_dead")
-            return DEFAULT_TIMEOUT_ACTION, events
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
         assert self._proc.stdin is not None
         try:
@@ -68,23 +71,25 @@ class SandboxedBot:
             self._proc.stdin.flush()
         except OSError as exc:
             events.append(f"sandbox_write_error:{exc}")
-            return DEFAULT_TIMEOUT_ACTION, events
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
         data = self._readline_with_timeout(self._timeout_sec)
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
         if data is None:
             self.close()
             events.append("sandbox_timeout")
-            return DEFAULT_TIMEOUT_ACTION, events
+            return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
         if data.get("error"):
             events.append(f"bot_error:{data['error']}")
-            return DEFAULT_TIMEOUT_ACTION, events
+            return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
         try:
-            return parse_action(data["action"]), events
+            return parse_action(data["action"]), events, elapsed_ms
         except (KeyError, ValueError) as exc:
             events.append(f"invalid_action:{exc}")
-            return DEFAULT_TIMEOUT_ACTION, events
+            return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
     def close(self) -> None:
         if self._proc.poll() is not None:
@@ -105,9 +110,9 @@ def run_turn_sandboxed(
     game_state: dict[str, Any],
     config: AppConfig,
     session: SandboxedBot | None = None,
-) -> tuple[Action, list[str], SandboxedBot | None]:
+) -> tuple[Action, list[str], float, SandboxedBot | None]:
     """Execute make_turn with timeout. Reuse session across turns when provided."""
     if session is None:
         session = SandboxedBot(bot_path, config)
-    action, events = session.run_turn(game_state)
-    return action, events, session
+    action, events, elapsed_ms = session.run_turn(game_state)
+    return action, events, elapsed_ms, session

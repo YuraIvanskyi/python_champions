@@ -19,6 +19,31 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_analysis_only(args: argparse.Namespace) -> int:
+    bot_path = Path(args.bot)
+    if not bot_path.is_file():
+        print(f"Bot file not found: {bot_path}", file=sys.stderr)
+        return 1
+
+    config = load_config(Path(args.config) if args.config else None)
+    from engine.analysis.pipeline import build_metrics, print_analysis_summary, write_metrics
+
+    metrics = build_metrics(
+        bot_path=bot_path,
+        config=config,
+        final_scores={"student": 0, "opponent": 0},
+        scenario_id=args.scenario,
+        runtime_collector=None,
+    )
+    if args.output:
+        out_dir = Path(args.output)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        write_metrics(out_dir, metrics)
+        print(f"Wrote metrics to {out_dir / 'metrics.json'}")
+    print_analysis_summary(metrics)
+    return 0
+
+
 def _resolve_run_bot_paths(args: argparse.Namespace) -> list[Path] | None:
     _, cap_max = ResourceWarsScenario.player_limits()
 
@@ -133,6 +158,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         max_turns=config.engine.max_turns,
         write_results=True,
         print_summary=True,
+        run_analysis=not args.no_analysis,
     )
     return 0
 
@@ -195,7 +221,30 @@ def main(argv: list[str] | None = None) -> int:
         default="results",
         help="Directory for session output",
     )
+    run_parser.add_argument(
+        "--no-analysis",
+        action="store_true",
+        help="Skip static/runtime analysis and metrics.json",
+    )
     run_parser.set_defaults(func=_cmd_run)
+
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Run static analysis on a bot file without simulating",
+    )
+    analyze_parser.add_argument("--bot", required=True, help="Path to student bot .py file")
+    analyze_parser.add_argument("--scenario", default="resource_wars", help="Scenario id")
+    analyze_parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to TOML config (default: configs/default.toml)",
+    )
+    analyze_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional directory to write metrics.json",
+    )
+    analyze_parser.set_defaults(func=_cmd_analysis_only)
 
     gui_parser = subparsers.add_parser("gui", help="Launch the Pygame desktop UI")
     gui_parser.add_argument(

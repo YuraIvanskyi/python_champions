@@ -1,0 +1,278 @@
+"""Static analysis: Ruff, Radon, and AST metrics for student bot files."""
+
+from __future__ import annotations
+
+import ast
+import json
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from radon.complexity import cc_rank, cc_visit
+from radon.metrics import mi_rank, mi_visit
+
+
+@dataclass
+class RuffViolation:
+    code: str
+    line: int
+    message: str
+
+
+@dataclass
+class FunctionMetrics:
+    name: str
+    lineno: int
+    complexity: int
+    complexity_rank: str
+    maintainability_index: float | None
+    maintainability_rank: str | None
+    line_count: int
+
+
+@dataclass
+class StaticMetrics:
+    ruff_violations: list[RuffViolation] = field(default_factory=list)
+    functions: list[FunctionMetrics] = field(default_factory=list)
+    max_complexity: int = 0
+    max_nesting_depth: int = 0
+    max_function_lines: int = 0
+    unused_names: list[str] = field(default_factory=list)
+    forbidden_constructs: list[dict[str, Any]] = field(default_factory=list)
+    ast_error: str | None = None
+
+
+def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
+    """Run Ruff on a single file; return parsed violations."""
+    if not select:
+        return []
+    select_arg = ",".join(select)
+    cmd = [
+        sys.executable,
+        "-m",
+        "ruff",
+        "check",
+        str(bot_path),
+        "--select",
+        select_arg,
+        "--output-format",
+        "json",
+        "--no-fix",
+    ]
+    completed = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if not completed.stdout.strip():
+        return []
+    try:
+        raw = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return []
+    violations: list[RuffViolation] = []
+    for item in raw:
+        loc = item.get("location", {})
+        violations.append(
+            RuffViolation(
+                code=str(item.get("code", "")),
+                line=int(loc.get("row", 0)),
+                message=str(item.get("message", "")),
+            )
+        )
+    return violations
+
+
+def run_radon_and_ast(
+    bot_path: Path,
+    *,
+    forbidden_names: list[str] | None = None,
+) -> tuple[list[FunctionMetrics], dict[str, Any]]:
+    """Radon complexity/MI plus AST structural metrics."""
+    source = bot_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(bot_path))
+    blocks = cc_visit(tree)
+    mi_result = mi_visit(source, True)
+    mi_by_name: dict[str, float] = {}
+    mi_rank_by_name: dict[str, str] = {}
+    if isinstance(mi_result, (int, float)):
+        module_mi = float(mi_result)
+        mi_by_name["<module>"] = module_mi
+        mi_rank_by_name["<module>"] = mi_rank(module_mi)
+    else:
+        for block in mi_result:
+            mi_by_name[block.name] = block.mi
+            mi_rank_by_name[block.name] = mi_rank(block.mi)
+
+    functions: list[FunctionMetrics] = []
+    for block in blocks:
+        end_line = getattr(block, "endline", block.lineno)
+        functions.append(
+            FunctionMetrics(
+                name=block.name,
+                lineno=block.lineno,
+                complexity=block.complexity,
+                complexity_rank=cc_rank(block.complexity),
+                maintainability_index=mi_by_name.get(block.name),
+                maintainability_rank=mi_rank_by_name.get(block.name),
+                line_count=max(1, end_line - block.lineno + 1),
+            )
+        )
+
+    ast_extra = _analyze_ast(tree, source, forbidden_names=forbidden_names or [])
+    return functions, ast_extra
+
+
+class _AstAnalyzer(ast.NodeVisitor):
+    def __init__(self, forbidden_names: list[str]) -> None:
+        self.max_nesting = 0
+        self._depth = 0
+        self.unused_names: list[str] = []
+        self.forbidden_constructs: list[dict[str, Any]] = []
+        self._assigned: set[str] = set()
+        self._used: set[str] = set()
+        self._forbidden = set(forbidden_names)
+
+    def visit(self, node: ast.AST) -> None:
+        if isinstance(
+            node,
+            (ast.If, ast.For, ast.While, ast.With, ast.Try, ast.Match),
+        ):
+            self._depth += 1
+            self.max_nesting = max(self.max_nesting, self._depth)
+            super().visit(node)
+            self._depth -= 1
+            return
+        super().visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Store):
+            self._assigned.add(node.id)
+        elif isinstance(node.ctx, ast.Load):
+            self._used.add(node.id)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            mod = alias.name.split(".")[0]
+            if mod in self._forbidden:
+                self.forbidden_constructs.append(
+                    {"kind": "import", "name": mod, "line": node.lineno}
+                )
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        if node.module:
+            mod = node.module.split(".")[0]
+            if mod in self._forbidden:
+                self.forbidden_constructs.append(
+                    {"kind": "import_from", "name": mod, "line": node.lineno}
+                )
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if isinstance(node.func, ast.Name) and node.func.id in ("eval", "exec"):
+            if node.func.id in self._forbidden or node.func.id in ("eval", "exec"):
+                self.forbidden_constructs.append(
+                    {"kind": "call", "name": node.func.id, "line": node.lineno}
+                )
+        self.generic_visit(node)
+
+    def finalize_unused(self) -> None:
+        builtins_ignore = {
+            "True",
+            "False",
+            "None",
+            "make_turn",
+            "StudentBot",
+        }
+        for name in sorted(self._assigned - self._used):
+            if name.startswith("_") or name in builtins_ignore:
+                continue
+            self.unused_names.append(name)
+
+
+def _analyze_ast(
+    tree: ast.AST,
+    source: str,
+    *,
+    forbidden_names: list[str],
+) -> dict[str, Any]:
+    analyzer = _AstAnalyzer(forbidden_names)
+    analyzer.visit(tree)
+    analyzer.finalize_unused()
+    lines = source.splitlines()
+    max_fn_lines = 0
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            end = getattr(node, "end_lineno", node.lineno)
+            max_fn_lines = max(max_fn_lines, end - node.lineno + 1)
+    return {
+        "max_nesting_depth": analyzer.max_nesting,
+        "max_function_lines": max_fn_lines,
+        "unused_names": analyzer.unused_names,
+        "forbidden_constructs": analyzer.forbidden_constructs,
+    }
+
+
+def analyze_static(
+    bot_path: Path,
+    *,
+    ruff_select: list[str],
+    forbidden_names: list[str] | None = None,
+    enabled: bool = True,
+) -> StaticMetrics:
+    """Collect static metrics; returns empty shell when disabled."""
+    if not enabled:
+        return StaticMetrics()
+
+    metrics = StaticMetrics()
+    metrics.ruff_violations = run_ruff(bot_path, select=ruff_select)
+    try:
+        functions, ast_extra = run_radon_and_ast(
+            bot_path,
+            forbidden_names=forbidden_names,
+        )
+    except SyntaxError as exc:
+        metrics.ast_error = str(exc)
+        return metrics
+
+    metrics.functions = functions
+    if functions:
+        metrics.max_complexity = max(f.complexity for f in functions)
+        metrics.max_function_lines = max(f.line_count for f in functions)
+    metrics.max_nesting_depth = int(ast_extra["max_nesting_depth"])
+    metrics.max_function_lines = max(
+        metrics.max_function_lines,
+        int(ast_extra["max_function_lines"]),
+    )
+    metrics.unused_names = list(ast_extra["unused_names"])
+    metrics.forbidden_constructs = list(ast_extra["forbidden_constructs"])
+    return metrics
+
+
+def static_to_dict(metrics: StaticMetrics) -> dict[str, Any]:
+    return {
+        "ruff": [
+            {"code": v.code, "line": v.line, "message": v.message}
+            for v in metrics.ruff_violations
+        ],
+        "functions": [
+            {
+                "name": f.name,
+                "line": f.lineno,
+                "complexity": f.complexity,
+                "complexity_rank": f.complexity_rank,
+                "maintainability_index": f.maintainability_index,
+                "maintainability_rank": f.maintainability_rank,
+                "line_count": f.line_count,
+            }
+            for f in metrics.functions
+        ],
+        "max_complexity": metrics.max_complexity,
+        "max_nesting_depth": metrics.max_nesting_depth,
+        "max_function_lines": metrics.max_function_lines,
+        "unused_names": metrics.unused_names,
+        "forbidden_constructs": metrics.forbidden_constructs,
+        "ast_error": metrics.ast_error,
+    }

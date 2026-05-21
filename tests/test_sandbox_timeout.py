@@ -21,7 +21,7 @@ def test_infinite_loop_bot_times_out() -> None:
     }
     sandbox = SandboxedBot(bot_path, config)
     try:
-        action, events = sandbox.run_turn(game_state)
+        action, events, _elapsed_ms = sandbox.run_turn(game_state)
     finally:
         sandbox.close()
     assert action is Action.WAIT

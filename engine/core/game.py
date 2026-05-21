@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,7 @@ def run_game(
     max_turns: int | None = None,
     write_results: bool = True,
     print_summary: bool = True,
+    run_analysis: bool = True,
 ) -> RunResult:
     live = LiveGame(
         scenario_id=scenario_id,
@@ -51,13 +53,22 @@ def run_game(
         session_dir = live.finish(
             results_dir=results_dir,
             write_results=write_results,
+            run_analysis=run_analysis,
         )
 
     final_scores = live.scenario.calculate_score()
+    metrics: dict | None = None
+    if session_dir is not None and (session_dir / "metrics.json").is_file():
+        metrics = json.loads((session_dir / "metrics.json").read_text(encoding="utf-8"))
+
     if print_summary:
         print(f"Final scores: {final_scores}")
         if session_dir is not None:
             print(f"Wrote session to {session_dir}")
+        if run_analysis and metrics is not None:
+            from engine.analysis.pipeline import print_analysis_summary
+
+            print_analysis_summary(metrics)
 
     return RunResult(
         turn_log=live.turn_log,

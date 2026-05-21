@@ -1,11 +1,11 @@
 ---
 phase_id: phase-3
-status: not_started
+status: done
 depends_on: [phase-1]
 source_plan: PLAN.md §16 Phase 3, §6.5, §15, §22, §24
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 3 — Analysis system
 
@@ -95,15 +95,15 @@ Completing Phases 0–3 satisfies [PLAN.md §22 MVP](../PLAN.md#22-recommended-f
 
 ## Definition of done
 
-- [ ] Ruff, Radon, and AST metrics collected for student bot file
-- [ ] Runtime metrics recorded during simulation
-- [ ] `metrics.json` written under each session in `results/`
-- [ ] At least 5 feedback templates cover common student issues
-- [ ] Combined score uses configurable weights (default 0.7 / 0.3)
-- [ ] CLI prints understandable summary for beginners ([PLAN.md §24](../PLAN.md#24-success-criteria))
-- [ ] `enable_static_analysis = false` in config skips static pass
-- [ ] Phase 3 tests pass
-- [ ] MVP checklist from PLAN §22 met for analysis portion
+- [x] Ruff, Radon, and AST metrics collected for student bot file
+- [x] Runtime metrics recorded during simulation
+- [x] `metrics.json` written under each session in `results/`
+- [x] At least 5 feedback templates cover common student issues
+- [x] Combined score uses configurable weights (default 0.7 / 0.3)
+- [x] CLI prints understandable summary for beginners ([PLAN.md §24](../PLAN.md#24-success-criteria))
+- [x] `enable_static_analysis = false` in config skips static pass
+- [x] Phase 3 tests pass
+- [x] MVP checklist from PLAN §22 met for analysis portion
 
 ## Verification
 
