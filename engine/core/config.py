@@ -35,6 +35,18 @@ class GameConfig(BaseModel):
     default_opponent: str = "greedy"
 
 
+class UIThemeConfig(BaseModel):
+    asset_manifest: str = "ui/assets/manifest.toml"
+    use_sliced_assets: bool = False
+    game_font: str = "ui/assets/fonts/Jacquard24-Regular.ttf"
+    code_font: str = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
+
+
+class UICoachConfig(BaseModel):
+    max_quest_cards: int = 12
+    code_panel_font_pt: int = 14
+
+
 class UIConfig(BaseModel):
     tile_size: int = 40
     map_padding: int = 24
@@ -50,6 +62,8 @@ class UIConfig(BaseModel):
     center_subtitle_pt: int = 16
     footer_pt: int = 15
     menu_hint_pt: int = 15
+    theme: UIThemeConfig = Field(default_factory=UIThemeConfig)
+    coach: UICoachConfig = Field(default_factory=UICoachConfig)
 
 
 class AppConfig(BaseModel):

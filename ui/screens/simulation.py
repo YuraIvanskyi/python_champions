@@ -11,17 +11,23 @@ from engine.core.live_game import LiveGame
 from engine.core.player import Bot
 from ui.render.hud import draw_hud, draw_toolbar_strip
 from ui.render.map_renderer import draw_map
+from ui.skin import chrome as skin
+from ui.skin import colors
+from ui.skin.typography import body_font
 from ui.theme import (
-    COLOR_BG,
-    COLOR_MUTED,
     FOOTER_PT,
-    MAP_TOP,
+    MAP_PADDING,
+    MARGIN_X,
+    TILE_SIZE,
     TOOLBAR_HEIGHT,
+    content_width,
     footer_top,
     hud_text_top,
     toolbar_top,
 )
 from ui.widgets import Button, WidgetGroup
+
+_MAX_ACTION_LEN = 80
 
 
 class SimulationScreen:
@@ -140,13 +146,57 @@ class SimulationScreen:
             labels[key] = value
         return labels
 
+    # Pixels of padding between stone frame edge and map tiles
+    _FRAME_PAD = 22
+    # Minimum vertical pixels reserved above the stone frame for the title banner
+    _BANNER_RESERVE = 52
+
+    def _map_origin_y(self, surface: pygame.Surface, render_state: dict) -> int:
+        """Return the top-left y for map tiles, centering the framed map vertically."""
+        map_rows = int(render_state["map_height"])
+        pixel_h = map_rows * TILE_SIZE
+        hud_y = hud_text_top()
+        map_area_top = self._BANNER_RESERVE + MAP_PADDING
+        map_area_bottom = hud_y - MAP_PADDING
+        frame_h = pixel_h + self._FRAME_PAD * 2
+        extra = max(0, map_area_bottom - map_area_top - frame_h)
+        frame_top = map_area_top + extra // 2
+        return frame_top + self._FRAME_PAD
+
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(COLOR_BG)
+        skin.draw_background(surface)
         if self.live is None:
             return
 
         render_state = self.live.get_render_state()
-        draw_map(surface, render_state, origin_y=MAP_TOP)
+        sw = surface.get_width()
+
+        map_cols = int(render_state["map_width"])
+        map_rows = int(render_state["map_height"])
+        pixel_w = map_cols * TILE_SIZE
+        pixel_h = map_rows * TILE_SIZE
+        origin_y = self._map_origin_y(surface, render_state)
+        frame_top = origin_y - self._FRAME_PAD
+        origin_x = (sw - pixel_w) // 2
+
+        # Stone frame drawn first so map tiles render on top
+        frame = pygame.Rect(
+            origin_x - self._FRAME_PAD,
+            frame_top,
+            pixel_w + self._FRAME_PAD * 2,
+            pixel_h + self._FRAME_PAD * 2,
+        )
+        skin.draw_panel(surface, frame, style="stone")
+        draw_map(surface, render_state, origin_y=origin_y)
+
+        # Decorative banner title above the stone frame
+        banner_y = max(4, frame_top - 48)
+        skin.draw_banner_title(
+            surface, "Simulation",
+            center_x=sw // 2,
+            y=banner_y,
+            max_width=320,
+        )
 
         names = render_state.get("display_names", {})
         last = self.live.last_turn
@@ -157,6 +207,8 @@ class SimulationScreen:
                 label = names.get(pid, pid)
                 parts.append(f"{label}={last.actions[pid].value}")
             action_line = "Last: " + " ".join(parts)
+            if len(action_line) > _MAX_ACTION_LEN:
+                action_line = action_line[:_MAX_ACTION_LEN - 1] + "…"
 
         labeled_scores = {
             names.get(pid, pid): score for pid, score in render_state["scores"].items()
@@ -164,8 +216,12 @@ class SimulationScreen:
         status = self.live.status_message or (
             "Finished" if self.live.is_finished() else "Running"
         )
+        score_str = " · ".join(f"{name}: {v}" for name, v in labeled_scores.items())
+        if len(score_str) > 60:
+            score_str = score_str[:57] + "…"
+
         hud_lines = [
-            f"Turn {render_state['turn']} / scores {labeled_scores}",
+            f"Turn {render_state['turn']}  ·  {score_str}",
             action_line,
             status,
         ]
@@ -175,15 +231,17 @@ class SimulationScreen:
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._toolbar.draw(surface)
 
-        footer_font = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
-        surface.blit(
-            footer_font.render(
-                "Keyboard: Space step · A play/pause · P pause · Esc quit",
-                True,
-                COLOR_MUTED,
-            ),
-            (24, footer_top() + 4),
+        cw = content_width()
+        footer_font = body_font(FOOTER_PT)
+        foot_surf = footer_font.render(
+            "Keyboard: Space step · A play/pause · P pause · Esc quit",
+            True,
+            colors.TEXT_MUTED,
         )
+        old_clip = surface.get_clip()
+        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
+        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
+        surface.set_clip(old_clip)
 
     def get_final_scores(self) -> dict[str, int]:
         if self.live is None:

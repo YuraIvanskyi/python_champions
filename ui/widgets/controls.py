@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
 
 import pygame
 
-from ui.theme import (
-    COLOR_ACCENT,
-    COLOR_MUTED,
-    COLOR_PANEL,
-    COLOR_TEXT,
-    MIN_HIT_SIZE,
-)
+from ui.skin import chrome as skin
+from ui.skin import colors
+from ui.skin.typography import body_font, code_font
+from ui.theme import MIN_HIT_SIZE
+
+# ── Per-widget padding constants ──────────────────────────────────────────────
+BUTTON_PAD_X = 12
+BUTTON_PAD_Y = 6
+ROW_PAD_X = 14
+ROW_PAD_Y = 6
+FIELD_PAD_X = 8
+FIELD_PAD_Y = 4
 
 
 class Widget:
@@ -99,11 +103,13 @@ class Button(Widget):
         *,
         on_click: Callable[[], None] | None = None,
         font_size: int = 18,
+        primary: bool = False,
     ) -> None:
         super().__init__(_ensure_min_size(rect))
         self.label = label
         self.on_click = on_click
         self._font_size = font_size
+        self.primary = primary
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         if not self.enabled:
@@ -120,25 +126,60 @@ class Button(Widget):
         return False
 
     def draw(self, surface: pygame.Surface) -> None:
-        font = pygame.font.SysFont("consolas,courier,monospace", self._font_size)
+        if self.primary:
+            skin.draw_primary_button(
+                surface,
+                self.rect,
+                self.label,
+                hovered=self.hovered and self.enabled,
+                pressed=self._pressed,
+                enabled=self.enabled,
+            )
+            return
+
+        skin.draw_panel(surface, self.rect, style="stone")
+
+        # State overlays — hover brightens, pressed darkens
+        if self.enabled:
+            if self._pressed:
+                overlay = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 70))
+                surface.blit(overlay, self.rect.topleft)
+            elif self.hovered:
+                overlay = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+                overlay.fill((100, 130, 170, 38))
+                surface.blit(overlay, self.rect.topleft)
+                pygame.draw.rect(surface, colors.STONE_HIGHLIGHT,
+                                 self.rect, 1, border_radius=6)
+
+        font = body_font(self._font_size)
         if not self.enabled:
-            fill = (50, 54, 62)
-            text_color = COLOR_MUTED
+            text_color = (78, 86, 104)
         elif self._pressed:
-            fill = (60, 120, 180)
-            text_color = COLOR_TEXT
+            text_color = colors.TEXT_BODY
         elif self.hovered:
-            fill = COLOR_ACCENT
-            text_color = (16, 20, 28)
+            text_color = colors.TEXT_BODY
         else:
-            fill = COLOR_PANEL
-            text_color = COLOR_TEXT
-        pygame.draw.rect(surface, fill, self.rect, border_radius=4)
-        pygame.draw.rect(surface, (60, 68, 82), self.rect, 1, border_radius=4)
-        text = font.render(self.label, True, text_color)
-        tx = self.rect.x + (self.rect.width - text.get_width()) // 2
-        ty = self.rect.y + (self.rect.height - text.get_height()) // 2
-        surface.blit(text, (tx, ty))
+            text_color = colors.GOLD_TEXT
+
+        shift_y = 1 if self._pressed else 0
+        text_surf = font.render(self.label, True, text_color)
+        avail_w = self.rect.width - BUTTON_PAD_X * 2
+        display = self.label
+        while display and text_surf.get_width() > avail_w:
+            display = display[:-1]
+            text_surf = font.render(display + "…", True, text_color)
+
+        old_clip = surface.get_clip()
+        surface.set_clip(self.rect.inflate(-2, -2))
+        surface.blit(
+            text_surf,
+            (
+                self.rect.x + (self.rect.width - text_surf.get_width()) // 2,
+                self.rect.y + (self.rect.height - text_surf.get_height()) // 2 + shift_y,
+            ),
+        )
+        surface.set_clip(old_clip)
 
 
 class ListRow(Widget):
@@ -165,13 +206,41 @@ class ListRow(Widget):
         return False
 
     def draw(self, surface: pygame.Surface) -> None:
-        font = pygame.font.SysFont("consolas,courier,monospace", 18)
+        style = "parchment" if self.selected else "wood"
+        skin.draw_panel(surface, self.rect, style=style)
+
+        # Hover tint for unselected rows
+        if self.hovered and not self.selected and self.enabled:
+            overlay = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+            overlay.fill((255, 220, 120, 22))
+            surface.blit(overlay, self.rect.topleft)
+
         if self.selected:
-            pygame.draw.rect(surface, (40, 56, 72), self.rect, border_radius=3)
-        color = COLOR_ACCENT if self.selected else (COLOR_TEXT if self.enabled else COLOR_MUTED)
+            bar = pygame.Rect(self.rect.x, self.rect.y, 4, self.rect.height)
+            pygame.draw.rect(surface, colors.TEAL_ACCENT, bar, border_radius=2)
+            pygame.draw.rect(surface, colors.TEAL_ACCENT, self.rect, 1, border_radius=6)
+
+        font = body_font(16)
+        if self.selected:
+            color = colors.PARCHMENT_TEXT if style == "parchment" else colors.GOLD_TEXT
+        elif self.hovered and self.enabled:
+            color = colors.TEXT_BODY
+        elif self.enabled:
+            color = colors.TEXT_BODY
+        else:
+            color = colors.TEXT_MUTED
+
         prefix = "> " if self.selected else "  "
-        text = font.render(f"{prefix}{self.label}", True, color)
-        surface.blit(text, (self.rect.x + 6, self.rect.y + 6))
+        skin.draw_text_clipped(
+            surface,
+            f"{prefix}{self.label}",
+            pygame.Rect(self.rect.x + 8, self.rect.y, self.rect.width - 16, self.rect.height),
+            font,
+            color,
+            align="left",
+            pad_x=ROW_PAD_X - 8,
+            pad_y=ROW_PAD_Y,
+        )
 
 
 class Stepper(Widget):
@@ -215,16 +284,22 @@ class Stepper(Widget):
     def draw(self, surface: pygame.Surface) -> None:
         self._minus.enabled = self.enabled
         self._plus.enabled = self.enabled
+        skin.draw_panel(surface, self.rect, style="wood")
         self._minus.draw(surface)
         self._plus.draw(surface)
-        font = pygame.font.SysFont("consolas,courier,monospace", 18)
-        text = font.render(str(self._value), True, COLOR_TEXT if self.enabled else COLOR_MUTED)
-        tx = self._label_rect.x + (self._label_rect.width - text.get_width()) // 2
-        ty = self._label_rect.y + (self._label_rect.height - text.get_height()) // 2
-        surface.blit(text, (tx, ty))
+        font = body_font(18)
+        color = colors.TEXT_BODY if self.enabled else colors.TEXT_MUTED
+        skin.draw_text_clipped(
+            surface,
+            str(self._value),
+            self._label_rect,
+            font,
+            color,
+            align="center",
+        )
         if self.hovered and not self.enabled and self.hint:
-            hint_font = pygame.font.SysFont("consolas,courier,monospace", 14)
-            hint = hint_font.render(self.hint, True, COLOR_MUTED)
+            hint_font = body_font(14)
+            hint = hint_font.render(self.hint, True, colors.TEXT_MUTED)
             surface.blit(hint, (self.rect.x, self.rect.bottom + 4))
 
 
@@ -267,10 +342,27 @@ class TextField(Widget):
         return False
 
     def draw(self, surface: pygame.Surface) -> None:
-        border = COLOR_ACCENT if self.focused else (100, 110, 130)
-        pygame.draw.rect(surface, (32, 36, 46), self.rect, border_radius=3)
-        pygame.draw.rect(surface, border, self.rect, 2, border_radius=3)
-        font = pygame.font.SysFont("consolas,courier,monospace", 16)
+        skin.draw_panel(surface, self.rect, style="stone")
+        if self.focused:
+            pygame.draw.rect(surface, colors.GOLD_TEXT, self.rect, 2, border_radius=4)
+
+        font = code_font(15)
         shown = self.text + ("|" if self.focused else "")
-        label = font.render(shown, True, COLOR_TEXT)
-        surface.blit(label, (self.rect.x + 8, self.rect.y + 8))
+
+        # Show the tail end of the text so the cursor is always visible
+        inner_w = self.rect.width - FIELD_PAD_X * 2
+        rendered = font.render(shown, True, colors.TEXT_BODY)
+        if rendered.get_width() > inner_w and inner_w > 0:
+            # Trim from the front until it fits
+            trimmed = shown
+            while len(trimmed) > 1:
+                trimmed = trimmed[1:]
+                rendered = font.render("…" + trimmed, True, colors.TEXT_BODY)
+                if rendered.get_width() <= inner_w:
+                    break
+
+        inner = self.rect.inflate(-FIELD_PAD_X * 2, -FIELD_PAD_Y * 2)
+        old_clip = surface.get_clip()
+        surface.set_clip(inner)
+        surface.blit(rendered, (inner.x, inner.y + (inner.height - rendered.get_height()) // 2))
+        surface.set_clip(old_clip)

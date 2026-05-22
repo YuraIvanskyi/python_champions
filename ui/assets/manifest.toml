@@ -1,0 +1,70 @@
+# UI chrome slices from implementation/ui_reference.png (1000 x 571).
+# Re-run: python scripts/slice_ui_assets.py
+
+[meta]
+source = "implementation/ui_reference.png"
+source_width = 1000
+source_height = 571
+
+[chrome]
+# Nested tables for stdlib tomllib (see ui/skin/assets.py)
+
+[chrome.bg_main]
+file = "ui/assets/chrome/bg_main.png"
+rect = [0, 0, 320, 571]
+nine_slice = [8, 8, 8, 8]
+
+[chrome.panel_stone]
+file = "ui/assets/chrome/panel_stone.png"
+rect = [15, 145, 175, 95]
+nine_slice = [24, 24, 24, 24]
+
+[chrome.panel_wood]
+file = "ui/assets/chrome/panel_wood.png"
+rect = [200, 145, 95, 95]
+nine_slice = [16, 16, 16, 16]
+
+[chrome.panel_parchment]
+file = "ui/assets/chrome/panel_parchment.png"
+rect = [710, 25, 125, 200]
+nine_slice = [20, 28, 20, 28]
+
+[chrome.button_primary]
+file = "ui/assets/chrome/button_primary.png"
+rect = [28, 30, 160, 44]
+nine_slice = [12, 12, 12, 12]
+
+[chrome.button_icon_bg]
+file = "ui/assets/chrome/button_icon_bg.png"
+rect = [30, 355, 48, 48]
+nine_slice = [14, 14, 14, 14]
+
+[chrome.banner_title]
+file = "ui/assets/chrome/banner_title.png"
+rect = [330, 165, 280, 55]
+nine_slice = [40, 16, 40, 16]
+
+[chrome.divider]
+file = "ui/assets/chrome/divider.png"
+rect = [315, 285, 18, 120]
+nine_slice = [4, 8, 4, 8]
+
+[chrome.icon_check]
+file = "ui/assets/chrome/icon_check.png"
+rect = [720, 385, 56, 56]
+nine_slice = [0, 0, 0, 0]
+
+[chrome.icon_cancel]
+file = "ui/assets/chrome/icon_cancel.png"
+rect = [785, 385, 56, 56]
+nine_slice = [0, 0, 0, 0]
+
+[chrome.ribbon_teal]
+file = "ui/assets/chrome/ribbon_teal.png"
+rect = [500, 30, 90, 36]
+nine_slice = [20, 10, 20, 10]
+
+[chrome.ribbon_purple]
+file = "ui/assets/chrome/ribbon_purple.png"
+rect = [500, 72, 90, 36]
+nine_slice = [20, 10, 20, 10]

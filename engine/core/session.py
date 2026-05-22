@@ -36,6 +36,12 @@ def write_session(
     session_dir.mkdir(parents=True, exist_ok=True)
 
     paths = [_posix_bot_path(p) for p in (bot_paths if bot_paths is not None else [bot_path])]
+    bot_files: dict[str, str] = {}
+    if player_ids is not None and len(player_ids) == len(paths):
+        bot_files = dict(zip(player_ids, paths, strict=True))
+    elif len(paths) == 1:
+        pid = player_ids[0] if player_ids else "student"
+        bot_files = {pid: paths[0]}
 
     replay: dict[str, Any] = {
         "schema_version": 2,
@@ -43,6 +49,7 @@ def write_session(
         "scenario": scenario_id,
         "bot": _posix_bot_path(bot_path),
         "bots": paths,
+        "bot_files": bot_files,
         "turns": [
             {
                 "turn": tr.turn_number,

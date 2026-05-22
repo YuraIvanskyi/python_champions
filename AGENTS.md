@@ -73,9 +73,11 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 2.5 | phase-2-5 | phase-2 | Mouse UI, bot name/icon, dumb opponent |
 | 2.6 | phase-2-6 | phase-2-5 | `GameView` method API (readonly, no dict keys) |
 | 2.7 | phase-2-7 | phase-2-6 | Many student bots, one match; larger tiles/window for projectors |
+| 2.8 | phase-2-8 | phase-2-7 | RPG UI skin from `ui_reference.png`, asset manifest + style guide |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
-| 4 | phase-4 | phase-3 | Optional Ollama reports |
-| 5 | phase-5 | phase-2, phase-3 | Tournament batch + rankings |
+| 3.1 | phase-3-1 | phase-3, phase-2-8 | Code Coach screen, `feedback_items`, line highlights |
+| 4 | phase-4 | phase-3-1 | Optional Ollama reports |
+| 5 | phase-5 | phase-2-8, phase-3-1 | Tournament batch + rankings |
 | 6 | phase-6 | phase-5 | Teams, fog, communication APIs |
 
 **MVP = phases 0–3** ([PLAN.md §22](PLAN.md#22-recommended-first-mvp)): one grid scenario, student bot API, AI opponent, turns, replay, basic analysis.

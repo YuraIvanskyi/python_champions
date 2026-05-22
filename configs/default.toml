@@ -1,6 +1,6 @@
 [engine]
-turn_timeout_ms = 500
-max_turns = 300
+turn_timeout_ms = 200
+max_turns = 50
 
 [game]
 default_opponent = "greedy"
@@ -25,3 +25,13 @@ center_title_pt = 28
 center_subtitle_pt = 16
 footer_pt = 15
 menu_hint_pt = 15
+
+[ui.theme]
+asset_manifest = "ui/assets/manifest.toml"
+use_sliced_assets = false
+game_font = "ui/assets/fonts/Skranji-Bold.ttf"
+code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
+
+[ui.coach]
+max_quest_cards = 12
+code_panel_font_pt = 14

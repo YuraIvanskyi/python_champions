@@ -9,6 +9,7 @@ import pygame
 from engine.core.config import load_config
 from engine.core.player import Bot
 from ui import theme
+from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
 from ui.screens.replay import ReplayScreen
 from ui.screens.scores import ScoresScreen
@@ -32,6 +33,7 @@ class App:
         self.simulation = SimulationScreen(self)
         self.scores = ScoresScreen(self)
         self.replay = ReplayScreen(self)
+        self.coach = CoachScreen(self)
         self._current = self.menu
 
     def goto_menu(self) -> None:
@@ -68,6 +70,11 @@ class App:
     def goto_scores(self, *, final_scores: dict[str, int], session_dir: Path | None) -> None:
         self.scores.set_results(final_scores, session_dir)
         self._current = self.scores
+
+    def goto_coach(self, session_dir: Path, *, player_id: str | None = None) -> None:
+        self.coach.open_session(session_dir, player_id=player_id)
+        self._current = self.coach
+        self.coach.on_enter()
 
     def quit(self) -> None:
         self.running = False

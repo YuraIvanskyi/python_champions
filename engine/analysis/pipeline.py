@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from engine.analysis.feedback import generate_feedback
+from engine.analysis.feedback import generate_feedback, generate_feedback_items
 from engine.analysis.runtime import RuntimeCollector
 from engine.analysis.static import analyze_static, static_to_dict
 from engine.core.config import AppConfig
@@ -61,7 +61,8 @@ def build_metrics(
         "score_threshold": weights.score_threshold,
     }
 
-    feedback = generate_feedback(static=static_dict, runtime=runtime_dict)
+    items = generate_feedback_items(static=static_dict, runtime=runtime_dict)
+    feedback = [item.message for item in items]
 
     return {
         "gameplay": gameplay_detail,
@@ -77,6 +78,7 @@ def build_metrics(
             },
         },
         "feedback": feedback,
+        "feedback_items": [item.to_dict() for item in items],
     }
 
 

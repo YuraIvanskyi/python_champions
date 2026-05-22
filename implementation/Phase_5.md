@@ -1,7 +1,7 @@
 ---
 phase_id: phase-5
 status: not_started
-depends_on: [phase-2, phase-3]
+depends_on: [phase-2-8, phase-3-1]
 source_plan: PLAN.md §16 Phase 5, §13, §18, §24
 ---
 

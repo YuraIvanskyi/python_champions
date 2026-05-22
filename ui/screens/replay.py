@@ -9,12 +9,14 @@ import pygame
 from engine.core.replay import ReplaySession, list_session_dirs, load_replay
 from ui.render.hud import draw_centered_text, draw_hud, draw_toolbar_strip
 from ui.render.map_renderer import draw_map
+from ui.skin import chrome as skin
+from ui.skin import colors
+from ui.skin.typography import body_font
 from ui.theme import (
-    COLOR_BG,
-    COLOR_MUTED,
     FOOTER_PT,
-    MAP_TOP,
+    MAP_PADDING,
     MARGIN_X,
+    TILE_SIZE,
     TOOLBAR_HEIGHT,
     content_width,
     footer_top,
@@ -22,6 +24,8 @@ from ui.theme import (
     toolbar_top,
 )
 from ui.widgets import Button, ListRow, WidgetGroup
+
+_MAX_LINE_LEN = 80
 
 
 class ReplayScreen:
@@ -65,26 +69,29 @@ class ReplayScreen:
     def _rebuild_picker(self) -> None:
         self._picker_widgets = WidgetGroup()
         self._session_rows = []
-        y = 100
-        row_w = content_width()
+        # Inside the titled panel: content starts at panel_y(88) + header_overhead(45)
+        y = 88 + 45
+        row_w = content_width() - 24  # inner width (panel has 12px pad each side)
+        ix = MARGIN_X + 12            # inner left edge
         for index, session in enumerate(self.sessions[:12]):
             row = ListRow(
-                pygame.Rect(MARGIN_X, y, row_w, 28),
+                pygame.Rect(ix, y, row_w, 30),
                 session.name,
                 selected=index == self.selected,
                 on_click=lambda i=index: self._select_session(i),
             )
             self._session_rows.append(row)
             self._picker_widgets.add(row)
-            y += 32
+            y += 34
 
         load_btn = Button(
-            pygame.Rect(48, y + 8, 120, 36),
-            "Load",
+            pygame.Rect(ix, y + 8, 130, 40),
+            "Load Session",
             on_click=self._load_selected,
+            primary=True,
         )
         back_btn = Button(
-            pygame.Rect(180, y + 8, 120, 36),
+            pygame.Rect(ix + 146, y + 8, 110, 40),
             "Back",
             on_click=lambda: self.app.goto_menu(),
         )
@@ -173,7 +180,7 @@ class ReplayScreen:
             self.on_enter()
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(COLOR_BG)
+        skin.draw_background(surface)
         if self._pick_mode:
             self._draw_picker(surface)
             return
@@ -182,7 +189,38 @@ class ReplayScreen:
             return
 
         render_state = self.replay.get_render_state()
-        draw_map(surface, render_state, origin_y=MAP_TOP)
+        sw = surface.get_width()
+
+        # Center the framed map in the space above the HUD (mirrors simulation layout)
+        _FRAME_PAD = 22
+        _BANNER_RESERVE = 52
+        map_cols = int(render_state["map_width"])
+        map_rows = int(render_state["map_height"])
+        pixel_w = map_cols * TILE_SIZE
+        pixel_h = map_rows * TILE_SIZE
+        hud_y = hud_text_top()
+        map_area_top = _BANNER_RESERVE + MAP_PADDING
+        map_area_bottom = hud_y - MAP_PADDING
+        frame_h = pixel_h + _FRAME_PAD * 2
+        extra = max(0, map_area_bottom - map_area_top - frame_h)
+        frame_top = map_area_top + extra // 2
+        origin_y = frame_top + _FRAME_PAD
+        origin_x = (sw - pixel_w) // 2
+
+        frame = pygame.Rect(
+            origin_x - _FRAME_PAD, frame_top,
+            pixel_w + _FRAME_PAD * 2, frame_h,
+        )
+        skin.draw_panel(surface, frame, style="stone")
+        draw_map(surface, render_state, origin_y=origin_y)
+
+        banner_y = max(4, frame_top - 48)
+        skin.draw_banner_title(
+            surface, "Replay",
+            center_x=sw // 2,
+            y=banner_y,
+            max_width=280,
+        )
 
         names = render_state.get("display_names", {})
         idx = self.replay.turn_index
@@ -190,64 +228,91 @@ class ReplayScreen:
         last = self.replay.last_turn
         action_line = ""
         if last is not None:
-            student_name = names.get("student", "student")
-            opponent_name = names.get("opponent", "opponent")
-            action_line = (
-                f"{student_name}={last.actions['student'].value} "
-                f"{opponent_name}={last.actions['opponent'].value}"
-            )
+            parts: list[str] = []
+            for pid in sorted(last.actions.keys()):
+                label = names.get(pid, pid)
+                parts.append(f"{label}={last.actions[pid].value}")
+            action_line = "Last: " + " ".join(parts)
+            if len(action_line) > _MAX_LINE_LEN:
+                action_line = action_line[:_MAX_LINE_LEN - 1] + "…"
 
         labeled_scores = {
             names.get(pid, pid): score for pid, score in render_state["scores"].items()
         }
+        score_str = " · ".join(f"{n}: {v}" for n, v in labeled_scores.items())
+        if len(score_str) > 60:
+            score_str = score_str[:57] + "…"
+
         labeled_final = {
             names.get(pid, pid): score
             for pid, score in self.replay.final_scores.items()
         }
+        final_str = " · ".join(f"{n}: {v}" for n, v in labeled_final.items())
+        if len(final_str) > 60:
+            final_str = final_str[:57] + "…"
 
         draw_hud(
             surface,
             title="Replay",
             lines=[
-                f"Turn {idx + 1} / {total} · scores {labeled_scores}",
+                f"Turn {idx + 1} / {total}  ·  {score_str}",
                 action_line,
-                f"Final (stored): {labeled_final}",
+                f"Final: {final_str}",
             ],
             y_offset=hud_text_top(),
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._transport.draw(surface)
-        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
-        surface.blit(
-            footer.render(
-                "Keyboard: ←/→ step · Home/End · Esc back",
-                True,
-                COLOR_MUTED,
-            ),
-            (24, footer_top() + 4),
+
+        cw = content_width()
+        footer = body_font(FOOTER_PT)
+        foot_surf = footer.render(
+            "Keyboard: ←/→ step · Home/End · Esc back",
+            True,
+            colors.TEXT_MUTED,
         )
+        old_clip = surface.get_clip()
+        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
+        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
+        surface.set_clip(old_clip)
 
     def _draw_picker(self, surface: pygame.Surface) -> None:
-        draw_centered_text(surface, ["Replay sessions"], y_start=40, size=26)
+        sw = surface.get_width()
+        cw = content_width()
+
+        skin.draw_banner_title(
+            surface,
+            "Replay Sessions",
+            center_x=sw // 2,
+            y=24,
+            max_width=cw,
+        )
+
+        # Sessions panel with titled header
+        panel_h = max(200, min(len(self.sessions[:12]) * 36 + 80, 540))
+        panel = pygame.Rect(MARGIN_X, 88, cw, panel_h)
+        skin.draw_panel_titled(surface, panel, "Saved Sessions", style="stone")
 
         if not self.sessions:
             draw_centered_text(
                 surface,
-                ["No sessions in results/", "Run a game first (Run on menu)"],
-                y_start=120,
-                color=COLOR_MUTED,
+                ["No sessions in results/", "Run a game first (Run Match on menu)"],
+                y_start=panel.y + 60,
+                color=colors.TEXT_MUTED,
                 size=16,
             )
         else:
-            font = pygame.font.SysFont("consolas,courier,monospace", 16)
-            surface.blit(font.render("Click a session, then Load", True, COLOR_MUTED), (MARGIN_X, 72))
             self._picker_widgets.draw(surface)
 
-        footer = pygame.font.SysFont("consolas,courier,monospace", FOOTER_PT)
-        surface.blit(
-            footer.render("Keyboard: ↑↓ select · Enter load · Esc menu", True, COLOR_MUTED),
-            (MARGIN_X, footer_top() + 4),
+        foot_font = body_font(FOOTER_PT)
+        foot_surf = foot_font.render(
+            "↑↓ select  ·  Enter load  ·  Esc menu", True, colors.TEXT_MUTED
         )
+        old_clip = surface.get_clip()
+        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
+        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
+        surface.set_clip(old_clip)
 
         if self.error:
-            draw_centered_text(surface, [self.error], y_start=360, color=(255, 120, 120), size=16)
+            draw_centered_text(surface, [self.error], y_start=panel.bottom + 16,
+                               color=colors.RED_FAIL, size=16)
