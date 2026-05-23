@@ -28,6 +28,7 @@ grep -r "PHASE_STATUS" implementation/
 | phase-2-6 | [Phase_2_6.md](Phase_2_6.md) | Simpler student bot API | phase-2-5 | §17 |
 | phase-2-7 | [Phase_2_7.md](Phase_2_7.md) | Multi-student match + projector UI | phase-2-6 | §11–12, §17 |
 | phase-2-8 | [Phase_2_8.md](Phase_2_8.md) | Playable RPG UI | phase-2-7 | §11 |
+| phase-2-9 | [Phase_2_9.md](Phase_2_9.md) | Launcher UX overhaul | phase-2-8 | §11 |
 | phase-3 | [Phase_3.md](Phase_3.md) | Analysis system | phase-1 | §16.3, §6.5, §15 |
 | phase-3-1 | [Phase_3_1.md](Phase_3_1.md) | Analysis gamification | phase-3, phase-2-8 | §6.5, §11 |
 | phase-4 | [Phase_4.md](Phase_4.md) | AI feedback | phase-3-1 | §16.4, §7 |

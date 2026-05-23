@@ -1,4 +1,4 @@
-"""Cached entity icon surfaces."""
+"""Cached entity icon surfaces and procedural menu icons."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from pathlib import Path
 import pygame
 
 _ICON_CACHE: dict[str, pygame.Surface | None] = {}
+_MENU_ICON_CACHE: dict[tuple[str, int, tuple[int, int, int]], pygame.Surface] = {}
 
 
 def load_icon(path: str | None, *, size: int = 24) -> pygame.Surface | None:
@@ -61,3 +62,153 @@ def draw_portrait_frame(
 
 def clear_icon_cache() -> None:
     _ICON_CACHE.clear()
+    _MENU_ICON_CACHE.clear()
+
+
+def draw_menu_icon(
+    surface: pygame.Surface,
+    name: str,
+    rect: pygame.Rect,
+    color: tuple[int, int, int] = (240, 200, 80),
+) -> None:
+    """Draw a small procedural RPG-style icon into *rect* on *surface*.
+
+    Supported names: ``swords``, ``scroll``, ``folder``, ``shield``,
+    ``classroom``, ``door``, ``random``.
+    """
+    key: tuple[str, int, tuple[int, int, int]] = (name, rect.width, color)
+    if key not in _MENU_ICON_CACHE:
+        _MENU_ICON_CACHE[key] = _render_menu_icon(name, rect.width, color)
+    icon_surf = _MENU_ICON_CACHE[key]
+    cy = rect.y + (rect.height - icon_surf.get_height()) // 2
+    surface.blit(icon_surf, (rect.x, cy))
+
+
+def _render_menu_icon(
+    name: str,
+    size: int,
+    color: tuple[int, int, int],
+) -> pygame.Surface:
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    surf.fill((0, 0, 0, 0))
+    s = size
+    c = color
+    dim = (max(0, c[0] - 60), max(0, c[1] - 60), max(0, c[2] - 60))
+
+    if name == "swords":
+        # Two crossed diagonal lines (X) with small crossguards
+        w = max(1, s // 8)
+        pygame.draw.line(surf, c, (2, 2), (s - 3, s - 3), w)
+        pygame.draw.line(surf, c, (s - 3, 2), (2, s - 3), w)
+        mid = s // 2
+        gw = s // 3
+        pygame.draw.line(surf, dim, (mid - gw // 2, mid - 1), (mid + gw // 2, mid - 1), max(1, w - 1))
+
+    elif name == "scroll":
+        # Rounded rect with horizontal content lines
+        r = max(2, s // 5)
+        pygame.draw.rect(surf, c, pygame.Rect(1, 2, s - 2, s - 4), border_radius=r)
+        pygame.draw.rect(surf, dim, pygame.Rect(1, 2, s - 2, s - 4), 1, border_radius=r)
+        line_color = (max(0, c[0] - 80), max(0, c[1] - 80), max(0, c[2] - 80))
+        for i in range(1, 4):
+            y = 2 + i * (s - 4) // 4
+            pygame.draw.line(surf, line_color, (r, y), (s - r - 1, y), 1)
+
+    elif name == "folder":
+        # Open folder: bottom rect + top flap
+        tab_h = s // 4
+        body_y = tab_h
+        pygame.draw.rect(surf, c, pygame.Rect(0, body_y, s, s - body_y - 1), border_radius=2)
+        tab_w = s * 2 // 5
+        pygame.draw.polygon(surf, c, [
+            (1, body_y),
+            (tab_w + 1, body_y),
+            (tab_w - 1, 2),
+            (1, 2),
+        ])
+        pygame.draw.rect(surf, dim, pygame.Rect(0, body_y, s, s - body_y - 1), 1, border_radius=2)
+
+    elif name == "shield":
+        # Pentagon shield
+        mid_x = s // 2
+        pts = [
+            (1, 1),
+            (s - 2, 1),
+            (s - 2, s * 3 // 5),
+            (mid_x, s - 2),
+            (1, s * 3 // 5),
+        ]
+        pygame.draw.polygon(surf, c, pts)
+        pygame.draw.polygon(surf, dim, pts, 1)
+        # Small cross/emblem in centre
+        inner = s // 5
+        pygame.draw.line(surf, dim, (mid_x, s // 5), (mid_x, s * 3 // 5), max(1, s // 8))
+        pygame.draw.line(surf, dim, (mid_x - inner, s // 3), (mid_x + inner, s // 3), max(1, s // 8))
+
+    elif name == "classroom":
+        # Two simplified humanoid figures side by side
+        fig_w = max(3, s // 3)
+        for i, fx in enumerate([s // 4 - fig_w // 2, s * 3 // 4 - fig_w // 2]):
+            head_r = max(2, s // 8)
+            head_cx = fx + fig_w // 2
+            head_cy = s // 4
+            pygame.draw.circle(surf, c, (head_cx, head_cy), head_r)
+            body_top = head_cy + head_r
+            body_bot = s * 3 // 4
+            pygame.draw.line(surf, c, (head_cx, body_top), (head_cx, body_bot), max(1, s // 10))
+            # arms
+            arm_y = body_top + (body_bot - body_top) // 3
+            pygame.draw.line(surf, c, (fx, arm_y), (fx + fig_w, arm_y), max(1, s // 10))
+            # legs
+            pygame.draw.line(surf, c, (head_cx, body_bot), (fx + 1, s - 2), max(1, s // 10))
+            pygame.draw.line(surf, c, (head_cx, body_bot), (fx + fig_w - 1, s - 2), max(1, s // 10))
+
+    elif name == "door":
+        # Door rectangle with arch/oval at top
+        door_x, door_w = s // 4, s // 2
+        door_y = s // 5
+        pygame.draw.rect(surf, c, pygame.Rect(door_x, door_y, door_w, s - door_y - 1))
+        pygame.draw.rect(surf, dim, pygame.Rect(door_x, door_y, door_w, s - door_y - 1), 1)
+        # knob
+        knob_x = door_x + door_w * 3 // 4
+        knob_y = door_y + (s - door_y) // 2
+        pygame.draw.circle(surf, dim, (knob_x, knob_y), max(1, s // 10))
+
+    elif name == "random":
+        # Dice face with dots
+        r = max(2, s // 6)
+        pygame.draw.rect(surf, c, pygame.Rect(1, 1, s - 2, s - 2), border_radius=r)
+        pygame.draw.rect(surf, dim, pygame.Rect(1, 1, s - 2, s - 2), 1, border_radius=r)
+        dot_r = max(1, s // 8)
+        dot_color = (max(0, c[0] - 100), max(0, c[1] - 100), max(0, c[2] - 100))
+        for dx, dy in [(1, 1), (-1, -1), (1, -1), (-1, 1), (0, 0)]:
+            px = s // 2 + dx * s // 4
+            py = s // 2 + dy * s // 4
+            pygame.draw.circle(surf, dot_color, (px, py), dot_r)
+
+    elif name == "arrow_up":
+        # Filled upward-pointing triangle with a subtle stem
+        mid = s // 2
+        tip = 2
+        base = s - 3
+        margin = max(2, s // 5)
+        pts = [(mid, tip), (s - margin, base), (margin, base)]
+        pygame.draw.polygon(surf, c, pts)
+        # thin stem below
+        stem_w = max(1, s // 5)
+        pygame.draw.rect(surf, dim,
+                         pygame.Rect(mid - stem_w // 2, base - 1, stem_w, s - base))
+
+    elif name == "arrow_down":
+        # Filled downward-pointing triangle with a subtle stem
+        mid = s // 2
+        tip = s - 2
+        base = 3
+        margin = max(2, s // 5)
+        pts = [(mid, tip), (s - margin, base), (margin, base)]
+        pygame.draw.polygon(surf, c, pts)
+        stem_w = max(1, s // 5)
+        pygame.draw.rect(surf, dim,
+                         pygame.Rect(mid - stem_w // 2, 0, stem_w, base + 1))
+
+    return surf

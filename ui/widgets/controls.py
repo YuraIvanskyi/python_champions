@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import pygame
 
+from ui.render.icons import draw_menu_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, code_font
@@ -104,12 +105,16 @@ class Button(Widget):
         on_click: Callable[[], None] | None = None,
         font_size: int = 18,
         primary: bool = False,
+        icon: str | None = None,
+        icon_size: int = 16,
     ) -> None:
         super().__init__(_ensure_min_size(rect))
         self.label = label
         self.on_click = on_click
         self._font_size = font_size
         self.primary = primary
+        self.icon = icon
+        self._icon_size = icon_size
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         if not self.enabled:
@@ -164,21 +169,31 @@ class Button(Widget):
 
         shift_y = 1 if self._pressed else 0
         text_surf = font.render(self.label, True, text_color)
-        avail_w = self.rect.width - BUTTON_PAD_X * 2
+
+        has_text = bool(self.label)
+        icon_gap = 6 if (self.icon and has_text) else 0
+        icon_total = self._icon_size + icon_gap if self.icon else 0
+        avail_w = self.rect.width - BUTTON_PAD_X * 2 - icon_total
         display = self.label
         while display and text_surf.get_width() > avail_w:
             display = display[:-1]
             text_surf = font.render(display + "…", True, text_color)
 
+        content_w = text_surf.get_width() + icon_total
+        content_x = self.rect.x + (self.rect.width - content_w) // 2
+        text_y = self.rect.y + (self.rect.height - text_surf.get_height()) // 2 + shift_y
+
         old_clip = surface.get_clip()
         surface.set_clip(self.rect.inflate(-2, -2))
-        surface.blit(
-            text_surf,
-            (
-                self.rect.x + (self.rect.width - text_surf.get_width()) // 2,
-                self.rect.y + (self.rect.height - text_surf.get_height()) // 2 + shift_y,
-            ),
-        )
+
+        if self.icon:
+            icon_color = text_color if isinstance(text_color, tuple) else colors.GOLD_TEXT
+            icon_rect = pygame.Rect(content_x, self.rect.y, self._icon_size, self.rect.height)
+            draw_menu_icon(surface, self.icon, icon_rect, icon_color)
+            surface.blit(text_surf, (content_x + icon_total, text_y))
+        else:
+            surface.blit(text_surf, (content_x, text_y))
+
         surface.set_clip(old_clip)
 
 

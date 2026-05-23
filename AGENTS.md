@@ -74,6 +74,7 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 2.6 | phase-2-6 | phase-2-5 | `GameView` method API (readonly, no dict keys) |
 | 2.7 | phase-2-7 | phase-2-6 | Many student bots, one match; larger tiles/window for projectors |
 | 2.8 | phase-2-8 | phase-2-7 | RPG UI skin from `ui_reference.png`, asset manifest + style guide |
+| 2.9 | phase-2-9 | phase-2-8 | Launcher UX overhaul: mode tabs, map picker, icons |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
 | 3.1 | phase-3-1 | phase-3, phase-2-8 | Code Coach screen, `feedback_items`, line highlights |
 | 4 | phase-4 | phase-3-1 | Optional Ollama reports |

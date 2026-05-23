@@ -46,7 +46,13 @@ def draw_quest_card(
     skin.draw_category_ribbon(surface, ribbon, category=category)
 
     # Category label inside ribbon — clipped
-    cat_color = (255, 255, 255) if category in ("efficiency", "runtime", "praise") else (255, 240, 200)
+    # Praise uses dark text on bright emerald; others use white
+    if category == "praise":
+        cat_color = (18, 72, 36)     # dark forest green — high contrast on emerald
+    elif category in ("efficiency", "runtime"):
+        cat_color = (255, 255, 255)
+    else:
+        cat_color = (255, 240, 200)
     cat_font = body_font(_BODY_PT - 1)
     skin.draw_text_clipped(
         surface,

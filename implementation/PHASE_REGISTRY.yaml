@@ -60,6 +60,14 @@ phases:
     completed_at: "2026-05-22"
     plan_reference: "PLAN.md section 11; medieval fantasy skin from ui_reference.png"
 
+  - id: phase-2-9
+    file: Phase_2_9.md
+    title: Launcher UX overhaul
+    status: done
+    depends_on: [phase-2-8]
+    completed_at: "2026-05-23"
+    plan_reference: "PLAN.md §11; user-requested launcher UX improvements"
+
   - id: phase-3
     file: Phase_3.md
     title: Analysis system

@@ -35,3 +35,7 @@ code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
 [ui.coach]
 max_quest_cards = 12
 code_panel_font_pt = 14
+
+[ui.map_presets]
+seeds = [7, 23, 42, 58, 91]
+names = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]

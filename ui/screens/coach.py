@@ -25,9 +25,12 @@ from ui.theme import FOOTER_PT, MARGIN_X, coach_config, content_width, footer_to
 from ui.widgets import Button, WidgetGroup
 from ui.widgets.scroll import ScrollState
 
-_CARD_H = 104
-_CARD_GAP = 8
-_LABEL_PT = 14
+_CARD_H       = 104
+_CARD_GAP     = 8
+_SCORE_CARD_H = _CARD_H   # score summary card same height as regular quest cards
+_LABEL_PT     = 14
+_TAB_H        = 32
+_TAB_FONT_PT  = 15
 
 
 class CoachScreen:
@@ -38,8 +41,8 @@ class CoachScreen:
         self.replay: dict[str, Any] | None = None
         self.player_ids: list[str] = []
         self.selected_player = 0
-        self.selected_quest = 0
-        self._code_scroll = ScrollState()
+        self.selected_quest  = 0
+        self._code_scroll  = ScrollState()
         self._quest_scroll = ScrollState()
         self._back_btn = Button(
             pygame.Rect(MARGIN_X, 0, 120, 40),
@@ -53,6 +56,8 @@ class CoachScreen:
         )
         self._player_tabs: list[Button] = []
         self._widgets = WidgetGroup([self._back_btn, self._menu_btn])
+
+    # ── Session loading ───────────────────────────────────────────────────────
 
     def open_session(self, session_dir: Path, *, player_id: str | None = None) -> None:
         self.session_dir = session_dir
@@ -78,21 +83,38 @@ class CoachScreen:
         self._widgets = WidgetGroup([self._back_btn, self._menu_btn])
         if len(self.player_ids) <= 1:
             return
+
+        tab_font = body_font(_TAB_FONT_PT)
         x = MARGIN_X
         y = 72
+
         for index, pid in enumerate(self.player_ids):
-            btn = Button(
-                pygame.Rect(x, y, 100, 32),
-                pid[:10],
+            display = self._display_name(pid)
+            # Compute width from actual rendered text — no truncation
+            text_w = tab_font.size(display)[0]
+            btn_w  = text_w + 28   # 14 px padding each side
+            btn    = Button(
+                pygame.Rect(x, y, btn_w, _TAB_H),
+                display,
                 on_click=lambda i=index: self._select_player(i),
+                font_size=_TAB_FONT_PT,
             )
             self._player_tabs.append(btn)
             self._widgets.add(btn)
-            x += 108
+            x += btn_w + 8
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _display_name(self, pid: str) -> str:
+        """Return the human-readable display name for a player id."""
+        if self.replay and "players" in self.replay:
+            meta = self.replay["players"].get(pid, {})
+            return str(meta.get("display_name", pid))
+        return pid
 
     def _select_player(self, index: int) -> None:
         self.selected_player = index
-        self.selected_quest = 0
+        self.selected_quest  = 0
 
     def _back_to_scores(self) -> None:
         if not self.session_dir:
@@ -132,12 +154,53 @@ class CoachScreen:
         quests = self._current_quests()
         if not quests:
             return set()
-        idx = min(self.selected_quest, len(quests) - 1)
+        idx   = min(self.selected_quest, len(quests) - 1)
         lines = quests[idx].get("lines", [])
         return {int(ln) for ln in lines if isinstance(ln, int)}
 
+    def _score_summary_item(self, block: dict, bot_name: str) -> dict[str, Any]:
+        """Synthesise a score-summary quest card from the metrics block."""
+        scores = block.get("scores", {})
+        gp = scores.get("gameplay",     "—")
+        cq = scores.get("code_quality", "—")
+        fn = scores.get("final",        "—")
+        return {
+            "category": "praise",
+            "title":    f"Final  {fn}",
+            "message":  f"{bot_name}   ·   Gameplay {gp}   ·   Code {cq}",
+            "fix_hint": "",
+            "panel":    "parchment",
+            "lines":    [],
+        }
+
+    # ── Layout ────────────────────────────────────────────────────────────────
+
+    def _layout_rects(self, surface: pygame.Surface | None) -> dict[str, pygame.Rect] | None:
+        if surface is None:
+            return None
+        w     = surface.get_width()
+        top   = 112 if len(self.player_ids) > 1 else 88
+        bottom = footer_top() - 52
+        split = int(w * 0.58)
+        quests_x = split + 8
+        quests_w = w - split - MARGIN_X - 8
+        return {
+            "code": pygame.Rect(MARGIN_X, top, split - MARGIN_X - 8, bottom - top),
+            # Fixed score summary card (not scrollable)
+            "score_card": pygame.Rect(quests_x, top, quests_w, _SCORE_CARD_H),
+            # Scrollable quest list starts below the score card
+            "quests": pygame.Rect(
+                quests_x,
+                top + _SCORE_CARD_H + 8,
+                quests_w,
+                bottom - top - _SCORE_CARD_H - 8,
+            ),
+        }
+
+    # ── Events ────────────────────────────────────────────────────────────────
+
     def on_enter(self) -> None:
-        self._code_scroll.offset = 0
+        self._code_scroll.offset  = 0
         self._quest_scroll.offset = 0
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -148,11 +211,13 @@ class CoachScreen:
             return
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and layout:
-            pos = event.pos
+            pos    = event.pos
             quests = self._current_quests()
-            y = layout["quests"].y - self._quest_scroll.offset
+            y      = layout["quests"].y - self._quest_scroll.offset
             for index, _ in enumerate(quests):
-                card_rect = pygame.Rect(layout["quests"].x, y, layout["quests"].width, _CARD_H)
+                card_rect = pygame.Rect(
+                    layout["quests"].x, y, layout["quests"].width, _CARD_H
+                )
                 if card_rect.collidepoint(pos):
                     self.selected_quest = index
                     lines = quests[index].get("lines", [])
@@ -175,17 +240,7 @@ class CoachScreen:
             if quests:
                 self.selected_quest = min(len(quests) - 1, self.selected_quest + 1)
 
-    def _layout_rects(self, surface: pygame.Surface | None) -> dict[str, pygame.Rect] | None:
-        if surface is None:
-            return None
-        w = surface.get_width()
-        top = 112 if len(self.player_ids) > 1 else 88
-        bottom = footer_top() - 52
-        split = int(w * 0.58)
-        return {
-            "code": pygame.Rect(MARGIN_X, top, split - MARGIN_X - 8, bottom - top),
-            "quests": pygame.Rect(split + 8, top, w - split - MARGIN_X - 8, bottom - top),
-        }
+    # ── Drawing ───────────────────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
         skin.draw_background(surface)
@@ -193,57 +248,56 @@ class CoachScreen:
         cw = content_width()
 
         skin.draw_banner_title(
-            surface,
-            "Code Coach",
-            center_x=sw // 2,
-            y=14,
-            max_width=cw,
+            surface, "Code Coach",
+            center_x=sw // 2, y=14, max_width=cw,
         )
 
-        self._back_btn.rect = pygame.Rect(MARGIN_X, footer_top() - 44, 120, 40)
-        self._menu_btn.rect = pygame.Rect(MARGIN_X + 130, footer_top() - 44, 100, 40)
+        self._back_btn.rect = pygame.Rect(MARGIN_X,           footer_top() - 44, 120, 40)
+        self._menu_btn.rect = pygame.Rect(MARGIN_X + 130,     footer_top() - 44, 100, 40)
 
         if self.metrics is None:
             panel = pygame.Rect(MARGIN_X, 200, cw, 120)
             skin.draw_panel(surface, panel, style="parchment")
-            inner = panel.inflate(-16, -16)
-            font = body_font(15)
             skin.draw_text_clipped(
                 surface,
                 "No analysis for this session. Run a match without --no-analysis.",
-                inner,
-                font,
+                panel.inflate(-16, -16),
+                body_font(15),
                 colors.PARCHMENT_TEXT,
                 align="center",
             )
             self._widgets.draw(surface)
             return
 
-        pid = self.player_ids[self.selected_player]
-        block = self._current_block()
+        pid      = self.player_ids[self.selected_player]
+        block    = self._current_block()
         bot_path = bot_path_for_player(self.replay, pid) if self.replay else None
         source_lines = read_bot_source(bot_path)
 
-        name = pid
-        if self.replay and "players" in self.replay:
-            meta = self.replay["players"].get(pid, {})
-            name = meta.get("display_name", pid)
+        # Display name (used for label and score card)
+        name = self._display_name(pid)
 
+        # "Bot: <name>" header — generous clip width, no truncation
         label_font = body_font(_LABEL_PT)
-        bot_label = f"Bot: {name}"
-        old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, 54, cw, _LABEL_PT + 8))
         skin.draw_text_clipped(
-            surface, bot_label,
+            surface,
+            f"Bot:  {name}",
             pygame.Rect(MARGIN_X, 54, cw, _LABEL_PT + 8),
-            label_font, colors.GOLD_TEXT, align="left",
+            label_font,
+            colors.GOLD_TEXT,
+            align="left",
         )
-        surface.set_clip(old_clip)
+
+        # Active tab highlight
+        for i, btn in enumerate(self._player_tabs):
+            if i == self.selected_player:
+                pygame.draw.rect(surface, colors.TEAL_ACCENT, btn.rect, 2, border_radius=5)
 
         layout = self._layout_rects(surface)
         if not layout:
             return
 
+        # Code panel
         draw_code_panel(
             surface,
             layout["code"],
@@ -253,10 +307,15 @@ class CoachScreen:
             font_pt=coach_config()[1],
         )
 
+        # Score summary card (fixed, always visible at top of right column)
+        score_item = self._score_summary_item(block, name)
+        draw_quest_card(surface, layout["score_card"], score_item, selected=False)
+
+        # Scrollable quest list
         quests = self._current_quests()
         skin.draw_panel(surface, layout["quests"], style="wood")
-        inner = layout["quests"].inflate(-8, -8)
-        total_h = len(quests) * (_CARD_H + _CARD_GAP)
+        inner    = layout["quests"].inflate(-8, -8)
+        total_h  = len(quests) * (_CARD_H + _CARD_GAP)
         self._quest_scroll.set_content(total_h, inner.height)
         y = inner.y - self._quest_scroll.offset
 
@@ -266,31 +325,10 @@ class CoachScreen:
             card_rect = pygame.Rect(inner.x, y, inner.width, _CARD_H)
             if card_rect.bottom >= inner.top and card_rect.top <= inner.bottom:
                 draw_quest_card(
-                    surface,
-                    card_rect,
-                    item,
+                    surface, card_rect, item,
                     selected=index == self.selected_quest,
                 )
             y += _CARD_H + _CARD_GAP
         surface.set_clip(old_clip)
 
-        # Score summary bar
-        scores = block.get("scores", {})
-        footer_text = (
-            f"Gameplay {scores.get('gameplay', '—')} · "
-            f"Code {scores.get('code_quality', '—')} · "
-            f"Final {scores.get('final', '—')}"
-        )
-        score_rect = pygame.Rect(MARGIN_X, footer_top() - 72, cw, _LABEL_PT + 8)
-        skin.draw_text_clipped(surface, footer_text, score_rect, label_font, colors.TEXT_MUTED, align="left")
-
         self._widgets.draw(surface)
-
-        foot = body_font(FOOTER_PT)
-        foot_surf = foot.render(
-            "Wheel scroll · Click quest · ↑↓ quest · Esc back", True, colors.TEXT_MUTED
-        )
-        old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
-        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
-        surface.set_clip(old_clip)

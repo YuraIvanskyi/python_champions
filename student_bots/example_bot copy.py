@@ -1,51 +1,39 @@
-"""
+BOT_DISPLAY_NAME = "Rookie"
 
-Example student bot for Resource Wars.
-Optional presentation (sandbox-safe — strings only):
-  BOT_DISPLAY_NAME = "Explorer"
-  BOT_ICON = "ui/assets/icons/student.png"   # under student_bots/ or ui/assets/icons/
-
-
-Turn function receives a readonly GameView (state). Common calls:
-  state.on_resource()          -> bool
-  state.my_x(), state.my_y()   -> int
-  state.score()                -> int (resources collected)
-  state.is_walkable(x, y)      -> bool
-  state.manhattan_to_nearest_resource(x, y) -> int
-
-Optional: from engine.student_api import GameView, TileKind
-
-Return one of: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, WAIT
-"""
-
-BOT_DISPLAY_NAME = "Explorer 2"
+turn_count = 0
+best_score = 0
 
 
 def make_turn(state):
-
-    if state.on_resource():
+    global turn_count, best_score
+    turn_count = turn_count + 1
+    unused_var = "never read again"
+    if state.on_resource() == True:
+        if state.score() > best_score:
+            best_score = state.score()
         return "GATHER"
-
-    px, py = state.position()
+    px = state.my_x()
+    py = state.my_y()
     best_action = "WAIT"
-    best_dist = 10_000
-
-    for action, dx, dy in (
-        ("MOVE_UP", 0, -1),
-        ("MOVE_DOWN", 0, 1),
-        ("MOVE_LEFT", -1, 0),
-        ("MOVE_RIGHT", 1, 0),
-    ):
-        nx, ny = px + dx, py + dy
-
-        if not state.is_walkable(nx, ny):
-            continue
-
-        dist = state.manhattan_to_nearest_resource(nx, ny)
-
-        if dist < best_dist:
-            best_dist = dist
-
-            best_action = action
-
-    return best_action
+    best_dist = 99999
+    all_moves = [("MOVE_UP", 0, -1), ("MOVE_DOWN", 0, 1), ("MOVE_LEFT", -1, 0), ("MOVE_RIGHT", 1, 0)]
+    for i in range(0, len(all_moves)):
+        act = all_moves[i][0]
+        dx = all_moves[i][1]
+        dy = all_moves[i][2]
+        nx = px + dx
+        ny = py + dy
+        walkable = state.is_walkable(nx, ny)
+        if walkable == True:
+            d = state.manhattan_to_nearest_resource(nx, ny)
+            if d < best_dist:
+                best_dist = d
+                best_action = act
+            else:
+                pass
+        else:
+            pass
+    if best_action != None:
+        return best_action
+    else:
+        return "WAIT"

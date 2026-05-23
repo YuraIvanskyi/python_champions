@@ -47,6 +47,19 @@ class UICoachConfig(BaseModel):
     code_panel_font_pt: int = 14
 
 
+class UIMapPresetsConfig(BaseModel):
+    seeds: list[int] = Field(default_factory=lambda: [7, 23, 42, 58, 91])
+    names: list[str] = Field(
+        default_factory=lambda: [
+            "The Clearing",
+            "Obstacle Run",
+            "Classic",
+            "Open Field",
+            "The Maze",
+        ]
+    )
+
+
 class UIConfig(BaseModel):
     tile_size: int = 40
     map_padding: int = 24
@@ -64,6 +77,7 @@ class UIConfig(BaseModel):
     menu_hint_pt: int = 15
     theme: UIThemeConfig = Field(default_factory=UIThemeConfig)
     coach: UICoachConfig = Field(default_factory=UICoachConfig)
+    map_presets: UIMapPresetsConfig = Field(default_factory=UIMapPresetsConfig)
 
 
 class AppConfig(BaseModel):

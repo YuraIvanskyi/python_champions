@@ -6,6 +6,8 @@ all functions render a complete, polished result without any external files.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pygame
 
 from ui.skin import assets, colors
@@ -16,6 +18,12 @@ PanelStyle = str  # stone | wood | parchment
 # ── Padding constants used by chrome drawing ──────────────────────────────────
 PANEL_PAD_X = 12
 PANEL_PAD_Y = 8
+
+# ── Background image cache ────────────────────────────────────────────────────
+# Looks for bg.jpg in implementation/ beside the project root (2 levels up
+# from this file: ui/skin/ → ui/ → project root).
+_BG_IMAGE_PATH = Path(__file__).parents[2] / "implementation" / "bg.jpg"
+_bg_cache: dict[tuple[int, int], pygame.Surface | None] = {}
 
 # ── Background vignette cache ─────────────────────────────────────────────────
 _vignette_cache: dict[tuple[int, int], pygame.Surface] = {}
@@ -148,18 +156,42 @@ def _draw_parchment_age(surface: pygame.Surface, rect: pygame.Rect) -> None:
 # ── Public drawing API ─────────────────────────────────────────────────────────
 
 def draw_background(surface: pygame.Surface) -> None:
-    """Dark RPG background with warm radial vignette."""
+    """RPG background: uses bg.jpg when found, then sliced asset, then procedural."""
+    w, h = surface.get_size()
+    size = (w, h)
+
+    # 1. Try bg.jpg from implementation/
+    if size not in _bg_cache:
+        if _BG_IMAGE_PATH.is_file():
+            try:
+                raw = pygame.image.load(str(_BG_IMAGE_PATH)).convert()
+                _bg_cache[size] = pygame.transform.smoothscale(raw, size)
+            except Exception:
+                _bg_cache[size] = None
+        else:
+            _bg_cache[size] = None
+
+    bg = _bg_cache.get(size)
+    if bg is not None:
+        surface.blit(bg, (0, 0))
+        # Slight dark overlay so UI panels have enough contrast
+        overlay = pygame.Surface(size, pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 55))
+        surface.blit(overlay, (0, 0))
+        return
+
+    # 2. Try sliced PNG asset
     surf = assets.get_surface("bg_main")
     if surf is not None:
-        scaled = pygame.transform.smoothscale(surf, surface.get_size())
+        scaled = pygame.transform.smoothscale(surf, size)
         surface.blit(scaled, (0, 0))
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay = pygame.Surface(size, pygame.SRCALPHA)
         overlay.fill((20, 24, 32, 140))
         surface.blit(overlay, (0, 0))
         return
 
+    # 3. Procedural fallback
     surface.fill(colors.SLATE_DARK)
-    w, h = surface.get_size()
     key = (w, h)
     if key not in _vignette_cache:
         _vignette_cache[key] = _build_vignette(w, h)
@@ -375,16 +407,22 @@ def draw_category_ribbon(
     *,
     category: str,
 ) -> None:
-    """Colored category ribbon (teal / purple) with centered label."""
-    is_teal = category in ("efficiency", "runtime", "praise")
-    name = "ribbon_teal" if is_teal else "ribbon_purple"
-    src = assets.get_surface(name)
+    """Colored category ribbon with per-category colour."""
+    if category == "praise":
+        base_color = colors.EMERALD_PRAISE
+        asset_name = "ribbon_teal"   # fallback asset closest to green
+    elif category in ("efficiency", "runtime"):
+        base_color = colors.TEAL_ACCENT
+        asset_name = "ribbon_teal"
+    else:
+        base_color = colors.PURPLE_ACCENT
+        asset_name = "ribbon_purple"
+
+    src = assets.get_surface(asset_name)
     if src is not None:
         scaled = pygame.transform.smoothscale(src, (rect.width, rect.height))
         surface.blit(scaled, rect.topleft)
         return
-
-    base_color = colors.TEAL_ACCENT if is_teal else colors.PURPLE_ACCENT
     r, g, b = base_color
     darker = (max(0, r - 30), max(0, g - 30), max(0, b - 30))
     pygame.draw.rect(surface, base_color, rect, border_radius=4)

@@ -1,52 +1,56 @@
-"""Named palette from STYLE_GUIDE.md (Phase 2.8 procedural rework)."""
+"""Named palette — derived from bg.jpg dungeon atmosphere + ui_reference.png RPG kit."""
 
 from __future__ import annotations
 
-# --- Core backgrounds ---
-SLATE_DARK = (32, 36, 46)
-SLATE_PANEL = (48, 54, 66)
+# ── Core backgrounds ──────────────────────────────────────────────────────────
+# Bg.jpg: deep purple-grey stone walls, warm torchlight
+SLATE_DARK  = (28, 30, 40)     # base fill under bg.jpg (almost never visible)
+SLATE_PANEL = (44, 50, 66)     # stone panel fill — cool blue-grey brick
 
-# --- Stone panel ---
-STONE_BORDER = (60, 68, 82)
-STONE_HIGHLIGHT = (80, 88, 102)   # inner top-left edge highlight
-STONE_SHADOW = (28, 32, 40)       # inner bottom-right shadow
+# ── Stone panel ───────────────────────────────────────────────────────────────
+STONE_BORDER    = (65, 73, 92)    # mortar / panel frame
+STONE_HIGHLIGHT = (95, 106, 130)  # chipped-stone top-left bevel
+STONE_SHADOW    = (22, 25, 34)    # deep corner shadow
 
-# --- Wood panel ---
-WOOD_LIGHT = (168, 132, 88)
-WOOD_FILL = (112, 84, 52)         # darker wood interior fill
-WOOD_BORDER = (88, 60, 36)        # wood frame border
-WOOD_GRAIN = (100, 72, 44)        # subtle grain line color
+# ── Wood panel (torchlit dungeon door warmth) ─────────────────────────────────
+WOOD_LIGHT  = (210, 155, 68)   # warm amber trim / highlight
+WOOD_FILL   = (118, 76, 36)    # rich dark wood (matches bg.jpg door)
+WOOD_BORDER = (88, 54, 20)     # darkest wood edge
+WOOD_GRAIN  = (105, 70, 34)    # subtle grain line
 
-# --- Parchment panel ---
-PARCHMENT = (232, 216, 176)
-PARCHMENT_EDGE = (196, 178, 138)  # aged parchment border/edge vignette
-PARCHMENT_TEXT = (50, 40, 28)     # dark brown text on parchment
+# ── Parchment panel (aged dungeon scroll) ─────────────────────────────────────
+PARCHMENT      = (242, 218, 158)   # warm parchment fill
+PARCHMENT_EDGE = (192, 165, 108)   # aged edge / fold vignette
+PARCHMENT_TEXT = (42, 32, 18)      # very dark brown
 
-# --- Metal accents ---
-RIVET = (144, 154, 172)           # corner rivet/bolt color
-RIVET_SHADOW = (90, 98, 112)      # rivet shadow side
+# ── Metal accents ─────────────────────────────────────────────────────────────
+RIVET        = (160, 168, 192)  # bright iron rivet
+RIVET_SHADOW = (85, 92, 110)    # rivet shadow side
 
-# --- Buttons ---
-BUTTON_HOVER = (68, 84, 108)      # button hover fill
-BUTTON_PRESSED = (34, 38, 48)     # button pressed fill
+# ── Buttons ───────────────────────────────────────────────────────────────────
+BUTTON_HOVER   = (74, 92, 118)   # hover fill
+BUTTON_PRESSED = (28, 32, 46)    # pressed / active fill
 
-# --- Background ---
-VIGNETTE_WARM = (72, 24, 14)      # background radial vignette warm color
+# ── Background vignette ───────────────────────────────────────────────────────
+# Warm torch-fire red; used when procedural background is the fallback
+VIGNETTE_WARM = (88, 18, 6)
 
-# --- Text ---
-GOLD_TEXT = (240, 200, 80)
-TEXT_BODY = (230, 235, 245)
-TEXT_MUTED = (140, 150, 170)
+# ── Text ─────────────────────────────────────────────────────────────────────
+# Crown/banner gold from bg.jpg torches & ui_reference trim
+GOLD_TEXT  = (255, 205, 48)
+TEXT_BODY  = (230, 235, 250)     # cool near-white (reads on dark stone)
+TEXT_MUTED = (150, 160, 185)     # desaturated mid-blue
 
-# --- Accents ---
-TEAL_ACCENT = (72, 180, 170)
-PURPLE_ACCENT = (140, 100, 200)
-GREEN_OK = (80, 200, 120)
-RED_FAIL = (220, 80, 80)
+# ── Accents (ui_reference.png gem/ribbon palette) ────────────────────────────
+TEAL_ACCENT    = (38, 218, 198)   # vivid gemstone teal (crystal in ui_reference)
+PURPLE_ACCENT  = (165, 95, 225)   # arcane purple ribbon
+EMERALD_PRAISE = (34, 197, 94)    # fresh emerald — praise / pass ribbon
+GREEN_OK       = (58, 228, 128)   # potion green (UI success)
+RED_FAIL       = (228, 62, 62)    # alert red
 
-# --- Backward-compatible aliases for ui.theme imports ---
-COLOR_BG = SLATE_DARK
+# ── Backward-compatible aliases ───────────────────────────────────────────────
+COLOR_BG    = SLATE_DARK
 COLOR_PANEL = SLATE_PANEL
-COLOR_TEXT = TEXT_BODY
+COLOR_TEXT  = TEXT_BODY
 COLOR_MUTED = TEXT_MUTED
 COLOR_ACCENT = TEAL_ACCENT
