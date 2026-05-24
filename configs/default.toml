@@ -11,12 +11,12 @@ enable_static_analysis = true
 ruff_select = ["E", "F", "W"]
 
 [ai]
-provider         = "vllm"
-base_url         = "http://localhost:8000/v1"
-model            = "Qwen/Qwen2.5-1.5B-Instruct"
-timeout_seconds  = 20
+provider         = "ollama"
+base_url         = "http://localhost:11434/v1"
+model            = "qwen2.5:1.5b"
+timeout_seconds  = 60
 max_tokens       = 400
-health_check_url = "http://localhost:8000/health"
+health_check_url = "http://localhost:11434/api/tags"
 
 [ui]
 tile_size = 40

@@ -42,21 +42,44 @@ class ReplayScreen:
         self._build_transport()
 
     def _build_transport(self) -> None:
-        y = toolbar_top()
-        btn_h = TOOLBAR_HEIGHT - 8
-        btn_y = y + 4
-        self._back_btn = Button(pygame.Rect(24, btn_y, 64, btn_h), "Back", on_click=self._step_back)
-        self._fwd_btn = Button(pygame.Rect(96, btn_y, 64, btn_h), "Next", on_click=self._step_fwd)
-        self._home_btn = Button(pygame.Rect(168, btn_y, 72, btn_h), "Home", on_click=self._go_home)
-        self._end_btn = Button(pygame.Rect(248, btn_y, 72, btn_h), "End", on_click=self._go_end)
-        self._menu_btn = Button(
-            pygame.Rect(680, btn_y, 96, btn_h),
-            "Menu",
-            on_click=self._back_to_menu,
-        )
+        placeholder = pygame.Rect(0, 0, 100, 36)
+        self._back_btn = Button(placeholder, "◀ Back", on_click=self._step_back)
+        self._fwd_btn  = Button(placeholder, "Next ▶", on_click=self._step_fwd)
+        self._home_btn = Button(placeholder, "⏮ Start", on_click=self._go_home)
+        self._end_btn  = Button(placeholder, "End ⏭", on_click=self._go_end)
+        self._menu_btn = Button(placeholder, "Menu", on_click=self._back_to_menu)
         self._transport = WidgetGroup(
             [self._back_btn, self._fwd_btn, self._home_btn, self._end_btn, self._menu_btn]
         )
+
+    def _layout_transport(self, surface: pygame.Surface) -> None:
+        """Reposition transport buttons to fit current window width."""
+        sw   = surface.get_width()
+        btn_h = TOOLBAR_HEIGHT - 8
+        btn_y = toolbar_top() + 4
+
+        # Measure each label and give buttons enough width (text + 24px padding)
+        font = body_font(16)
+        pad  = 24
+
+        def btn_w(label: str) -> int:
+            return max(80, font.size(label)[0] + pad)
+
+        w_back = btn_w(self._back_btn.label)
+        w_fwd  = btn_w(self._fwd_btn.label)
+        w_home = btn_w(self._home_btn.label)
+        w_end  = btn_w(self._end_btn.label)
+        w_menu = btn_w(self._menu_btn.label)
+
+        gap = 8
+        x = MARGIN_X
+        self._back_btn.rect = pygame.Rect(x, btn_y, w_back, btn_h); x += w_back + gap
+        self._fwd_btn.rect  = pygame.Rect(x, btn_y, w_fwd,  btn_h); x += w_fwd  + gap
+        self._home_btn.rect = pygame.Rect(x, btn_y, w_home, btn_h); x += w_home + gap
+        self._end_btn.rect  = pygame.Rect(x, btn_y, w_end,  btn_h)
+
+        # Menu at the far right
+        self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w_menu, btn_y, w_menu, btn_h)
 
     def on_enter(self) -> None:
         self._pick_mode = self.replay is None
@@ -262,6 +285,16 @@ class ReplayScreen:
             y_offset=hud_text_top(),
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
+        self._layout_transport(surface)
+
+        # Centered replay name in the toolbar
+        replay_label = f"{self.replay.scenario_id}  ·  seed {self.replay.seed}"
+        name_font = body_font(15)
+        name_surf = name_font.render(replay_label, True, colors.GOLD_TEXT)
+        name_x = (sw - name_surf.get_width()) // 2
+        name_y = toolbar_top() + (TOOLBAR_HEIGHT - name_surf.get_height()) // 2
+        surface.blit(name_surf, (name_x, name_y))
+
         self._transport.draw(surface)
 
         cw = content_width()
