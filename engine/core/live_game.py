@@ -286,6 +286,3 @@ class LiveGame:
             return session_dir
         return None
 
-    def close(self) -> None:
-        if not self._closed:
-            self.finish(write_results=False)

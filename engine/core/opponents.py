@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import random
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from engine.core.action import Action
@@ -25,17 +24,6 @@ _BUILTIN_NAMES: dict[str, str] = {
     "dumb": "Rookie",
 }
 
-_OPPONENT_DESCRIPTIONS: dict[str, str] = {
-    "greedy": "Rival (smart) — chases resources efficiently",
-    "dumb": "Rookie (practice) — wanders; good first win",
-}
-
-_OPPONENT_BUTTON_LABELS: dict[str, str] = {
-    "greedy": "Rival (smart)",
-    "dumb": "Rookie (practice)",
-}
-
-
 def normalize_opponent_mode(mode: str | None, *, default: str = "greedy") -> str:
     if mode is None or mode == "":
         return default
@@ -43,14 +31,6 @@ def normalize_opponent_mode(mode: str | None, *, default: str = "greedy") -> str
     if key not in OPPONENT_MODES:
         raise ValueError(f"Unknown opponent {mode!r}; use greedy or dumb")
     return key
-
-
-def opponent_description(mode: str) -> str:
-    return _OPPONENT_DESCRIPTIONS.get(mode, mode)
-
-
-def opponent_button_label(mode: str) -> str:
-    return _OPPONENT_BUTTON_LABELS.get(mode, mode)
 
 
 def builtin_icon_path(mode: str) -> str | None:

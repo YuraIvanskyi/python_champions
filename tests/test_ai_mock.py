@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from engine.core.config import AiConfig, AnalysisConfig, AppConfig
 
 _MOCK_RESPONSE = json.dumps({

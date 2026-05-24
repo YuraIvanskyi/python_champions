@@ -172,10 +172,9 @@ class _AstAnalyzer(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if isinstance(node.func, ast.Name) and node.func.id in ("eval", "exec"):
-            if node.func.id in self._forbidden or node.func.id in ("eval", "exec"):
-                self.forbidden_constructs.append(
-                    {"kind": "call", "name": node.func.id, "line": node.lineno}
-                )
+            self.forbidden_constructs.append(
+                {"kind": "call", "name": node.func.id, "line": node.lineno}
+            )
         self.generic_visit(node)
 
     def finalize_unused(self) -> None:
@@ -201,7 +200,6 @@ def _analyze_ast(
     analyzer = _AstAnalyzer(forbidden_names)
     analyzer.visit(tree)
     analyzer.finalize_unused()
-    lines = source.splitlines()
     max_fn_lines = 0
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

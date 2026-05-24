@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pygame
 
-from ui.widgets import Button, ListRow, Stepper, TextField
+from ui.widgets import Button, ListRow, TextField
 
 
 def test_button_click_inside_rect() -> None:
@@ -39,18 +39,6 @@ def test_list_row_select() -> None:
     up = pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": (10, 10), "button": 1})
     assert row.handle_event(up)
     assert selected == [1]
-
-
-def test_stepper_changes_value() -> None:
-    pygame.init()
-    values: list[int] = []
-
-    def on_change(v: int) -> None:
-        values.append(v)
-
-    stepper = Stepper(pygame.Rect(0, 0, 120, 36), value=5, on_change=on_change)
-    stepper._plus.on_click()
-    assert values == [6]
 
 
 def test_text_field_types() -> None:

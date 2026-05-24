@@ -41,11 +41,6 @@ def set_code_font_path(path: Path | None) -> None:
     _code_cache.clear()
 
 
-# Backward-compat alias used by ui/theme.py
-def set_title_font_path(path: Path | None) -> None:
-    set_game_font_path(path)
-
-
 def _load_font(path: Path, size: int, cache: dict[tuple[str, int], pygame.font.Font]) -> pygame.font.Font:
     key = (str(path), size)
     if key not in cache:

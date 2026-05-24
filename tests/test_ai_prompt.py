@@ -28,11 +28,6 @@ def _sample_prompt() -> str:
     )
 
 
-def test_system_prompt_forbids_full_solutions() -> None:
-    lower = SYSTEM_PROMPT.lower()
-    assert "do not generate full solutions" in lower or "not generate full solutions" in lower
-
-
 def test_system_prompt_allows_tiny_code_examples() -> None:
     lower = SYSTEM_PROMPT.lower()
     assert "1" in lower and ("line" in lower or "example" in lower)

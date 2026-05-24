@@ -6,18 +6,14 @@ Provides Retry and Use-Templates-Only buttons.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 import pygame
 
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, code_font
-from ui.theme import MARGIN_X, content_width
 from ui.widgets import Button, WidgetGroup
-
-if TYPE_CHECKING:
-    from engine.core.config import AppConfig
 
 _SETUP_COMMANDS = [
     "# Install Ollama from https://ollama.com",

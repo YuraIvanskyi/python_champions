@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import pytest
-
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
@@ -26,14 +24,6 @@ def test_nine_patch_import() -> None:
     from ui.skin.nine_patch import draw_nine_patch
 
     assert callable(draw_nine_patch)
-
-
-def _make_surface(w: int = 400, h: int = 300):
-    """Create a dummy pygame Surface without a real display."""
-    import pygame
-
-    pygame.display.init()
-    return pygame.Surface((w, h))
 
 
 def test_draw_panel_procedural_stone() -> None:
@@ -75,7 +65,6 @@ def test_draw_primary_button_procedural() -> None:
     import pygame
     from ui.skin import assets
     from ui.skin.chrome import draw_primary_button
-    from ui.skin.typography import body_font
 
     assets.configure(use_sliced=False)
     pygame.display.init()

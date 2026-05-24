@@ -115,6 +115,6 @@ def test_generate_report_never_raises(tmp_path: Path) -> None:
 
     with patch("urllib.request.urlopen", side_effect=RuntimeError("unexpected")):
         try:
-            result = generate_report(tmp_path, _config_ai_enabled())
+            _ = generate_report(tmp_path, _config_ai_enabled())
         except Exception as exc:  # noqa: BLE001
             pytest.fail(f"generate_report raised unexpectedly: {exc}")

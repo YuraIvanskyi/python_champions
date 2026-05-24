@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from engine.analysis.feedback import generate_feedback, generate_feedback_items
+from engine.analysis.feedback import generate_feedback_items
 from engine.analysis.runtime import RuntimeCollector
 from engine.analysis.static import analyze_static, static_to_dict
 from engine.core.config import AppConfig

@@ -258,66 +258,6 @@ class ListRow(Widget):
         )
 
 
-class Stepper(Widget):
-    def __init__(
-        self,
-        rect: pygame.Rect,
-        *,
-        value: int,
-        on_change: Callable[[int], None],
-        min_value: int = 0,
-        max_value: int = 999_999,
-    ) -> None:
-        super().__init__(rect)
-        self._value = value
-        self.on_change = on_change
-        self.min_value = min_value
-        self.max_value = max_value
-        w = rect.width // 3
-        self._minus = Button(pygame.Rect(rect.x, rect.y, w, rect.height), "-", on_click=self._dec)
-        self._plus = Button(
-            pygame.Rect(rect.x + 2 * w, rect.y, w, rect.height),
-            "+",
-            on_click=self._inc,
-        )
-        self._label_rect = pygame.Rect(rect.x + w, rect.y, w, rect.height)
-
-    def _dec(self) -> None:
-        self.on_change(max(self.min_value, self._value - 1))
-
-    def _inc(self) -> None:
-        self.on_change(min(self.max_value, self._value + 1))
-
-    def set_value(self, value: int) -> None:
-        self._value = value
-
-    def handle_event(self, event: pygame.event.Event) -> bool:
-        if not self.enabled:
-            return False
-        return self._minus.handle_event(event) or self._plus.handle_event(event)
-
-    def draw(self, surface: pygame.Surface) -> None:
-        self._minus.enabled = self.enabled
-        self._plus.enabled = self.enabled
-        skin.draw_panel(surface, self.rect, style="wood")
-        self._minus.draw(surface)
-        self._plus.draw(surface)
-        font = body_font(18)
-        color = colors.TEXT_BODY if self.enabled else colors.TEXT_MUTED
-        skin.draw_text_clipped(
-            surface,
-            str(self._value),
-            self._label_rect,
-            font,
-            color,
-            align="center",
-        )
-        if self.hovered and not self.enabled and self.hint:
-            hint_font = body_font(14)
-            hint = hint_font.render(self.hint, True, colors.TEXT_MUTED)
-            surface.blit(hint, (self.rect.x, self.rect.bottom + 4))
-
-
 class TextField(Widget):
     def __init__(
         self,

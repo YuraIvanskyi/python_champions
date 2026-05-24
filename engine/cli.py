@@ -21,8 +21,6 @@ def _cmd_gui(args: argparse.Namespace) -> int:
 
 def _cmd_report(args: argparse.Namespace) -> int:
     """Regenerate AI report from an existing metrics.json (no re-simulation)."""
-    import glob as _glob
-
     results_dir = Path(args.results_dir)
     session_id: str | None = getattr(args, "session", None)
 
