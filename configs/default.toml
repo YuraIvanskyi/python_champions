@@ -6,7 +6,7 @@ max_turns = 50
 default_opponent = "greedy"
 
 [analysis]
-enable_ai = false            # flip to true once vLLM is running
+enable_ai = true            # flip to true once vLLM is running
 enable_static_analysis = true
 ruff_select = ["E", "F", "W"]
 

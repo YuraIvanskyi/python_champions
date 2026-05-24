@@ -44,6 +44,64 @@ def _item(
     )
 
 
+_RUFF_INLINE_THRESHOLD = 4   # show individual cards up to this many issues
+
+# Maps ruff code *prefixes* → short kid-friendly card title
+_RUFF_TITLE_MAP: list[tuple[str, str]] = [
+    ("E1", "Indentation issue"),
+    ("E2", "Whitespace issue"),
+    ("E3", "Blank line issue"),
+    ("E4", "Import order"),
+    ("E5", "Line too long"),
+    ("E7", "Statement issue"),
+    ("E9", "Runtime error"),
+    ("W2", "Trailing whitespace"),
+    ("W3", "Blank line warning"),
+    ("W5", "Line-break warning"),
+    ("W6", "Deprecated syntax"),
+    ("F4", "Unused import"),
+    ("F8", "Unused name"),
+    ("F9", "Undefined name"),
+    ("N",  "Naming convention"),
+    ("B",  "Possible bug"),
+    ("C9", "High complexity"),
+    ("E",  "Style issue"),
+    ("W",  "Style warning"),
+    ("F",  "Code problem"),
+]
+
+
+def _ruff_title(code: str) -> str:
+    for prefix, title in _RUFF_TITLE_MAP:
+        if code.startswith(prefix):
+            return title
+    return "Style check"
+
+
+def _ruff_fix_hint(code: str) -> str:
+    if code.startswith("F4") or code.startswith("E4"):
+        return "Remove or sort the import at the top of the file."
+    if code.startswith("F8"):
+        return "Delete the name if you don't use it, or use it in your logic."
+    if code.startswith("F9"):
+        return "Check the spelling — the name must be defined before you use it."
+    if code.startswith("E1"):
+        return "Fix the indentation — use 4 spaces per level."
+    if code.startswith("E2") or code.startswith("W2"):
+        return "Remove extra spaces or add a missing one around the operator."
+    if code.startswith("E3") or code.startswith("W3"):
+        return "Add or remove the blank line as the message describes."
+    if code.startswith("E5"):
+        return "Break the long line into two shorter ones."
+    if code.startswith("E7"):
+        return "Rewrite the statement as shown in the message."
+    if code.startswith("B"):
+        return "Read the message carefully — this pattern can hide a bug."
+    if code.startswith("N"):
+        return "Rename the variable/function to follow the naming rule shown."
+    return "Read the message and fix the highlighted line."
+
+
 def _ruff_lines(static: dict[str, Any]) -> list[int]:
     lines: list[int] = []
     for v in static.get("ruff", []):
@@ -179,23 +237,42 @@ def generate_feedback_items(
             )
         )
 
-    ruff_lines = _ruff_lines(static)
     ruff = static.get("ruff", [])
     if ruff:
-        items.append(
-            _item(
-                category="style",
-                severity="warn",
-                title="Ruff issues",
-                message=(
-                    f"Ruff found {len(ruff)} style or error issue(s). "
-                    "Fix the highlighted lines — clean code is easier to debug."
-                ),
-                fix_hint="Open the highlighted lines and fix the rule shown in each message.",
-                panel="stone",
-                lines=ruff_lines,
+        if len(ruff) <= _RUFF_INLINE_THRESHOLD:
+            # Show one card per issue so students can tackle them one by one
+            for violation in ruff:
+                code    = str(violation.get("code", ""))
+                line    = violation.get("line")
+                message = str(violation.get("message", ""))
+                items.append(
+                    _item(
+                        category="style",
+                        severity="warn",
+                        title=_ruff_title(code),
+                        message=message,
+                        fix_hint=_ruff_fix_hint(code),
+                        panel="stone",
+                        lines=[line] if isinstance(line, int) else [],
+                    )
+                )
+        else:
+            # Too many to list individually — show a summary card
+            ruff_lines = _ruff_lines(static)
+            items.append(
+                _item(
+                    category="style",
+                    severity="warn",
+                    title=f"Style check  ({len(ruff)} issues)",
+                    message=(
+                        f"Found {len(ruff)} style issues in your code. "
+                        "Fix the highlighted lines — clean code is easier to read and debug."
+                    ),
+                    fix_hint="Work through the highlighted lines one by one.",
+                    panel="stone",
+                    lines=ruff_lines,
+                )
             )
-        )
 
     forbidden_lines = _forbidden_lines(static)
     forbidden = static.get("forbidden_constructs", [])

@@ -18,18 +18,18 @@ from ui.coach_data import (
     read_bot_source,
 )
 from ui.render.code_panel import draw_code_panel
-from ui.render.quest_card import draw_quest_card, quest_card_height
+from ui.render.quest_card import draw_quest_card, draw_score_card
 from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
-from ui.theme import FOOTER_PT, MARGIN_X, coach_config, content_width, footer_top
+from ui.theme import MARGIN_X, coach_config, content_width, footer_top
 from ui.widgets import Button, WidgetGroup
 from ui.widgets.scroll import ScrollState
 
 _CARD_H       = 104
 _CARD_GAP     = 8
-_SCORE_CARD_H = _CARD_H   # score summary card same height as regular quest cards
+_SCORE_CARD_H = 116   # score summary card is taller to give columns room
 _LABEL_PT     = 14
 _TAB_H        = 32
 _TAB_FONT_PT  = 15
@@ -446,8 +446,14 @@ class CoachScreen:
         )
 
         # Score summary card (fixed, always visible at top of right column)
-        score_item = self._score_summary_item(block, name)
-        draw_quest_card(surface, layout["score_card"], score_item, selected=False)
+        scores = block.get("scores", {})
+        draw_score_card(
+            surface, layout["score_card"],
+            bot_name=name,
+            gameplay_score=scores.get("gameplay", "—"),
+            code_score=scores.get("code_quality", "—"),
+            final_score=scores.get("final", "—"),
+        )
 
         # Scrollable quest list
         quests = self._current_quests()
