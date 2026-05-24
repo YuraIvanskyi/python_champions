@@ -134,7 +134,7 @@ This prevents future rewrites.
 | Packaging | uv or pip | Simple dependency management |
 | Config | TOML | Human-readable |
 | Testing | pytest | Standard ecosystem |
-| AI Integration | Ollama/OpenAI-compatible API | Optional local analysis |
+| AI Integration | vLLM / OpenAI-compatible API | Optional local analysis (high-throughput) |
 
 ### Why Pygame CE
 
@@ -339,18 +339,21 @@ AI should:
 
 ### Recommended Local Models
 
-#### Small Local Models
+Run via [vLLM](https://docs.vllm.ai/) (`vllm serve <model>`), which exposes an OpenAI-compatible endpoint at `http://localhost:8000/v1`. vLLM delivers higher token throughput than Ollama on the same hardware through continuous batching and PagedAttention — important when generating reports for many bots back-to-back.
 
-| Model | Usage |
-| --- | --- |
-| Qwen 2.5 7B Instruct | General analysis |
-| Phi-4 Mini | Fast classroom usage |
-| Gemma 3 4B | Lightweight feedback |
+#### Speed tier (default — runs on small or no GPU)
 
-Use through:
+| Model (HuggingFace ID) | VRAM | Notes |
+| --- | --- | --- |
+| `Qwen/Qwen2.5-1.5B-Instruct` | ~3 GB | Default config; fast, good instruction-following |
+| `microsoft/Phi-3.5-mini-instruct` | ~4 GB | Excellent feedback quality at 3.8B scale |
 
-- Ollama
-- OpenAI-compatible APIs
+#### Balanced tier (GPU ≥ 8 GB recommended)
+
+| Model (HuggingFace ID) | VRAM | Notes |
+| --- | --- | --- |
+| `Qwen/Qwen2.5-7B-Instruct` | ~8 GB | Richer analysis; preferred for teacher reports |
+| `google/gemma-2-2b-it` | ~5 GB | Good quality at 2B scale |
 
 ### AI Responsibilities
 
@@ -785,7 +788,7 @@ The optimal initial implementation is:
 - subprocess-based sandboxing
 - JSON/TOML storage
 - static analysis via Ruff/Radon/AST
-- optional local LLM integration via Ollama
+- optional local LLM integration via vLLM (OpenAI-compatible)
 
 This provides:
 

@@ -105,10 +105,10 @@ Support **multiple students** in one session: batch execution, rankings, reprodu
 ## Verification
 
 ```bash
-uv run pytest tests/test_tournament_discovery.py tests/test_tournament_rankings.py tests/test_tournament_manifest.py tests/test_tournament_continue_on_error.py -v
+pytest tests/test_tournament_discovery.py tests/test_tournament_rankings.py tests/test_tournament_manifest.py tests/test_tournament_continue_on_error.py -v
 # Fixture bots in tests/fixtures/bots/
-uv run code-scenarios tournament --scenario resource_wars --bots-dir tests/fixtures/bots --seed 99 --label test
-uv run python -m ui
+code-scenarios tournament --scenario resource_wars --bots-dir tests/fixtures/bots --seed 99 --label test
+python -m ui
 # Manual: open tournament results and replay browser
 ```
 

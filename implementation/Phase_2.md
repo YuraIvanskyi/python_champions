@@ -94,10 +94,10 @@ Add a **Pygame CE** desktop interface: scenario selection, visual map, simulatio
 ## Verification
 
 ```bash
-uv run pytest tests/test_ui_import.py tests/test_replay_load.py -v
-uv run python -m ui
+pytest tests/test_ui_import.py tests/test_replay_load.py -v
+python -m ui
 # Manual: run resource_wars with example_bot, complete game, open replay from results/
-uv run code-scenarios gui
+code-scenarios gui
 ```
 
 ## References

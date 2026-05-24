@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from ui.coach_data import (
 )
 from ui.render.code_panel import draw_code_panel
 from ui.render.quest_card import draw_quest_card, quest_card_height
+from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
@@ -31,6 +33,13 @@ _SCORE_CARD_H = _CARD_H   # score summary card same height as regular quest card
 _LABEL_PT     = 14
 _TAB_H        = 32
 _TAB_FONT_PT  = 15
+
+# AI tab states
+_AI_TAB_CHECKING  = "checking"
+_AI_TAB_OFFLINE   = "offline"
+_AI_TAB_TEMPLATES = "templates"
+_AI_TAB_LOADING   = "loading"
+_AI_TAB_REPORT    = "report"
 
 
 class CoachScreen:
@@ -57,6 +66,19 @@ class CoachScreen:
         self._player_tabs: list[Button] = []
         self._widgets = WidgetGroup([self._back_btn, self._menu_btn])
 
+        # AI Summary tab state
+        self._show_ai_tab = False         # True when enable_ai = true
+        self._ai_tab_active = False       # user clicked the AI tab
+        self._ai_state = _AI_TAB_CHECKING
+        self._ai_report_text: str | None = None
+        self._vllm_panel = VllmSetupPanel(
+            on_retry=self._retry_ai,
+            on_use_templates=self._use_templates,
+        )
+        self._template_panel = TemplateFeedbackPanel()
+        self._report_panel   = AiReportPanel()
+        self._ai_tab_btn: Button | None = None
+
     # ── Session loading ───────────────────────────────────────────────────────
 
     def open_session(self, session_dir: Path, *, player_id: str | None = None) -> None:
@@ -76,32 +98,118 @@ class CoachScreen:
         else:
             self.selected_player = 0
         self.selected_quest = 0
+
+        # AI tab: enabled only when enable_ai = true in config
+        try:
+            config = self.app.config  # type: ignore[attr-defined]
+        except AttributeError:
+            config = None
+        self._show_ai_tab = bool(config and config.analysis.enable_ai)
+        self._ai_tab_active = False
+        self._ai_state = _AI_TAB_CHECKING
+        self._ai_report_text = None
+        self._report_panel.reset()
+
+        # Pre-load report if it already exists in the session folder
+        report_path = session_dir / "ai_report.md"
+        if report_path.is_file():
+            self._ai_report_text = report_path.read_text(encoding="utf-8")
+            self._ai_state = _AI_TAB_REPORT
+
         self._build_player_tabs()
+
+    # ── AI tab helpers ────────────────────────────────────────────────────────
+
+    def _retry_ai(self) -> None:
+        """Re-probe vLLM health and generate report if reachable."""
+        from ai.health import reset_cache
+        reset_cache()
+        self._ai_state = _AI_TAB_LOADING
+        self._generate_ai_report_async()
+
+    def _use_templates(self) -> None:
+        self._ai_state = _AI_TAB_TEMPLATES
+
+    def _open_ai_tab(self) -> None:
+        self._ai_tab_active = True
+        if self._ai_state == _AI_TAB_CHECKING:
+            self._check_ai_and_load()
+
+    def _check_ai_and_load(self) -> None:
+        """Check vLLM health (blocking, fast probe) then decide state."""
+        if self._ai_report_text is not None:
+            self._ai_state = _AI_TAB_REPORT
+            return
+        try:
+            config = self.app.config  # type: ignore[attr-defined]
+        except AttributeError:
+            self._ai_state = _AI_TAB_OFFLINE
+            return
+        from ai.health import is_vllm_reachable
+        if is_vllm_reachable(config.ai.health_check_url, use_cache=False):
+            self._ai_state = _AI_TAB_LOADING
+            self._generate_ai_report_async()
+        else:
+            self._ai_state = _AI_TAB_OFFLINE
+
+    def _generate_ai_report_async(self) -> None:
+        """Spawn a background thread to generate the AI report."""
+        session_dir = self.session_dir
+        if session_dir is None:
+            self._ai_state = _AI_TAB_OFFLINE
+            return
+        try:
+            config = self.app.config  # type: ignore[attr-defined]
+        except AttributeError:
+            self._ai_state = _AI_TAB_OFFLINE
+            return
+
+        def _worker() -> None:
+            from engine.analysis.ai_report import generate_report
+            path = generate_report(session_dir, config)
+            if path is not None and path.is_file():
+                self._ai_report_text = path.read_text(encoding="utf-8")
+                self._ai_state = _AI_TAB_REPORT
+            else:
+                self._ai_state = _AI_TAB_OFFLINE
+
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
 
     def _build_player_tabs(self) -> None:
         self._player_tabs = []
+        self._ai_tab_btn = None
         self._widgets = WidgetGroup([self._back_btn, self._menu_btn])
-        if len(self.player_ids) <= 1:
-            return
 
         tab_font = body_font(_TAB_FONT_PT)
         x = MARGIN_X
         y = 72
 
-        for index, pid in enumerate(self.player_ids):
-            display = self._display_name(pid)
-            # Compute width from actual rendered text — no truncation
-            text_w = tab_font.size(display)[0]
-            btn_w  = text_w + 28   # 14 px padding each side
-            btn    = Button(
-                pygame.Rect(x, y, btn_w, _TAB_H),
-                display,
-                on_click=lambda i=index: self._select_player(i),
+        if len(self.player_ids) > 1:
+            for index, pid in enumerate(self.player_ids):
+                display = self._display_name(pid)
+                text_w = tab_font.size(display)[0]
+                btn_w  = text_w + 28
+                btn    = Button(
+                    pygame.Rect(x, y, btn_w, _TAB_H),
+                    display,
+                    on_click=lambda i=index: self._select_player(i),
+                    font_size=_TAB_FONT_PT,
+                )
+                self._player_tabs.append(btn)
+                self._widgets.add(btn)
+                x += btn_w + 8
+
+        if self._show_ai_tab:
+            ai_label = "⚗ AI Summary"
+            ai_w = tab_font.size(ai_label)[0] + 28
+            self._ai_tab_btn = Button(
+                pygame.Rect(x, y, ai_w, _TAB_H),
+                ai_label,
+                on_click=self._open_ai_tab,
                 font_size=_TAB_FONT_PT,
             )
-            self._player_tabs.append(btn)
-            self._widgets.add(btn)
-            x += btn_w + 8
+            self._widgets.add(self._ai_tab_btn)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -115,6 +223,7 @@ class CoachScreen:
     def _select_player(self, index: int) -> None:
         self.selected_player = index
         self.selected_quest  = 0
+        self._ai_tab_active  = False
 
     def _back_to_scores(self) -> None:
         if not self.session_dir:
@@ -178,23 +287,25 @@ class CoachScreen:
     def _layout_rects(self, surface: pygame.Surface | None) -> dict[str, pygame.Rect] | None:
         if surface is None:
             return None
-        w     = surface.get_width()
-        top   = 112 if len(self.player_ids) > 1 else 88
+        w      = surface.get_width()
+        has_tabs = len(self.player_ids) > 1 or self._show_ai_tab
+        top    = 112 if has_tabs else 88
         bottom = footer_top() - 52
-        split = int(w * 0.58)
+        split  = int(w * 0.58)
         quests_x = split + 8
         quests_w = w - split - MARGIN_X - 8
+        full_w   = w - 2 * MARGIN_X
         return {
             "code": pygame.Rect(MARGIN_X, top, split - MARGIN_X - 8, bottom - top),
-            # Fixed score summary card (not scrollable)
             "score_card": pygame.Rect(quests_x, top, quests_w, _SCORE_CARD_H),
-            # Scrollable quest list starts below the score card
             "quests": pygame.Rect(
                 quests_x,
                 top + _SCORE_CARD_H + 8,
                 quests_w,
                 bottom - top - _SCORE_CARD_H - 8,
             ),
+            # AI tab takes full content width
+            "ai_panel": pygame.Rect(MARGIN_X, top, full_w, bottom - top),
         }
 
     # ── Events ────────────────────────────────────────────────────────────────
@@ -205,26 +316,38 @@ class CoachScreen:
 
     def handle_event(self, event: pygame.event.Event) -> None:
         layout = self._layout_rects(pygame.display.get_surface())
-        if layout and self._code_scroll.handle_wheel(event, rect=layout["code"]):
-            return
-        if layout and self._quest_scroll.handle_wheel(event, rect=layout["quests"]):
-            return
 
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and layout:
-            pos    = event.pos
-            quests = self._current_quests()
-            y      = layout["quests"].y - self._quest_scroll.offset
-            for index, _ in enumerate(quests):
-                card_rect = pygame.Rect(
-                    layout["quests"].x, y, layout["quests"].width, _CARD_H
-                )
-                if card_rect.collidepoint(pos):
-                    self.selected_quest = index
-                    lines = quests[index].get("lines", [])
-                    if lines and isinstance(lines[0], int):
-                        self._code_scroll.offset = max(0, (lines[0] - 2) * 18)
+        # AI tab gets priority for wheel and panel events
+        if self._ai_tab_active and layout:
+            if self._ai_state == _AI_TAB_OFFLINE:
+                if self._vllm_panel.handle_event(event):
                     return
-                y += _CARD_H + _CARD_GAP
+            elif self._ai_state == _AI_TAB_REPORT:
+                ai_rect = layout.get("ai_panel")
+                if ai_rect and self._report_panel.handle_wheel(event, ai_rect):
+                    return
+
+        if not self._ai_tab_active and layout:
+            if self._code_scroll.handle_wheel(event, rect=layout["code"]):
+                return
+            if self._quest_scroll.handle_wheel(event, rect=layout["quests"]):
+                return
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                pos    = event.pos
+                quests = self._current_quests()
+                y      = layout["quests"].y - self._quest_scroll.offset
+                for index, _ in enumerate(quests):
+                    card_rect = pygame.Rect(
+                        layout["quests"].x, y, layout["quests"].width, _CARD_H
+                    )
+                    if card_rect.collidepoint(pos):
+                        self.selected_quest = index
+                        lines = quests[index].get("lines", [])
+                        if lines and isinstance(lines[0], int):
+                            self._code_scroll.offset = max(0, (lines[0] - 2) * 18)
+                        return
+                    y += _CARD_H + _CARD_GAP
 
         if self._widgets.handle_event(event):
             return
@@ -232,13 +355,17 @@ class CoachScreen:
         if event.type != pygame.KEYDOWN:
             return
         if event.key == pygame.K_ESCAPE:
-            self._back_to_scores()
-        elif event.key in (pygame.K_UP, pygame.K_w):
-            self.selected_quest = max(0, self.selected_quest - 1)
-        elif event.key in (pygame.K_DOWN, pygame.K_s):
-            quests = self._current_quests()
-            if quests:
-                self.selected_quest = min(len(quests) - 1, self.selected_quest + 1)
+            if self._ai_tab_active:
+                self._ai_tab_active = False
+            else:
+                self._back_to_scores()
+        elif not self._ai_tab_active:
+            if event.key in (pygame.K_UP, pygame.K_w):
+                self.selected_quest = max(0, self.selected_quest - 1)
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                quests = self._current_quests()
+                if quests:
+                    self.selected_quest = min(len(quests) - 1, self.selected_quest + 1)
 
     # ── Drawing ───────────────────────────────────────────────────────────────
 
@@ -290,12 +417,23 @@ class CoachScreen:
 
         # Active tab highlight
         for i, btn in enumerate(self._player_tabs):
-            if i == self.selected_player:
+            if i == self.selected_player and not self._ai_tab_active:
                 pygame.draw.rect(surface, colors.TEAL_ACCENT, btn.rect, 2, border_radius=5)
+        if self._ai_tab_active and self._ai_tab_btn:
+            pygame.draw.rect(surface, colors.TEAL_ACCENT, self._ai_tab_btn.rect, 2, border_radius=5)
 
         layout = self._layout_rects(surface)
         if not layout:
             return
+
+        # ── AI tab view ───────────────────────────────────────────────────────
+        if self._ai_tab_active:
+            ai_rect = layout["ai_panel"]
+            self._draw_ai_panel(surface, ai_rect, block)
+            self._widgets.draw(surface)
+            return
+
+        # ── Normal coach view ─────────────────────────────────────────────────
 
         # Code panel
         draw_code_panel(
@@ -332,3 +470,36 @@ class CoachScreen:
         surface.set_clip(old_clip)
 
         self._widgets.draw(surface)
+
+    def _draw_ai_panel(
+        self, surface: pygame.Surface, rect: pygame.Rect, block: dict[str, Any]
+    ) -> None:
+        state = self._ai_state
+        if state == _AI_TAB_CHECKING:
+            _draw_status(surface, rect, "Checking vLLM connection…", colors.TEXT_MUTED)
+        elif state == _AI_TAB_LOADING:
+            _draw_status(surface, rect, "Generating AI summary…", colors.TEAL_ACCENT)
+        elif state == _AI_TAB_OFFLINE:
+            self._vllm_panel.draw(surface, rect)
+        elif state == _AI_TAB_TEMPLATES:
+            feedback = block.get("feedback", [])
+            self._template_panel.draw(surface, rect, feedback)
+        elif state == _AI_TAB_REPORT:
+            text = self._ai_report_text or ""
+            self._report_panel.draw(surface, rect, text)
+
+
+def _draw_status(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    message: str,
+    color: tuple[int, int, int],
+) -> None:
+    from ui.skin import chrome as _skin
+    from ui.skin.typography import body_font as _bf
+    _skin.draw_panel(surface, rect, style="stone")
+    font = _bf(16)
+    surf = font.render(message, True, color)
+    cx = rect.x + (rect.width - surf.get_width()) // 2
+    cy = rect.y + (rect.height - surf.get_height()) // 2
+    surface.blit(surf, (cx, cy))

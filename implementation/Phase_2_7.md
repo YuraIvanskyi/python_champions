@@ -129,13 +129,13 @@ Default menu/CLI for **multi-bot** should not silently mix in AI unless the user
 ## Verification
 
 ```bash
-uv run ruff check .
-uv run pytest -v
+ruff check .
+pytest -v
 # Single-bot backward compatibility
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
 # Multi-bot (exact command TBD during implementation)
-uv run code-scenarios run --scenario resource_wars --bots student_bots/example_bot.py student_bots/example_bot.py --seed 42
-uv run code-scenarios gui
+code-scenarios run --scenario resource_wars --bots student_bots/example_bot.py student_bots/example_bot.py --seed 42
+code-scenarios gui
 ```
 
 Adjust the `--bots` example if the implementation chooses a different flag shape.

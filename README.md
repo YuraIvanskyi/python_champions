@@ -5,17 +5,9 @@ A lightweight, extensible educational game framework where students write Python
 ## Requirements
 
 - Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (preferred) or pip
+- pip
 
 ## Install
-
-With **uv** (recommended):
-
-```bash
-uv sync
-```
-
-With **pip**:
 
 ```bash
 python -m venv .venv
@@ -27,17 +19,13 @@ pip install -e ".[dev]"
 ## Run tests
 
 ```bash
-uv run pytest
+pytest
 ```
 
-Or with an activated venv: `pytest`
-
-## CLI (stub)
-
-Phase 1 adds full commands. For now:
+## CLI
 
 ```bash
-uv run code-scenarios --help
+code-scenarios --help
 ```
 
 ## Configuration

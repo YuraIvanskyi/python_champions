@@ -19,6 +19,7 @@ from ui.screens.simulation import SimulationScreen
 class App:
     def __init__(self, *, results_dir: Path | None = None, config_path: Path | None = None) -> None:
         cfg = load_config(config_path)
+        self.config = cfg
         theme.apply_config(cfg.ui)
         pygame.init()
         pygame.display.set_caption("code-scenarios")

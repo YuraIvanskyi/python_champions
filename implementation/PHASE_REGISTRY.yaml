@@ -87,9 +87,9 @@ phases:
   - id: phase-4
     file: Phase_4.md
     title: AI feedback
-    status: not_started
+    status: done
     depends_on: [phase-3-1]
-    completed_at: null
+    completed_at: "2026-05-24"
     plan_reference: "PLAN.md section 16 Phase 4"
 
   - id: phase-5

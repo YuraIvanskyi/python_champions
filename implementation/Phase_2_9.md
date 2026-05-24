@@ -217,13 +217,13 @@ Prefer procedural drawing first (like Phase 2.8 approach); fall back to PNG if p
 - [ ] At least 4 RPG-style icons appear on buttons/tabs (Run, Replays, mode tabs)
 - [ ] All existing keyboard shortcuts still work
 - [ ] `_start_run()` correctly routes practice vs classroom match
-- [ ] `uv run pytest -v` passes (no regressions)
+- [ ] `pytest -v` passes (no regressions)
 
 ## Verification
 
 ```bash
-uv run python -m pytest tests/ -v
-uv run python -m ui
+python -m pytest tests/ -v
+python -m ui
 # Manual: click Practice tab → pick bot → choose map thumbnail → Run Match
 # Manual: click Classroom tab → Browse folder → Run Match
 # Manual: verify no text is cut off on any button

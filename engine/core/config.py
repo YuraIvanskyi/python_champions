@@ -31,6 +31,15 @@ class AnalysisConfig(BaseModel):
     )
 
 
+class AiConfig(BaseModel):
+    provider: str = "vllm"
+    base_url: str = "http://localhost:8000/v1"
+    model: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    timeout_seconds: float = 20.0
+    max_tokens: int = 400
+    health_check_url: str = "http://localhost:8000/health"
+
+
 class GameConfig(BaseModel):
     default_opponent: str = "greedy"
 
@@ -83,6 +92,7 @@ class UIConfig(BaseModel):
 class AppConfig(BaseModel):
     engine: EngineConfig = Field(default_factory=EngineConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    ai: AiConfig = Field(default_factory=AiConfig)
     game: GameConfig = Field(default_factory=GameConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
 

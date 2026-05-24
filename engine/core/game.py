@@ -61,6 +61,16 @@ def run_game(
     if session_dir is not None and (session_dir / "metrics.json").is_file():
         metrics = json.loads((session_dir / "metrics.json").read_text(encoding="utf-8"))
 
+    if run_analysis and session_dir is not None and config.analysis.enable_ai:
+        from engine.analysis.ai_report import generate_report
+
+        ai_path = generate_report(session_dir, config)
+        if print_summary:
+            if ai_path is not None:
+                print(f"AI report: {ai_path}")
+            else:
+                print("AI report skipped (vLLM not reachable or disabled)")
+
     if print_summary:
         print(f"Final scores: {final_scores}")
         if session_dir is not None:

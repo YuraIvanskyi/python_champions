@@ -19,6 +19,47 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    """Regenerate AI report from an existing metrics.json (no re-simulation)."""
+    import glob as _glob
+
+    results_dir = Path(args.results_dir)
+    session_id: str | None = getattr(args, "session", None)
+
+    if session_id:
+        session_dir = results_dir / session_id
+    else:
+        # Auto-detect the most recent session
+        candidates = sorted(results_dir.glob("session_*"))
+        if not candidates:
+            print("No sessions found in results/.", file=sys.stderr)
+            return 1
+        session_dir = candidates[-1]
+
+    if not session_dir.is_dir():
+        print(f"Session directory not found: {session_dir}", file=sys.stderr)
+        return 1
+
+    if not (session_dir / "metrics.json").is_file():
+        print(f"metrics.json not found in {session_dir}.", file=sys.stderr)
+        return 1
+
+    config = load_config(Path(args.config) if args.config else None)
+
+    if not config.analysis.enable_ai:
+        print("AI skipped (disabled or vLLM not reachable) — set enable_ai = true in configs/default.toml")
+        return 0
+
+    from engine.analysis.ai_report import generate_report
+
+    path = generate_report(session_dir, config)
+    if path is not None:
+        print(f"AI report: {path}")
+    else:
+        print("AI skipped (disabled or vLLM not reachable)")
+    return 0
+
+
 def _cmd_analysis_only(args: argparse.Namespace) -> int:
     bot_path = Path(args.bot)
     if not bot_path.is_file():
@@ -245,6 +286,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional directory to write metrics.json",
     )
     analyze_parser.set_defaults(func=_cmd_analysis_only)
+
+    report_parser = subparsers.add_parser(
+        "report",
+        help="Regenerate AI report from existing metrics.json (no re-simulation)",
+    )
+    report_parser.add_argument(
+        "--session",
+        default=None,
+        help="Session id (directory name inside --results-dir); defaults to most recent",
+    )
+    report_parser.add_argument(
+        "--results-dir",
+        default="results",
+        help="Directory containing session folders",
+    )
+    report_parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to TOML config (default: configs/default.toml)",
+    )
+    report_parser.set_defaults(func=_cmd_report)
 
     gui_parser = subparsers.add_parser("gui", help="Launch the Pygame desktop UI")
     gui_parser.add_argument(

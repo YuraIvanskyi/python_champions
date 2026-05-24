@@ -16,7 +16,7 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
 ## Prerequisites
 
 - Python 3.12+ installed
-- `uv` or `pip` for dependency management
+- `pip` for dependency management
 - Git repository initialized (already present)
 
 ## Setup
@@ -31,7 +31,7 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
    source .venv/bin/activate
    ```
 
-2. Choose **uv** (preferred) or **pip** and stick to it for all later phases.
+2. Install dependencies with pip:
 
 ## Implementation steps
 
@@ -94,8 +94,8 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
 
 7. **Add root `README.md`** (project README, not this folder) with:
    - One-paragraph project purpose (from PLAN §1)
-   - How to install: `uv sync` or `pip install -e ".[dev]"`
-   - How to run tests: `uv run pytest` or `pytest`
+   - How to install: `pip install -e ".[dev]"` or `pip install -e ".[dev]"`
+   - How to run tests: `pytest` or `pytest`
    - Pointer to `implementation/README.md` for build phases
 
 8. **Add `tests/test_smoke.py`** — minimal test that imports `engine` and asserts `True` (or version attribute once defined).
@@ -107,8 +107,8 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
 11. **Install dependencies** and confirm import path:
 
     ```bash
-    uv sync
-    uv run python -c "import engine; print('ok')"
+    pip install -e ".[dev]"
+    python -c "import engine; print('ok')"
     ```
 
 ## Out of scope
@@ -126,18 +126,18 @@ Bootstrap the repository so later phases can add engine code, scenarios, and tes
 - [x] Root `README.md` documents install and test commands
 - [x] `tests/test_smoke.py` passes
 - [x] `engine.cli:main` entry point is declared (stub OK)
-- [x] `uv run pytest` or `pytest` exits 0
+- [x] `pytest` or `pytest` exits 0
 
 ## Verification
 
 ```bash
-uv sync
-uv run pytest tests/test_smoke.py -v
-uv run python -c "import engine; import engine.core"
-uv run code-scenarios --help
+pip install -e ".[dev]"
+pytest tests/test_smoke.py -v
+python -c "import engine; import engine.core"
+code-scenarios --help
 ```
 
-If not using `uv`, replace `uv run` with activated-venv equivalents.
+Run commands with the virtualenv activated (see Setup above).
 
 ## References
 

@@ -119,9 +119,9 @@ Deliver a **headless** single-player turn simulation: basic engine, one scenario
 ## Verification
 
 ```bash
-uv run pytest tests/test_engine_turns.py tests/test_loader.py tests/test_sandbox_timeout.py tests/test_replay_written.py -v
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+pytest tests/test_engine_turns.py tests/test_loader.py tests/test_sandbox_timeout.py tests/test_replay_written.py -v
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
 # Compare two replay.json files — should be identical
 ```
 

@@ -146,12 +146,12 @@ Ship `student_bots/example_bot.py` unchanged in logic; add optional `BOT_DISPLAY
 ## Verification
 
 ```bash
-uv run pytest tests/test_bot_profile.py tests/test_dumb_ai.py tests/test_ui_widgets.py tests/test_ui_import.py tests/test_replay_load.py -v
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --opponent dumb --seed 42
-uv run python -m ui
+pytest tests/test_bot_profile.py tests/test_dumb_ai.py tests/test_ui_widgets.py tests/test_ui_import.py tests/test_replay_load.py -v
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --opponent dumb --seed 42
+python -m ui
 # Manual: menu — click through without keyboard; run with Rookie; confirm name/icon on map
 # Manual: replay — names match live session
-uv run code-scenarios gui
+code-scenarios gui
 ```
 
 ## References

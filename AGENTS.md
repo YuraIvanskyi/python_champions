@@ -16,14 +16,14 @@ Guidance for AI agents and contributors building this repository. Authoritative 
 | --- | --- | --- |
 | Language | Python **3.12+** | Primary implementation language |
 | UI | **Pygame CE** | Local desktop; grid/tile visualization |
-| Packaging | **uv** (preferred) or **pip** | `pyproject.toml` at repo root |
+| Packaging | **pip** | `pyproject.toml` at repo root |
 | Config | **TOML** | `configs/default.toml` |
 | Storage | **JSON + filesystem** | `results/` per session; no database |
 | Dynamic loading | **importlib** | One `.py` file per student bot |
 | Sandbox | **subprocess + timeouts** | Soft isolation first; no Docker in MVP |
 | Static analysis | **Ruff**, **Radon**, **ast** | Student bot files only |
 | Testing | **pytest** | Standard layout under `tests/` |
-| AI (optional) | **Ollama** / OpenAI-compatible API | Phase 4+; off by default |
+| AI (optional) | **vLLM** / OpenAI-compatible API | Phase 4+; off by default |
 
 **Pinned dependencies (Phase 0):** `pygame-ce`, `pytest`, `ruff`, `radon`, `tomli` (or stdlib `tomllib` on 3.12+ — document the choice), `pydantic`. Optional dev: `rich`.
 
@@ -77,7 +77,7 @@ Console entry point: `code-scenarios` → `engine.cli:main`.
 | 2.9 | phase-2-9 | phase-2-8 | Launcher UX overhaul: mode tabs, map picker, icons |
 | 3 | phase-3 | phase-1 | Ruff/Radon/AST, scoring, `metrics.json` |
 | 3.1 | phase-3-1 | phase-3, phase-2-8 | Code Coach screen, `feedback_items`, line highlights |
-| 4 | phase-4 | phase-3-1 | Optional Ollama reports |
+| 4 | phase-4 | phase-3-1 | Optional vLLM reports + in-game setup screen |
 | 5 | phase-5 | phase-2-8, phase-3-1 | Tournament batch + rankings |
 | 6 | phase-6 | phase-5 | Teams, fog, communication APIs |
 
@@ -93,32 +93,37 @@ grep -r "PHASE_STATUS" implementation/
 
 ## Development commands
 
-Use `uv run …` when the project uses uv; otherwise activate `.venv` and run equivalents.
+Activate the virtualenv first, then run commands directly.
 
 ```bash
+# Setup (once)
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# Unix:    source .venv/bin/activate
+pip install -e ".[dev]"
+
 # Phase 0+
-uv sync
-uv run pytest -v
-uv run python -c "import engine"
+pytest -v
+python -c "import engine"
 
 # Phase 1+
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
-uv run code-scenarios run --scenario resource_wars --bots path/a.py path/b.py --seed 42
-uv run code-scenarios run --scenario resource_wars --bots-dir student_bots --seed 42
-uv run code-scenarios --help
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+code-scenarios run --scenario resource_wars --bots path/a.py path/b.py --seed 42
+code-scenarios run --scenario resource_wars --bots-dir student_bots --seed 42
+code-scenarios --help
 
 # Phase 2+
-uv run python -m ui
-uv run code-scenarios gui
+python -m ui
+code-scenarios gui
 
 # Phase 3+
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --no-analysis  # if flag exists
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --no-analysis
 
 # Phase 4+
-uv run code-scenarios report --session <id>
+code-scenarios report --session <id>
 
 # Phase 5+
-uv run code-scenarios tournament --scenario resource_wars --bots-dir student_bots --seed 42
+code-scenarios tournament --scenario resource_wars --bots-dir student_bots --seed 42
 ```
 
 **Windows:** activate with `.venv\Scripts\activate`. **Unix:** `source .venv/bin/activate`.

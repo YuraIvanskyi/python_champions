@@ -92,10 +92,10 @@ Extend the scenario system with **teams, shared resources, fog of war, and commu
 ## Verification
 
 ```bash
-uv run pytest tests/test_resource_wars_regression.py tests/test_team_battle.py tests/test_communication.py -v
-uv run code-scenarios run --scenario team_battle --bot student_bots/team_alpha.py --seed 7
-uv run code-scenarios tournament --scenario team_battle --bots-dir student_bots --seed 7 --label team_test
-uv run python -m ui
+pytest tests/test_resource_wars_regression.py tests/test_team_battle.py tests/test_communication.py -v
+code-scenarios run --scenario team_battle --bot student_bots/team_alpha.py --seed 7
+code-scenarios tournament --scenario team_battle --bots-dir student_bots --seed 7 --label team_test
+python -m ui
 # Manual: verify fog and team resources in simulation viewer
 ```
 

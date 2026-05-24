@@ -75,9 +75,9 @@ Rewrite using `GameView` methods; document API in module docstring (no dict key 
 ## Verification
 
 ```bash
-uv run pytest -v tests/test_game_view.py tests/test_loader.py tests/test_engine_turns.py
-uv run pytest -v
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+pytest -v tests/test_game_view.py tests/test_loader.py tests/test_engine_turns.py
+pytest -v
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
 ```
 
 ## Definition of done

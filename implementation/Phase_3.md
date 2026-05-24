@@ -108,8 +108,8 @@ Completing Phases 0–3 satisfies [PLAN.md §22 MVP](../PLAN.md#22-recommended-f
 ## Verification
 
 ```bash
-uv run pytest tests/test_static_analysis.py tests/test_scoring_formula.py tests/test_metrics_output.py tests/test_feedback_templates.py -v
-uv run code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 1
+pytest tests/test_static_analysis.py tests/test_scoring_formula.py tests/test_metrics_output.py tests/test_feedback_templates.py -v
+code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 1
 # Confirm results/session_*/metrics.json exists and contains scores + feedback
 cat results/session_*/metrics.json
 ```

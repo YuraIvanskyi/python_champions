@@ -6,9 +6,17 @@ max_turns = 50
 default_opponent = "greedy"
 
 [analysis]
-enable_ai = false
+enable_ai = false            # flip to true once vLLM is running
 enable_static_analysis = true
 ruff_select = ["E", "F", "W"]
+
+[ai]
+provider         = "vllm"
+base_url         = "http://localhost:8000/v1"
+model            = "Qwen/Qwen2.5-1.5B-Instruct"
+timeout_seconds  = 20
+max_tokens       = 400
+health_check_url = "http://localhost:8000/health"
 
 [ui]
 tile_size = 40
