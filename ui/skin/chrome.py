@@ -524,6 +524,45 @@ def draw_panel_titled(
     )
 
 
+def draw_scrollbar(
+    surface: pygame.Surface,
+    track_rect: pygame.Rect,
+    *,
+    content_height: int,
+    viewport_height: int,
+    offset: int,
+) -> None:
+    """Draw a slim RPG-styled vertical scrollbar inside *track_rect*.
+
+    Does nothing when all content fits in the viewport (no scroll needed).
+    The caller is responsible for positioning *track_rect* — typically a
+    narrow strip on the right edge of the scrollable panel.
+    """
+    if content_height <= viewport_height or track_rect.height <= 0:
+        return
+
+    # Semi-transparent dark track
+    track_surf = pygame.Surface((track_rect.width, track_rect.height), pygame.SRCALPHA)
+    track_surf.fill((*colors.STONE_SHADOW, 160))
+    pygame.draw.rect(track_surf, (*colors.STONE_BORDER, 180),
+                     track_surf.get_rect(), 1, border_radius=3)
+    surface.blit(track_surf, track_rect.topleft)
+
+    # Thumb proportional to viewport / content
+    ratio   = max(0.0, min(1.0, viewport_height / content_height))
+    thumb_h = max(18, int(track_rect.height * ratio))
+
+    scroll_ratio = offset / max(1, content_height - viewport_height)
+    thumb_y = track_rect.y + int((track_rect.height - thumb_h) * scroll_ratio)
+
+    thumb = pygame.Rect(track_rect.x + 1, thumb_y, track_rect.width - 2, thumb_h)
+    pygame.draw.rect(surface, colors.TEXT_MUTED, thumb, border_radius=3)
+    # Bevel highlight on top edge
+    pygame.draw.line(surface, colors.STONE_HIGHLIGHT,
+                     (thumb.left + 2, thumb.top + 1),
+                     (thumb.right - 2, thumb.top + 1))
+
+
 def draw_ornamental_divider(
     surface: pygame.Surface,
     rect: pygame.Rect,
@@ -586,7 +625,13 @@ def draw_text_clipped(
     y = inner.y + (inner.height - surf.get_height()) // 2
 
     old_clip = surface.get_clip()
-    surface.set_clip(inner)
+    # Intersect with the outer clip so text never escapes a parent scroll panel.
+    active_clip = (
+        old_clip.clip(inner)
+        if old_clip.width > 0 and old_clip.height > 0
+        else inner
+    )
+    surface.set_clip(active_clip)
     blit_pos = (x, y)
     surface.blit(surf, blit_pos)
     surface.set_clip(old_clip)

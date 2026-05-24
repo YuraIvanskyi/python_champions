@@ -463,10 +463,13 @@ class CoachScreen:
         self._quest_scroll.set_content(total_h, inner.height)
         y = inner.y - self._quest_scroll.offset
 
+        _SCROLLBAR_W = 6
+        card_w = inner.width - _SCROLLBAR_W - 2   # leave room for scrollbar
+
         old_clip = surface.get_clip()
         surface.set_clip(inner)
         for index, item in enumerate(quests):
-            card_rect = pygame.Rect(inner.x, y, inner.width, _CARD_H)
+            card_rect = pygame.Rect(inner.x, y, card_w, _CARD_H)
             if card_rect.bottom >= inner.top and card_rect.top <= inner.bottom:
                 draw_quest_card(
                     surface, card_rect, item,
@@ -474,6 +477,15 @@ class CoachScreen:
                 )
             y += _CARD_H + _CARD_GAP
         surface.set_clip(old_clip)
+
+        # Scrollbar on the right edge of the quest panel
+        track = pygame.Rect(inner.right - _SCROLLBAR_W, inner.y, _SCROLLBAR_W, inner.height)
+        skin.draw_scrollbar(
+            surface, track,
+            content_height=self._quest_scroll.content_height,
+            viewport_height=self._quest_scroll.viewport_height,
+            offset=self._quest_scroll.offset,
+        )
 
         self._widgets.draw(surface)
 

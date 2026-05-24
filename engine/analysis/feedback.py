@@ -44,7 +44,7 @@ def _item(
     )
 
 
-_RUFF_INLINE_THRESHOLD = 4   # show individual cards up to this many issues
+_RUFF_INLINE_THRESHOLD = 7   # show individual cards up to this many issues
 
 # Maps ruff code *prefixes* → short kid-friendly card title
 _RUFF_TITLE_MAP: list[tuple[str, str]] = [

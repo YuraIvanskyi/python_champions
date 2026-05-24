@@ -221,9 +221,11 @@ def draw_quest_card(
     msg_w         = rect.width - _CARD_PAD_X * 2
     msg_y         = rect.y + _CARD_PAD_Y + _RIBBON_H + 5
 
-    # Clip to the card so wrapped text never bleeds outside
+    # Clip to the intersection of the card rect and whatever outer clip is active
+    # (the outer clip is the scrollable panel viewport — we must not widen it).
     old_clip = surface.get_clip()
-    surface.set_clip(rect)
+    active_clip = old_clip.clip(rect) if old_clip.width > 0 and old_clip.height > 0 else rect
+    surface.set_clip(active_clip)
 
     after_msg_y = _draw_wrapped(
         surface, str(item.get("message", "")),
