@@ -25,7 +25,8 @@ def make_turn(state):
         ny = py + dy
         walkable = state.is_walkable(nx, ny)
         if walkable == True:
-            d = state.manhattan_to_nearest_resource(nx, ny)
+            resources = state.resource_tiles()
+            d = min((abs(rx - nx) + abs(ry - ny) for rx, ry in resources), default=99999)
             if d < best_dist:
                 best_dist = d
                 best_action = act

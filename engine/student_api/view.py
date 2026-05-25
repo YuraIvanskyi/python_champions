@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-_NO_RESOURCE_DISTANCE = 10_000
-
 
 class TileKind:
     """Tile type strings for Resource Wars (and compatible scenarios)."""
@@ -144,8 +142,3 @@ class GameView:
     def resource_tiles(self) -> list[tuple[int, int]]:
         return [(x, y) for (x, y), kind in self._tiles.items() if kind == TileKind.RESOURCE]
 
-    def manhattan_to_nearest_resource(self, x: int, y: int) -> int:
-        best = _NO_RESOURCE_DISTANCE
-        for rx, ry in self.resource_tiles():
-            best = min(best, abs(rx - x) + abs(ry - y))
-        return best

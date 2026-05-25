@@ -11,7 +11,7 @@ Turn function receives a readonly GameView (state). Common calls:
   state.my_x(), state.my_y()   -> int
   state.score()                -> int (resources collected)
   state.is_walkable(x, y)      -> bool
-  state.manhattan_to_nearest_resource(x, y) -> int
+  state.resource_tiles()       -> list of (x, y) for all visible resource tiles
   state.others_positions()     -> list of (player_id, x, y) on classroom maps
 
 Legacy two-player helpers still work; with several rivals, opponent_x/y reflect the first other id.
@@ -30,6 +30,7 @@ def make_turn(state):
         return "GATHER"
 
     px, py = state.position()
+    resources = state.resource_tiles()
     best_action = "WAIT"
     best_dist = 10_000
 
@@ -44,11 +45,10 @@ def make_turn(state):
         if not state.is_walkable(nx, ny):
             continue
 
-        dist = state.manhattan_to_nearest_resource(nx, ny)
+        dist = min((abs(rx - nx) + abs(ry - ny) for rx, ry in resources), default=10_000)
 
         if dist < best_dist:
             best_dist = dist
-
             best_action = action
 
     return best_action

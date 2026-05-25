@@ -45,7 +45,6 @@ Methods (Resource Wars baseline):
 | `tile_at(x, y)` | scan `visible_tiles` |
 | `is_walkable(x, y)`, `is_obstacle(x, y)` | tile helpers |
 | `has_resource_at(x, y)`, `resource_tiles()` | resource helpers |
-| `manhattan_to_nearest_resource(x, y)` | common greedy pattern |
 
 `TileKind.EMPTY`, `RESOURCE`, `OBSTACLE` — string constants for comparisons.
 

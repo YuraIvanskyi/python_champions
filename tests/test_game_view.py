@@ -49,11 +49,9 @@ def test_tile_helpers() -> None:
     assert state.is_inside(-1, 0) is False
 
 
-def test_resource_tiles_and_distance() -> None:
+def test_resource_tiles() -> None:
     state = GameView.from_dict(_sample_state())
     assert state.resource_tiles() == [(3, 4)]
-    assert state.manhattan_to_nearest_resource(2, 4) == 1
-    assert state.manhattan_to_nearest_resource(0, 0) == 7
 
 
 def test_on_resource_flag() -> None:
