@@ -45,7 +45,11 @@ class StaticMetrics:
 
 
 def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
-    """Run Ruff on a single file; return parsed violations."""
+    """Run Ruff on a single file; return parsed violations.
+
+    Uses ``--no-cache`` so stale cache entries never hide real violations, and
+    logs any Ruff errors to stderr so silent failures become visible.
+    """
     if not select:
         return []
     select_arg = ",".join(select)
@@ -60,6 +64,7 @@ def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
         "--output-format",
         "json",
         "--no-fix",
+        "--no-cache",
     ]
     completed = subprocess.run(
         cmd,
@@ -67,11 +72,21 @@ def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
         text=True,
         check=False,
     )
+    # returncode 0 = clean, 1 = violations found, 2+ = Ruff error
+    if completed.returncode >= 2 or (not completed.stdout.strip() and completed.stderr.strip()):
+        import sys as _sys
+        print(
+            f"[analysis] ruff error (rc={completed.returncode}): {completed.stderr.strip()[:200]}",
+            file=_sys.stderr,
+        )
+        return []
     if not completed.stdout.strip():
         return []
     try:
         raw = json.loads(completed.stdout)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        import sys as _sys
+        print(f"[analysis] ruff JSON parse error: {exc}", file=_sys.stderr)
         return []
     violations: list[RuffViolation] = []
     for item in raw:
