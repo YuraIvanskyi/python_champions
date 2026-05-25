@@ -7,6 +7,7 @@ from pathlib import Path
 import pygame
 
 from engine.core.replay import ReplaySession, list_session_dirs, load_replay
+from engine.core.scenario_registry import scenario_display_name
 from ui.render.hud import draw_centered_text, draw_hud, draw_toolbar_strip
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
@@ -17,9 +18,11 @@ from ui.theme import (
     MAP_PADDING,
     MARGIN_X,
     TILE_SIZE,
+    TOOLBAR_BTN_FONT,
+    TOOLBAR_BTN_GAP,
+    TOOLBAR_BTN_WIDTH,
     TOOLBAR_HEIGHT,
     content_width,
-    footer_top,
     hud_text_top,
     toolbar_top,
 )
@@ -42,44 +45,41 @@ class ReplayScreen:
         self._build_transport()
 
     def _build_transport(self) -> None:
-        placeholder = pygame.Rect(0, 0, 100, 36)
-        self._back_btn = Button(placeholder, "◀ Back", on_click=self._step_back)
-        self._fwd_btn  = Button(placeholder, "Next ▶", on_click=self._step_fwd)
-        self._home_btn = Button(placeholder, "⏮ Start", on_click=self._go_home)
-        self._end_btn  = Button(placeholder, "End ⏭", on_click=self._go_end)
-        self._menu_btn = Button(placeholder, "Menu", on_click=self._back_to_menu)
+        placeholder = pygame.Rect(0, 0, TOOLBAR_BTN_WIDTH, TOOLBAR_HEIGHT)
+        btn_kw = {"font_size": TOOLBAR_BTN_FONT}
+        self._back_btn = Button(
+            placeholder, "Back", on_click=self._step_back, **btn_kw,
+        )
+        self._fwd_btn = Button(
+            placeholder, "Next", on_click=self._step_fwd, **btn_kw,
+        )
+        self._home_btn = Button(
+            placeholder, "Start", on_click=self._go_home, **btn_kw,
+        )
+        self._end_btn = Button(
+            placeholder, "End", on_click=self._go_end, **btn_kw,
+        )
+        self._menu_btn = Button(
+            placeholder, "Menu", on_click=self._back_to_menu, **btn_kw,
+        )
         self._transport = WidgetGroup(
             [self._back_btn, self._fwd_btn, self._home_btn, self._end_btn, self._menu_btn]
         )
 
     def _layout_transport(self, surface: pygame.Surface) -> None:
-        """Reposition transport buttons to fit current window width."""
-        sw   = surface.get_width()
-        btn_h = TOOLBAR_HEIGHT - 8
-        btn_y = toolbar_top() + 4
+        """Reposition transport buttons along the bottom toolbar."""
+        sw = surface.get_width()
+        btn_h = TOOLBAR_HEIGHT - 10
+        btn_y = toolbar_top(surface.get_height()) + 5
+        w = TOOLBAR_BTN_WIDTH
+        gap = TOOLBAR_BTN_GAP
 
-        # Measure each label and give buttons enough width (text + 24px padding)
-        font = body_font(16)
-        pad  = 24
-
-        def btn_w(label: str) -> int:
-            return max(80, font.size(label)[0] + pad)
-
-        w_back = btn_w(self._back_btn.label)
-        w_fwd  = btn_w(self._fwd_btn.label)
-        w_home = btn_w(self._home_btn.label)
-        w_end  = btn_w(self._end_btn.label)
-        w_menu = btn_w(self._menu_btn.label)
-
-        gap = 8
         x = MARGIN_X
-        self._back_btn.rect = pygame.Rect(x, btn_y, w_back, btn_h); x += w_back + gap
-        self._fwd_btn.rect  = pygame.Rect(x, btn_y, w_fwd,  btn_h); x += w_fwd  + gap
-        self._home_btn.rect = pygame.Rect(x, btn_y, w_home, btn_h); x += w_home + gap
-        self._end_btn.rect  = pygame.Rect(x, btn_y, w_end,  btn_h)
+        for btn in (self._back_btn, self._fwd_btn, self._home_btn, self._end_btn):
+            btn.rect = pygame.Rect(x, btn_y, w, btn_h)
+            x += w + gap
 
-        # Menu at the far right
-        self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w_menu, btn_y, w_menu, btn_h)
+        self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w, btn_y, w, btn_h)
 
     def on_enter(self) -> None:
         self._pick_mode = self.replay is None
@@ -238,8 +238,9 @@ class ReplayScreen:
         draw_map(surface, render_state, origin_y=origin_y)
 
         banner_y = max(4, frame_top - 48)
+        scenario_name = scenario_display_name(self.replay.scenario_id)
         skin.draw_banner_title(
-            surface, "Replay",
+            surface, scenario_name,
             center_x=sw // 2,
             y=banner_y,
             max_width=280,
@@ -272,7 +273,8 @@ class ReplayScreen:
 
         draw_hud(
             surface,
-            title="Replay",
+            title=scenario_name,
+            subtitle=f"Seed {self.replay.seed}",
             lines=[
                 f"Turn {idx + 1} / {total}  ·  {score_str}",
                 action_line,
@@ -283,27 +285,7 @@ class ReplayScreen:
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._layout_transport(surface)
 
-        # Centered replay name in the toolbar
-        replay_label = f"{self.replay.scenario_id}  ·  seed {self.replay.seed}"
-        name_font = body_font(15)
-        name_surf = name_font.render(replay_label, True, colors.GOLD_TEXT)
-        name_x = (sw - name_surf.get_width()) // 2
-        name_y = toolbar_top() + (TOOLBAR_HEIGHT - name_surf.get_height()) // 2
-        surface.blit(name_surf, (name_x, name_y))
-
         self._transport.draw(surface)
-
-        cw = content_width()
-        footer = body_font(FOOTER_PT)
-        foot_surf = footer.render(
-            "Keyboard: ←/→ step · Home/End · Esc back",
-            True,
-            colors.TEXT_MUTED,
-        )
-        old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
-        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
-        surface.set_clip(old_clip)
 
     def _draw_picker(self, surface: pygame.Surface) -> None:
         sw = surface.get_width()
@@ -337,9 +319,10 @@ class ReplayScreen:
         foot_surf = foot_font.render(
             "↑↓ select  ·  Enter load  ·  Esc menu", True, colors.TEXT_MUTED
         )
+        foot_y = surface.get_height() - foot_surf.get_height() - 8
         old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
-        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
+        surface.set_clip(pygame.Rect(MARGIN_X, foot_y, cw, FOOTER_PT + 8))
+        surface.blit(foot_surf, (MARGIN_X, foot_y))
         surface.set_clip(old_clip)
 
         if self.error:

@@ -4,11 +4,12 @@ Icon resolution priority (highest wins):
   1. BOT_ICON_INDEX = <int 0-99>  — picks char_NNN.png from the portrait sheet
   2. BOT_ICON = "<path>"          — explicit path under student_bots/ or ui/assets/icons/
   3. get_bot_profile() dict       — dict with optional "icon_index" or "icon" keys
-  4. No declaration               — default portrait char_085.png
+  4. No declaration               — a random portrait is assigned at load time
 """
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -23,13 +24,33 @@ ALLOWED_ICON_PREFIXES = (
 
 CHAR_ICONS_DIR = Path(__file__).resolve().parents[2] / "ui" / "assets" / "icons"
 CHAR_ICON_COUNT = 100
-DEFAULT_STUDENT_ICON_INDEX = 85
+DEFAULT_STUDENT_ICON_INDEX = 85  # reserved default portrait (not used for auto-assignment)
+BOSS_ICON_INDEX = 99
+RIVAL_ICON_INDEX = 33
+ROOKIE_ICON_INDEX = 53
+
+RESERVED_ICON_INDICES = frozenset(
+    {
+        RIVAL_ICON_INDEX,
+        ROOKIE_ICON_INDEX,
+        DEFAULT_STUDENT_ICON_INDEX,
+        BOSS_ICON_INDEX,
+    }
+)
+_ASSIGNABLE_ICON_INDICES = tuple(
+    i for i in range(CHAR_ICON_COUNT) if i not in RESERVED_ICON_INDICES
+)
 
 
 def char_icon_path(index: int, *, root: Path | None = None) -> Path:
     """Return the absolute path for portrait icon *index* (0–99)."""
     base = root or Path(__file__).resolve().parents[2]
     return base / "ui" / "assets" / "icons" / f"char_{index % CHAR_ICON_COUNT:03d}.png"
+
+
+def random_icon_index() -> int:
+    """Pick a random portrait index, excluding reserved portraits."""
+    return random.choice(_ASSIGNABLE_ICON_INDICES)
 
 
 def project_root() -> Path:
@@ -90,7 +111,7 @@ def read_profile_from_module(
       1. get_bot_profile() dict  →  "icon_index" (int) or "icon" (str path)
       2. BOT_ICON_INDEX = <int>
       3. BOT_ICON = "<path>"
-      4. Default portrait char_085.png
+      4. Random portrait assigned at load time
     """
     display_name = default_name
     icon_path: str | None = None
@@ -133,9 +154,10 @@ def _coerce_icon_index(value: Any) -> int:
 
 
 def _fallback_icon(bot_file: Path, *, root: Path | None = None) -> str | None:
-    """Return the default student portrait when the bot declares no icon."""
+    """Return a random portrait when the bot declares no icon."""
     del bot_file  # kept for call-site compatibility
-    path = char_icon_path(DEFAULT_STUDENT_ICON_INDEX, root=root)
+    idx = random_icon_index()
+    path = char_icon_path(idx, root=root)
     if path.is_file():
         return str(path)
     return None

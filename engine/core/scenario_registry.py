@@ -9,6 +9,9 @@ from engine.core.scenario import ScenarioBase
 
 SCENARIOS_ROOT = Path(__file__).resolve().parents[2] / "scenarios"
 
+# Launcher display order (resource_wars is the default / tutorial scenario).
+_SCENARIO_DISPLAY_ORDER = ("resource_wars", "boss_fight", "energy_stations")
+
 
 def create_scenario(
     scenario_id: str,
@@ -51,4 +54,20 @@ def list_scenarios() -> list[dict[str, str]]:
                 "description": str(meta.get("description", "")),
             }
         )
+
+    def _sort_key(entry: dict[str, str]) -> tuple[int, str]:
+        sid = entry["id"]
+        if sid in _SCENARIO_DISPLAY_ORDER:
+            return (_SCENARIO_DISPLAY_ORDER.index(sid), sid)
+        return (len(_SCENARIO_DISPLAY_ORDER), sid)
+
+    found.sort(key=_sort_key)
     return found
+
+
+def scenario_display_name(scenario_id: str) -> str:
+    """Human-readable scenario title from registry metadata."""
+    for entry in list_scenarios():
+        if entry["id"] == scenario_id:
+            return entry["name"]
+    return scenario_id.replace("_", " ").title()

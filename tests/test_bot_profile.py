@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from engine.core.bot_profile import read_profile_from_module, validate_icon_path
+from engine.core.bot_profile import (
+    RESERVED_ICON_INDICES,
+    random_icon_index,
+    read_profile_from_module,
+    validate_icon_path,
+)
 from engine.core.loader import BotLoadError, load_bot
 from engine.core.opponents import builtin_icon_path
 
@@ -38,14 +43,17 @@ def test_missing_icon_file_raises(tmp_path: Path) -> None:
         load_bot(bot_file)
 
 
-def test_default_student_icon_when_unset(tmp_path: Path) -> None:
+def test_random_student_icon_when_unset(tmp_path: Path) -> None:
     root = tmp_path
-    icon = root / "ui" / "assets" / "icons" / "char_085.png"
-    icon.parent.mkdir(parents=True)
-    icon.write_bytes(
+    icons_dir = root / "ui" / "assets" / "icons"
+    icons_dir.mkdir(parents=True)
+    png = (
         b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
         b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc``\x00\x00\x00\x02\x00\x01\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82"
     )
+    for i in range(100):
+        (icons_dir / f"char_{i:03d}.png").write_bytes(png)
+
     bot_file = root / "student_bots" / "plain.py"
     bot_file.parent.mkdir()
     bot_file.write_text("def make_turn(s): return 'WAIT'\n", encoding="utf-8")
@@ -54,7 +62,44 @@ def test_default_student_icon_when_unset(tmp_path: Path) -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     _, icon_path = read_profile_from_module(module, bot_file=bot_file, root=root)
-    assert icon_path == str(icon.resolve())
+    assert icon_path is not None
+    idx = int(Path(icon_path).stem.split("_")[1])
+    assert idx not in RESERVED_ICON_INDICES
+
+
+def test_random_icon_index_excludes_reserved() -> None:
+    for _ in range(200):
+        idx = random_icon_index()
+        assert idx not in RESERVED_ICON_INDICES
+        assert 0 <= idx <= 99
+
+
+def test_fallback_icon_varies_between_loads(tmp_path: Path) -> None:
+    root = tmp_path
+    icons_dir = root / "ui" / "assets" / "icons"
+    icons_dir.mkdir(parents=True)
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc``\x00\x00\x00\x02\x00\x01\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    for i in range(100):
+        (icons_dir / f"char_{i:03d}.png").write_bytes(png)
+
+    bot_file = root / "student_bots" / "plain.py"
+    bot_file.parent.mkdir()
+    bot_file.write_text("def make_turn(s): return 'WAIT'\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("plain", bot_file)
+    assert spec and spec.loader
+
+    indices: set[int] = set()
+    for _ in range(30):
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader
+        spec.loader.exec_module(module)
+        _, icon_path = read_profile_from_module(module, bot_file=bot_file, root=root)
+        assert icon_path is not None
+        indices.add(int(Path(icon_path).stem.split("_")[1]))
+    assert len(indices) >= 2
 
 
 def test_builtin_opponent_icons() -> None:

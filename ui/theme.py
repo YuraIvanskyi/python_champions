@@ -18,21 +18,23 @@ WINDOW_WIDTH = 1024
 WINDOW_HEIGHT = 800
 
 MARGIN_X = 48
-FOOTER_HEIGHT = 24
-TOOLBAR_HEIGHT = 44
-HUD_TEXT_HEIGHT = 120
-HUD_GAP = 8
+FOOTER_HEIGHT = 0
+TOOLBAR_HEIGHT = 52
+TOOLBAR_BTN_WIDTH = 112
+TOOLBAR_BTN_GAP = 12
+TOOLBAR_BTN_FONT = 20
+HUD_TEXT_HEIGHT = 128
 
 LABEL_FONT_PT = 14
-HUD_TITLE_PT = 24
-HUD_BODY_PT = 18
-HUD_LINE_SPACING = 24
+HUD_TITLE_PT = 22
+HUD_BODY_PT = 16
+HUD_LINE_SPACING = 20
 CENTER_TITLE_PT = 28
 CENTER_SUBTITLE_PT = 16
 FOOTER_PT = 15
 MENU_HINT_PT = 15
 
-HUD_HEIGHT = HUD_TEXT_HEIGHT + TOOLBAR_HEIGHT + HUD_GAP
+HUD_HEIGHT = HUD_TEXT_HEIGHT + TOOLBAR_HEIGHT
 
 # Colors from RPG skin (backward-compatible names)
 COLOR_BG = colors.COLOR_BG
@@ -96,8 +98,8 @@ def apply_config(ui: UIConfig) -> None:
     CENTER_SUBTITLE_PT = ui.center_subtitle_pt
     FOOTER_PT = ui.footer_pt
     MENU_HINT_PT = ui.menu_hint_pt
-    HUD_TEXT_HEIGHT = max(100, ui.hud_body_pt * 4 + 36)
-    HUD_HEIGHT = HUD_TEXT_HEIGHT + TOOLBAR_HEIGHT + HUD_GAP
+    HUD_TEXT_HEIGHT = max(128, ui.hud_body_pt * 4 + 48)
+    HUD_HEIGHT = HUD_TEXT_HEIGHT + TOOLBAR_HEIGHT
 
     _coach_max_quest = ui.coach.max_quest_cards
     _coach_code_font_pt = ui.coach.code_panel_font_pt
@@ -112,20 +114,13 @@ def apply_config(ui: UIConfig) -> None:
 
 
 def hud_text_top(window_height: int | None = None) -> int:
-    h = WINDOW_HEIGHT if window_height is None else window_height
-    return (
-        h
-        - FOOTER_HEIGHT
-        - TOOLBAR_HEIGHT
-        - HUD_GAP
-        - HUD_TEXT_HEIGHT
-        - HUD_GAP
-    )
+    """Top of the wood HUD panel — flush above the bottom toolbar."""
+    return toolbar_top(window_height) - HUD_TEXT_HEIGHT
 
 
 def toolbar_top(window_height: int | None = None) -> int:
     h = WINDOW_HEIGHT if window_height is None else window_height
-    return h - FOOTER_HEIGHT - TOOLBAR_HEIGHT - HUD_GAP
+    return h - FOOTER_HEIGHT - TOOLBAR_HEIGHT
 
 
 def footer_top(window_height: int | None = None) -> int:

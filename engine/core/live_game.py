@@ -20,10 +20,8 @@ from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
 def _scenario_needs_external_opponent(scenario_id: str, *, student_count: int) -> bool:
-    """Return False when the scenario supplies its own opponent AI."""
-    if scenario_id == "boss_fight":
-        return False
-    if scenario_id == "energy_stations":
+    """Return True when practice mode should add a built-in computer player."""
+    if scenario_id in ("boss_fight", "energy_stations"):
         return student_count < 2
     return True
 

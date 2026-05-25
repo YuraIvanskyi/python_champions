@@ -130,15 +130,20 @@ def _draw_single_hp_bar(
     bar_w: int,
     bar_h: int,
     info: dict,
+    *,
+    fg_color: tuple[int, int, int] | None = None,
+    bg_color: tuple[int, int, int] | None = None,
 ) -> None:
-    alive = bool(info.get("alive", True))
+    alive = bool(info.get("alive", int(info.get("hp", 0)) > 0))
     hp = int(info.get("hp", 0))
     max_hp = int(info.get("max_hp", 1))
+    bar_bg = bg_color if bg_color is not None else _HP_BAR_BG
     bg_rect = pygame.Rect(x, y, bar_w, bar_h)
-    pygame.draw.rect(surface, _HP_BAR_BG, bg_rect, border_radius=2)
+    pygame.draw.rect(surface, bar_bg, bg_rect, border_radius=2)
     if max_hp > 0:
         filled_w = max(0, round(bar_w * hp / max_hp))
-        fg_color = _HP_BAR_PLAYER_FG if alive else _HP_BAR_DEAD
+        if fg_color is None:
+            fg_color = _HP_BAR_PLAYER_FG if alive else _HP_BAR_DEAD
         if filled_w > 0:
             fg_rect = pygame.Rect(x, y, filled_w, bar_h)
             pygame.draw.rect(surface, fg_color, fg_rect, border_radius=2)
@@ -226,8 +231,10 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
 
 _BOSS_COLOR = (200, 40, 40)
 _BOSS_INNER = (240, 80, 80)
-_HP_BAR_BG = (50, 20, 20)
+_HP_BAR_BG = (18, 32, 22)
 _HP_BAR_FG = (200, 60, 60)
+_HP_BAR_BOSS_BG = (50, 20, 20)
+_HP_BAR_BOSS_FG = (220, 50, 50)
 _HP_BAR_PLAYER_FG = (60, 200, 80)
 _HP_BAR_DEAD = (80, 80, 80)
 
@@ -261,11 +268,29 @@ def _draw_boss(
         ltr = font.render("B", True, (255, 230, 180))
         surface.blit(ltr, ltr.get_rect(center=(cx, cy)))
 
-    # Nameplate
+    # Nameplate (no HP numbers — shown on the bar above)
+    display_name = str(boss.get("display_name", "Boss"))
+    label = display_name if len(display_name) <= 12 else display_name[:11] + "…"
+    name_top = cy + radius + 3
+    _draw_nameplate(surface, font, label, cx, name_top)
+
+    # Red HP bar above the boss tile (matches student bar placement)
+    bar_w = TILE_SIZE - 6
+    bar_h = 4
+    bx = origin_x + int(px) * TILE_SIZE + 3
+    by = origin_y + int(py) * TILE_SIZE + 2
     hp = int(boss.get("hp", 0))
-    max_hp = int(boss.get("max_hp", 1))
-    label = f"Boss  {hp}/{max_hp}"
-    _draw_nameplate(surface, font, label, cx, cy + radius + 3)
+    boss_fg = _HP_BAR_BOSS_FG if hp > 0 else _HP_BAR_DEAD
+    _draw_single_hp_bar(
+        surface,
+        bx,
+        by,
+        bar_w,
+        bar_h,
+        boss,
+        fg_color=boss_fg,
+        bg_color=_HP_BAR_BOSS_BG,
+    )
 
 
 def _draw_hp_bars(
@@ -286,7 +311,9 @@ def _draw_hp_bars(
         px, py_e = entity["position"]
         ex = origin_x + int(px) * TILE_SIZE + 3
         ey = origin_y + int(py_e) * TILE_SIZE + 2
-        _draw_single_hp_bar(surface, ex, ey, bar_w, bar_h, info)
+        _draw_single_hp_bar(
+            surface, ex, ey, bar_w, bar_h, info, bg_color=_HP_BAR_BG,
+        )
 
 
 # ── Energy Stations extras ────────────────────────────────────────────────────

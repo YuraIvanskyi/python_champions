@@ -6,7 +6,7 @@ Optional presentation (sandbox-safe):
   BOT_ICON_INDEX = 7          # portrait index 0-99 from the character sheet
   # or an explicit path:
   # BOT_ICON = "ui/assets/icons/char_007.png"
-  # If neither is set, the default portrait char_085.png is used.
+  # If neither is set, a random portrait is assigned from the character sheet.
 
 
 Turn function receives a readonly GameView (state). Common calls:

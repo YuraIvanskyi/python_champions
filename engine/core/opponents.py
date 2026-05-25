@@ -9,6 +9,7 @@ from typing import Any
 from engine.core.action import Action
 from engine.core.bot_profile import char_icon_path
 from engine.core.player import Player
+from engine.simulation.boss_fight_ai import dumb_boss_ally_turn, greedy_boss_ally_turn
 from engine.simulation.dumb_ai import dumb_turn
 from engine.simulation.energy_stations_ai import dumb_energy_turn, greedy_energy_turn
 from engine.simulation.simple_ai import greedy_turn
@@ -60,6 +61,8 @@ def resolve_ai_turn(
     normalized = normalize_opponent_mode(mode)
     if scenario_id == "energy_stations":
         return dumb_energy_turn if normalized == "dumb" else greedy_energy_turn
+    if scenario_id == "boss_fight":
+        return dumb_boss_ally_turn if normalized == "dumb" else greedy_boss_ally_turn
     if normalized == "dumb":
         return dumb_turn
     return greedy_turn

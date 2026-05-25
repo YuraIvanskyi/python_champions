@@ -9,19 +9,18 @@ import pygame
 from engine.core.config import load_config
 from engine.core.live_game import LiveGame
 from engine.core.player import Bot
+from engine.core.scenario_registry import scenario_display_name
 from ui.render.hud import draw_hud, draw_toolbar_strip
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
-from ui.skin import colors
-from ui.skin.typography import body_font
 from ui.theme import (
-    FOOTER_PT,
     MAP_PADDING,
     MARGIN_X,
     TILE_SIZE,
+    TOOLBAR_BTN_FONT,
+    TOOLBAR_BTN_GAP,
+    TOOLBAR_BTN_WIDTH,
     TOOLBAR_HEIGHT,
-    content_width,
-    footer_top,
     hud_text_top,
     toolbar_top,
 )
@@ -42,12 +41,32 @@ class SimulationScreen:
         self._build_toolbar()
 
     def _build_toolbar(self) -> None:
-        y = toolbar_top()
-        btn_h = TOOLBAR_HEIGHT - 8
-        btn_y = y + 4
-        self._step_btn = Button(pygame.Rect(24, btn_y, 88, btn_h), "Step", on_click=self._step_once)
-        self._play_btn = Button(pygame.Rect(120, btn_y, 120, btn_h), "Play", on_click=self._toggle_auto)
-        self._toolbar = WidgetGroup([self._step_btn, self._play_btn])
+        placeholder = pygame.Rect(0, 0, TOOLBAR_BTN_WIDTH, TOOLBAR_HEIGHT)
+        btn_kw = {"font_size": TOOLBAR_BTN_FONT}
+        self._step_btn = Button(
+            placeholder, "Step", on_click=self._step_once, **btn_kw,
+        )
+        self._play_btn = Button(
+            placeholder, "Play", on_click=self._toggle_auto, **btn_kw,
+        )
+        self._menu_btn = Button(
+            placeholder, "Menu", on_click=lambda: self._finish(go_menu=True), **btn_kw,
+        )
+        self._toolbar = WidgetGroup([self._step_btn, self._play_btn, self._menu_btn])
+
+    def _layout_toolbar(self, surface: pygame.Surface) -> None:
+        sw = surface.get_width()
+        btn_h = TOOLBAR_HEIGHT - 10
+        btn_y = toolbar_top(surface.get_height()) + 5
+        w = TOOLBAR_BTN_WIDTH
+        gap = TOOLBAR_BTN_GAP
+
+        x = MARGIN_X
+        for btn in (self._step_btn, self._play_btn):
+            btn.rect = pygame.Rect(x, btn_y, w, btn_h)
+            x += w + gap
+
+        self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w, btn_y, w, btn_h)
 
     def start(
         self,
@@ -190,9 +209,10 @@ class SimulationScreen:
         draw_map(surface, render_state, origin_y=origin_y)
 
         # Decorative banner title above the stone frame
+        scenario_name = scenario_display_name(self.live.scenario_id)
         banner_y = max(4, frame_top - 48)
         skin.draw_banner_title(
-            surface, "Simulation",
+            surface, scenario_name,
             center_x=sw // 2,
             y=banner_y,
             max_width=320,
@@ -225,21 +245,16 @@ class SimulationScreen:
         ]
 
         hud_y = hud_text_top()
-        draw_hud(surface, title="Simulation", lines=hud_lines, y_offset=hud_y)
-        draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
-        self._toolbar.draw(surface)
-
-        cw = content_width()
-        footer_font = body_font(FOOTER_PT)
-        foot_surf = footer_font.render(
-            "Keyboard: Space step · A play/pause · P pause · Esc quit",
-            True,
-            colors.TEXT_MUTED,
+        draw_hud(
+            surface,
+            title=scenario_name,
+            subtitle=f"Seed {self.live.seed}",
+            lines=hud_lines,
+            y_offset=hud_y,
         )
-        old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
-        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
-        surface.set_clip(old_clip)
+        draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
+        self._layout_toolbar(surface)
+        self._toolbar.draw(surface)
 
     def _build_status_message(self) -> str:
         if self.live is None or not self.live.is_finished():

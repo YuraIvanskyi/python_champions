@@ -142,6 +142,10 @@ _OPPONENT_SHORT_DESC: dict[str, str] = {
     "greedy": "Chases resources efficiently",
     "dumb":   "Wanders — great first win",
 }
+_BOSS_FIGHT_ALLY_DESC: dict[str, str] = {
+    "greedy": "Attacks the boss and heals when hurt",
+    "dumb":   "Wanders — easy warm-up",
+}
 
 # ── Text colours for scenario rows ────────────────────────────────────────────
 # Unselected rows use wood background — need warm readable colours.
@@ -334,8 +338,9 @@ class MenuScreen:
         self.scenarios = list_scenarios() or [
             {"id": "resource_wars", "name": "Resource Wars", "description": ""}
         ]
-        self.selected       = 0
-        self.bot_paths_text = "student_bots/resource_wars/example_bot.py"
+        self.selected = 0
+        initial_sid = self.scenarios[self.selected].get("id", "resource_wars")
+        self.bot_paths_text = self._default_bot_path(initial_sid)
         self.seed           = 42
         self.opponent_mode  = "dumb"
         self.error          = ""
@@ -356,11 +361,11 @@ class MenuScreen:
             ]
             self._scenario_preset_names = {}
 
-        self._minimap_surfs: list[pygame.Surface | None] = [
-            _build_minimap_surface(s) for s in self._preset_seeds
-        ]
-        # Cache minimaps per scenario_id so switching scenarios rebuilds them once
         self._minimap_cache: dict[str, list[pygame.Surface | None]] = {}
+        self._minimap_cache[initial_sid] = [
+            _build_minimap_surface(s, initial_sid) for s in self._preset_seeds
+        ]
+        self._minimap_surfs = self._minimap_cache[initial_sid]
 
         self._widgets: WidgetGroup = WidgetGroup()
         self._scenario_rows: list[ScenarioRow] = []
@@ -756,14 +761,19 @@ class MenuScreen:
             surface.blit(cs, (cx + (_ICON_BTN_W - cs.get_width()) // 2,
                                _BOT_FIELD_Y - 14))
 
-        # Practice: opponent section
+        # Practice: opponent / ally section
         if self.launch_mode == "practice":
             skin.draw_ornamental_divider(
                 surface, pygame.Rect(_RX, _OPP_DIV_Y, _RW, 10)
             )
             opp_name = _OPPONENT_NAMES.get(self.opponent_mode, self.opponent_mode)
+            _cur_sid = (
+                self.scenarios[self.selected].get("id", "resource_wars")
+                if self.scenarios else "resource_wars"
+            )
+            role = "Ally" if _cur_sid == "boss_fight" else "Opponent"
             _draw_label(
-                surface, f"Opponent  —  {opp_name}",
+                surface, f"{role}  —  {opp_name}",
                 _RX, _OPP_LABEL_Y, max_w=_RW,
             )
             map_div_y   = _PRAC_MAP_DIV_Y
@@ -902,6 +912,11 @@ class MenuScreen:
         return None
 
     def _draw_opponent_cards(self, surface: pygame.Surface) -> None:
+        sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        desc_map = _BOSS_FIGHT_ALLY_DESC if sid == "boss_fight" else _OPPONENT_SHORT_DESC
         for mode, card_rect in self._opponent_cards:
             is_active = mode == self.opponent_mode
             btn = self._opponent_button(mode)
@@ -926,7 +941,7 @@ class MenuScreen:
             surface.blit(ns, (tx, card_rect.y + 6))
 
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
-            ds = body_font(12).render(_OPPONENT_SHORT_DESC[mode], True, desc_color)
+            ds = body_font(12).render(desc_map[mode], True, desc_color)
             dy = card_rect.y + 6 + ns.get_height() + 2
             old = surface.get_clip()
             surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 16))
