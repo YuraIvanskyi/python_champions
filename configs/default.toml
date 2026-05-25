@@ -37,7 +37,7 @@ menu_hint_pt = 15
 [ui.theme]
 asset_manifest = "ui/assets/manifest.toml"
 use_sliced_assets = false
-game_font = "ui/assets/fonts/Skranji-Bold.ttf"
+game_font = "ui/assets/fonts/Skranji-Regular.ttf"
 code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
 
 [ui.coach]
