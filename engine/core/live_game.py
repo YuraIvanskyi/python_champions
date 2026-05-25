@@ -19,6 +19,12 @@ from engine.analysis.runtime import RuntimeCollector
 from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
+def _scenario_needs_external_opponent(scenario_id: str) -> bool:
+    """Return False for self-contained scenarios that manage their own AI (e.g. boss_fight)."""
+    _SELF_CONTAINED = {"boss_fight"}
+    return scenario_id not in _SELF_CONTAINED
+
+
 def build_render_state(
     scenario: ScenarioBase,
     *,
@@ -59,7 +65,7 @@ def build_render_state(
         entities.append(entry)
 
     display_names = {pid: p.display_name for pid, p in profiles.items()}
-    return {
+    result: dict[str, Any] = {
         "turn": state["turn"],
         "map_width": state["map_width"],
         "map_height": state["map_height"],
@@ -68,6 +74,13 @@ def build_render_state(
         "scores": scenario.calculate_score(),
         "display_names": display_names,
     }
+
+    # Merge extras from scenarios that provide them (e.g. boss_fight)
+    extras_fn = getattr(scenario, "render_extras", None)
+    if callable(extras_fn):
+        result.update(extras_fn())
+
+    return result
 
 
 class LiveGame:
@@ -97,7 +110,9 @@ class LiveGame:
         self.student_bots: list[Bot] = list(student_bots)
         self.seed = seed
         self.config = config
-        self.multi_student_match = len(student_bots) >= 2
+        # Boss Fight and similar cooperative scenarios don't need an external AI opponent
+        _needs_opp = _scenario_needs_external_opponent(scenario_id)
+        self.multi_student_match = len(student_bots) >= 2 or not _needs_opp
 
         if self.multi_student_match:
             self.opponent_mode = None

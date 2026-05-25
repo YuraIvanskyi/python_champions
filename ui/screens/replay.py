@@ -25,7 +25,7 @@ from ui.theme import (
 )
 from ui.widgets import Button, ListRow, WidgetGroup
 
-_MAX_LINE_LEN = 80
+_MAX_LINE_LEN = 200
 
 
 class ReplayScreen:
@@ -263,16 +263,12 @@ class ReplayScreen:
             names.get(pid, pid): score for pid, score in render_state["scores"].items()
         }
         score_str = " · ".join(f"{n}: {v}" for n, v in labeled_scores.items())
-        if len(score_str) > 60:
-            score_str = score_str[:57] + "…"
 
         labeled_final = {
             names.get(pid, pid): score
             for pid, score in self.replay.final_scores.items()
         }
         final_str = " · ".join(f"{n}: {v}" for n, v in labeled_final.items())
-        if len(final_str) > 60:
-            final_str = final_str[:57] + "…"
 
         draw_hud(
             surface,

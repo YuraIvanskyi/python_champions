@@ -8,7 +8,7 @@ from engine.core.loader import load_bot
 
 
 def test_ten_turns_headless() -> None:
-    bot = load_bot(Path("student_bots/example_bot.py"))
+    bot = load_bot(Path("student_bots/resource_wars/example_bot.py"))
     config = load_config()
     result = run_game(
         scenario_id="resource_wars",

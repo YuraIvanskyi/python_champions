@@ -68,3 +68,14 @@ nine_slice = [20, 10, 20, 10]
 file = "ui/assets/chrome/ribbon_purple.png"
 rect = [500, 72, 90, 36]
 nine_slice = [20, 10, 20, 10]
+
+# ---------------------------------------------------------------------------
+# Character portrait icons sliced from implementation/char__icons.png
+# 10×10 grid; row-major order (0 = top-left).
+# Re-run: python scripts/slice_char_icons.py
+# ---------------------------------------------------------------------------
+[icons]
+source = "implementation/char__icons.png"
+count = 100
+dir = "ui/assets/icons"
+pattern = "char_{index:03d}.png"

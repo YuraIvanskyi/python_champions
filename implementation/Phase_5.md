@@ -1,11 +1,12 @@
 ---
 phase_id: phase-5
-status: not_started
+status: done
 depends_on: [phase-4]
 source_plan: New scenario — cooperative PvE boss fight
+completed_at: "2026-05-25"
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 5 — Boss Fight scenario
 
@@ -201,14 +202,14 @@ def make_turn(state):
 
 ## Definition of done
 
-- [ ] `code-scenarios run --scenario boss_fight --bots student_bots/boss_fight_starter.py --seed 1` completes headless
-- [ ] `difficulty` 1, 2, and 3 all run without error; level 3 boss attacks up to 2 targets per turn
-- [ ] `ATTACK`, `HEAL_SELF`, `HEAL_ALLY` all produce correct HP changes in tests
-- [ ] Dead bots are skipped each turn; scenario ends immediately when all bots are dead
-- [ ] Boss win recorded with correct per-bot `damage_dealt` in `metrics.json`
-- [ ] `BossFightView` methods accessible from starter bot; documented in template comments
-- [ ] UI shows boss as distinct tile with HP bar; bot HP bars visible during simulation
-- [ ] All Phase 5 tests pass
+- [x] `code-scenarios run --scenario boss_fight --bots student_bots/boss_fight_starter.py --seed 1` completes headless
+- [x] `difficulty` 1, 2, and 3 all run without error; level 3 boss attacks up to 2 targets per turn
+- [x] `ATTACK`, `HEAL_SELF`, `HEAL_ALLY` all produce correct HP changes in tests
+- [x] Dead bots are skipped each turn; scenario ends immediately when all bots are dead
+- [x] Boss win recorded with correct per-bot `damage_dealt` in `metrics.json`
+- [x] `BossFightView` methods accessible from starter bot; documented in template comments
+- [x] UI shows boss as distinct tile with HP bar; bot HP bars visible during simulation
+- [x] All Phase 5 tests pass
 
 ## Verification
 

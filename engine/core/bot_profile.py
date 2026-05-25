@@ -1,7 +1,15 @@
-"""Student bot presentation metadata (display name, icon)."""
+"""Student bot presentation metadata (display name, icon).
+
+Icon resolution priority (highest wins):
+  1. BOT_ICON_INDEX = <int 0-99>  — picks char_NNN.png from the portrait sheet
+  2. BOT_ICON = "<path>"          — explicit path under student_bots/ or ui/assets/icons/
+  3. get_bot_profile() dict       — dict with optional "icon_index" or "icon" keys
+  4. No declaration               — a random portrait is assigned at load time
+"""
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -13,6 +21,21 @@ ALLOWED_ICON_PREFIXES = (
     "ui/assets/icons",
     "ui\\assets\\icons",
 )
+
+CHAR_ICONS_DIR = Path(__file__).resolve().parents[2] / "ui" / "assets" / "icons"
+CHAR_ICON_COUNT = 100
+
+
+def char_icon_path(index: int, *, root: Path | None = None) -> Path:
+    """Return the absolute path for portrait icon *index* (0–99)."""
+    base = root or Path(__file__).resolve().parents[2]
+    return base / "ui" / "assets" / "icons" / f"char_{index % CHAR_ICON_COUNT:03d}.png"
+
+
+def random_icon_index(seed_str: str) -> int:
+    """Deterministic 'random' icon index derived from a seed string (e.g. bot filename)."""
+    digest = hashlib.md5(seed_str.encode(), usedforsecurity=False).digest()
+    return int.from_bytes(digest[:2], "little") % CHAR_ICON_COUNT
 
 
 def project_root() -> Path:
@@ -67,7 +90,14 @@ def read_profile_from_module(
     default_name: str = "You",
     root: Path | None = None,
 ) -> tuple[str, str | None]:
-    """Read BOT_DISPLAY_NAME and BOT_ICON from a loaded student bot module."""
+    """Read display name and icon from a loaded student bot module.
+
+    Resolution order:
+      1. get_bot_profile() dict  →  "icon_index" (int) or "icon" (str path)
+      2. BOT_ICON_INDEX = <int>
+      3. BOT_ICON = "<path>"
+      4. Deterministic random portrait derived from the bot filename
+    """
     display_name = default_name
     icon_path: str | None = None
 
@@ -77,17 +107,44 @@ def read_profile_from_module(
             raise BotLoadError("get_bot_profile() must return a dict")
         if "display_name" in profile:
             display_name = _coerce_name(profile["display_name"], field="display_name")
-        if "icon" in profile and profile["icon"]:
+        if "icon_index" in profile and profile["icon_index"] is not None:
+            icon_path = str(char_icon_path(_coerce_icon_index(profile["icon_index"]), root=root))
+        elif "icon" in profile and profile["icon"]:
             icon_path = str(validate_icon_path(str(profile["icon"]), bot_file=bot_file, root=root))
+        else:
+            icon_path = _fallback_icon(bot_file, root=root)
         return display_name, icon_path
 
     if hasattr(module, "BOT_DISPLAY_NAME"):
         display_name = _coerce_name(module.BOT_DISPLAY_NAME, field="BOT_DISPLAY_NAME")
 
-    if hasattr(module, "BOT_ICON") and module.BOT_ICON:
+    if hasattr(module, "BOT_ICON_INDEX") and module.BOT_ICON_INDEX is not None:
+        icon_path = str(char_icon_path(_coerce_icon_index(module.BOT_ICON_INDEX), root=root))
+    elif hasattr(module, "BOT_ICON") and module.BOT_ICON:
         icon_path = str(validate_icon_path(str(module.BOT_ICON), bot_file=bot_file, root=root))
+    else:
+        icon_path = _fallback_icon(bot_file, root=root)
 
     return display_name, icon_path
+
+
+def _coerce_icon_index(value: Any) -> int:
+    try:
+        idx = int(value)
+    except (TypeError, ValueError) as exc:
+        raise BotLoadError(f"BOT_ICON_INDEX must be an integer 0-99, got {value!r}") from exc
+    if not 0 <= idx <= 99:
+        raise BotLoadError(f"BOT_ICON_INDEX must be 0-99, got {idx}")
+    return idx
+
+
+def _fallback_icon(bot_file: Path, *, root: Path | None = None) -> str | None:
+    """Return a deterministic portrait path based on the bot filename."""
+    idx = random_icon_index(bot_file.stem)
+    path = char_icon_path(idx, root=root)
+    if path.is_file():
+        return str(path)
+    return None
 
 
 def _coerce_name(value: Any, *, field: str) -> str:

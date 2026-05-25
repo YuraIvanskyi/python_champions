@@ -18,6 +18,7 @@ from ui.coach_data import (
     read_bot_source,
 )
 from ui.render.code_panel import draw_code_panel
+from ui.render.icons import load_icon
 from ui.render.quest_card import draw_quest_card, draw_score_card, quest_card_height
 from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
 from ui.skin import chrome as skin
@@ -188,7 +189,8 @@ class CoachScreen:
             for index, pid in enumerate(self.player_ids):
                 display = self._display_name(pid)
                 text_w = tab_font.size(display)[0]
-                btn_w  = text_w + 28
+                # 22 px extra left room for the 18 px portrait icon + gap
+                btn_w  = text_w + 50
                 btn    = Button(
                     pygame.Rect(x, y, btn_w, _TAB_H),
                     display,
@@ -218,6 +220,16 @@ class CoachScreen:
             meta = self.replay["players"].get(pid, {})
             return str(meta.get("display_name", pid))
         return pid
+
+    def _player_icon(self, pid: str, size: int = 32) -> pygame.Surface | None:
+        """Return the portrait surface for a player, or None."""
+        if not self.replay:
+            return None
+        info = self.replay.get("players", {}).get(pid, {})
+        icon_path = info.get("icon")
+        if not icon_path:
+            return None
+        return load_icon(str(icon_path), size=size)
 
     def _select_player(self, index: int) -> None:
         self.selected_player = index
@@ -404,12 +416,19 @@ class CoachScreen:
         # Display name (used for label and score card)
         name = self._display_name(pid)
 
-        # "Bot: <name>" header — generous clip width, no truncation
+        # "Bot: <name>" header with portrait icon
         label_font = body_font(_LABEL_PT)
+        _HEADER_ICON = 28
+        icon_surf = self._player_icon(pid, size=_HEADER_ICON)
+        if icon_surf is not None:
+            surface.blit(icon_surf, (MARGIN_X, 50))
+            label_x = MARGIN_X + _HEADER_ICON + 6
+        else:
+            label_x = MARGIN_X
         skin.draw_text_clipped(
             surface,
             f"Bot:  {name}",
-            pygame.Rect(MARGIN_X, 54, cw, _LABEL_PT + 8),
+            pygame.Rect(label_x, 54, cw - (label_x - MARGIN_X), _LABEL_PT + 8),
             label_font,
             colors.GOLD_TEXT,
             align="left",
@@ -453,6 +472,7 @@ class CoachScreen:
             gameplay_score=scores.get("gameplay", "—"),
             code_score=scores.get("code_quality", "—"),
             final_score=scores.get("final", "—"),
+            icon_surf=self._player_icon(pid, size=20),
         )
 
         # Scrollable quest list
@@ -490,6 +510,16 @@ class CoachScreen:
         )
 
         self._widgets.draw(surface)
+
+        # Portrait icons overlaid on multi-player tabs (drawn after widget backgrounds)
+        if len(self.player_ids) > 1:
+            _TAB_ICON = 18
+            for i, (tab_pid, tab_btn) in enumerate(zip(self.player_ids, self._player_tabs)):
+                tab_icon = self._player_icon(tab_pid, size=_TAB_ICON)
+                if tab_icon is not None:
+                    ix = tab_btn.rect.x + 4
+                    iy = tab_btn.rect.y + (tab_btn.rect.height - _TAB_ICON) // 2
+                    surface.blit(tab_icon, (ix, iy))
 
     def _draw_ai_panel(
         self, surface: pygame.Surface, rect: pygame.Rect, block: dict[str, Any]

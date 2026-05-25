@@ -1,0 +1,28 @@
+[scenario]
+id = "boss_fight"
+name = "Boss Fight"
+description = "Cooperative PvE — all bots fight the boss together"
+map_width = 8
+map_height = 8
+obstacle_count = 6
+max_turns = 200
+min_players = 1
+max_players = 6
+
+[boss]
+# 1 = easy | 2 = medium | 3 = hard
+difficulty = 1
+hp_per_level = [10, 20, 30]
+damage_per_level = [1, 2, 3]
+# level 3 hits up to 2 adjacent bots per turn
+multi_target_at_level = [false, false, true]
+
+[player]
+max_hp = 4
+attack_damage = 1
+heal_amount = 2
+
+[scoring]
+gameplay_weight = 0.7
+code_weight = 0.3
+score_threshold = 100

@@ -107,9 +107,9 @@ pytest -v
 python -c "import engine"
 
 # Phase 1+
-code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --seed 42
+code-scenarios run --scenario resource_wars --bot student_bots/resource_wars/example_bot.py --seed 42
 code-scenarios run --scenario resource_wars --bots path/a.py path/b.py --seed 42
-code-scenarios run --scenario resource_wars --bots-dir student_bots --seed 42
+code-scenarios run --scenario resource_wars --bots-dir student_bots/resource_wars --seed 42
 code-scenarios --help
 
 # Phase 2+
@@ -117,7 +117,7 @@ python -m ui
 code-scenarios gui
 
 # Phase 3+
-code-scenarios run --scenario resource_wars --bot student_bots/example_bot.py --no-analysis
+code-scenarios run --scenario resource_wars --bot student_bots/resource_wars/example_bot.py --no-analysis
 
 # Phase 4+
 code-scenarios report --session <id>

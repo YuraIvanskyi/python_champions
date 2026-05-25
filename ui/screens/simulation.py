@@ -213,9 +213,7 @@ class SimulationScreen:
         labeled_scores = {
             names.get(pid, pid): score for pid, score in render_state["scores"].items()
         }
-        status = self.live.status_message or (
-            "Finished" if self.live.is_finished() else "Running"
-        )
+        status = self.live.status_message or self._build_status_message()
         score_str = " · ".join(f"{name}: {v}" for name, v in labeled_scores.items())
         if len(score_str) > 60:
             score_str = score_str[:57] + "…"
@@ -242,6 +240,18 @@ class SimulationScreen:
         surface.set_clip(pygame.Rect(MARGIN_X, footer_top() + 4, cw, FOOTER_PT + 8))
         surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
         surface.set_clip(old_clip)
+
+    def _build_status_message(self) -> str:
+        if self.live is None or not self.live.is_finished():
+            return "Running"
+        # Boss-fight end conditions
+        if self.live.last_turn is not None:
+            events = self.live.last_turn.events
+            if "boss_defeated" in events:
+                return "BOSS DEFEATED — Party wins!"
+            if "party_wiped" in events:
+                return "PARTY WIPED — Boss wins!"
+        return "Finished"
 
     def get_final_scores(self) -> dict[str, int]:
         if self.live is None:

@@ -6,7 +6,7 @@ from engine.core.loader import load_bot
 
 
 def test_load_example_bot() -> None:
-    bot = load_bot(Path("student_bots/example_bot.py"))
+    bot = load_bot(Path("student_bots/resource_wars/example_bot.py"))
     assert bot.player.is_student
     assert bot.player.display_name == "Explorer"
     assert bot.make_turn is not None

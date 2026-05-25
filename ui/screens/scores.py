@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pygame
 
+from ui.render.icons import load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
@@ -42,8 +43,10 @@ _RANK_COLORS = [
 ]
 _RANK_LABELS = ["1ST", "2ND", "3RD", "4TH", "5TH", "6TH"]
 
-_ROW_H_WITH_SUB = 50
-_ROW_H_SIMPLE   = 38
+_ROW_H_WITH_SUB = 56
+_ROW_H_SIMPLE   = 46
+_ICON_SIZE      = 32
+_ROW_GAP        = 3
 
 # Vertical layout constants
 _BANNER_BOTTOM = 86      # top of scrollable viewport
@@ -217,7 +220,8 @@ class ScoresScreen:
             lines = [("—", 0)]
         has_metrics = self.metrics is not None
         row_h = _ROW_H_WITH_SUB if has_metrics else _ROW_H_SIMPLE
-        score_panel_h = 45 + 8 + len(lines) * row_h + 10 + _PANEL_PAD
+        n_rows = len(lines)
+        score_panel_h = 45 + 8 + n_rows * row_h + max(0, n_rows - 1) * _ROW_GAP + 10 + _PANEL_PAD
 
         analysis_sections = self._build_analysis_sections()
         analysis_content_h = sum(s["h"] for s in analysis_sections)
@@ -270,7 +274,39 @@ class ScoresScreen:
         if self._scroll.max_offset > 0:
             self._draw_scrollbar(surface, mx + panel_w + _SCROLLBAR_PAD, vp_top, vp_h)
 
+    # ── Player icon / metrics helpers ────────────────────────────────────────
+
+    def _player_icon_for_display(self, display_name: str, size: int = 32) -> pygame.Surface | None:
+        """Return a portrait surface for the player whose display_name matches."""
+        if not self.replay_meta:
+            return None
+        for info in self.replay_meta.get("players", {}).values():
+            if str(info.get("display_name", "")) == display_name:
+                icon_path = info.get("icon")
+                if icon_path:
+                    return load_icon(str(icon_path), size=size)
+        return None
+
+    def _metrics_for_display(self, display_name: str) -> dict:
+        """Return the metrics block for the player matching display_name."""
+        if not self.metrics:
+            return {}
+        players = self.metrics.get("players", {})
+        if display_name in players:
+            return players[display_name]
+        if self.replay_meta:
+            for pid_key, info in self.replay_meta.get("players", {}).items():
+                if str(info.get("display_name", "")) == display_name and pid_key in players:
+                    return players[pid_key]
+        return {}
+
     # ── Score rows ────────────────────────────────────────────────────────────
+
+    # Layout offsets relative to the left edge of a row_rect
+    _ROW_ACCENT_W  = 3
+    _ROW_BADGE_W   = 44
+    _ROW_ICON_W    = _ICON_SIZE   # 32
+    _ROW_NAME_XOFF = _ROW_ACCENT_W + 10 + _ROW_BADGE_W + 8 + _ROW_ICON_W + 8  # 105
 
     def _draw_score_rows(
         self,
@@ -287,65 +323,85 @@ class ScoresScreen:
         sub_font   = body_font(_SCORE_SUB_PT)
         badge_font = body_font(_BADGE_PT)
 
-        badge_area_w = 40
-
         ranked: list[tuple[int, str, int]] = [
             (i + 1, pid, sc) for i, (pid, sc) in enumerate(lines)
         ]
 
         row_y = score_panel.y + 45 + 8
+        row_w = panel_w - 12
 
         for rank, pid, sc in ranked:
             rank_color = (
                 _RANK_COLORS[rank - 1] if rank <= len(_RANK_COLORS) else colors.TEXT_MUTED
             )
-            is_top = rank == 1
-
-            if is_top and len(ranked) > 1:
-                hl = pygame.Surface((panel_w - 20, row_h), pygame.SRCALPHA)
-                hl.fill((255, 205, 48, 22))
-                surface.blit(hl, (mx + 10, row_y))
-
             badge_label = _RANK_LABELS[rank - 1] if rank <= len(_RANK_LABELS) else f"{rank}TH"
-            badge_surf = badge_font.render(badge_label, True, rank_color)
-            surface.blit(badge_surf, (
-                mx + _PANEL_PAD,
-                row_y + (row_h // 2) - badge_surf.get_height() // 2,
-            ))
+            row_rect = pygame.Rect(mx + 6, row_y, row_w, row_h)
 
-            display  = _clip_text(self._display_name(pid))
-            name_col = rank_color if is_top else colors.TEXT_BODY
+            # Row background
+            bg = pygame.Surface(row_rect.size, pygame.SRCALPHA)
+            if rank == 1:
+                bg.fill((60, 50, 18, 110))
+            elif rank % 2 == 0:
+                bg.fill((44, 52, 68, 100))
+            else:
+                bg.fill((36, 44, 58, 80))
+            surface.blit(bg, row_rect.topleft)
+            border_col = (110, 100, 60) if rank == 1 else (68, 78, 100)
+            pygame.draw.rect(surface, border_col, row_rect, 1, border_radius=4)
+
+            # Left accent bar
+            accent_rect = pygame.Rect(row_rect.x, row_rect.y + 2, self._ROW_ACCENT_W, row_h - 4)
+            pygame.draw.rect(surface, rank_color, accent_rect, border_radius=2)
+
+            # Rank badge — vertically centred
+            badge_surf = badge_font.render(badge_label, True, rank_color)
+            badge_x = row_rect.x + self._ROW_ACCENT_W + 10
+            badge_y = row_y + (row_h - badge_surf.get_height()) // 2
+            surface.blit(badge_surf, (badge_x, badge_y))
+
+            # Player icon (portrait or coloured initial circle)
+            display = _clip_text(self._display_name(pid))
+            icon_x = badge_x + self._ROW_BADGE_W
+            icon_y = row_y + (row_h - _ICON_SIZE) // 2
+            icon_surf = self._player_icon_for_display(display, size=_ICON_SIZE)
+            if icon_surf is not None:
+                surface.blit(icon_surf, (icon_x, icon_y))
+            else:
+                ctr = (icon_x + _ICON_SIZE // 2, icon_y + _ICON_SIZE // 2)
+                pygame.draw.circle(surface, rank_color, ctr, _ICON_SIZE // 2 - 1)
+                initial = display[:1].upper() if display else "?"
+                init_s = badge_font.render(initial, True, (20, 24, 30))
+                surface.blit(init_s, init_s.get_rect(center=ctr))
+
+            # Name (+ optional metrics sub-text)
+            name_x = row_rect.x + self._ROW_NAME_XOFF
+            name_col = rank_color if rank == 1 else colors.TEXT_BODY
             name_surf = name_font.render(display, True, name_col)
-            name_x = mx + _PANEL_PAD + badge_area_w
-            name_y = row_y + 4
+            if has_metrics:
+                name_y = row_y + max(4, (row_h // 2 - name_surf.get_height()) // 2)
+            else:
+                name_y = row_y + (row_h - name_surf.get_height()) // 2
             surface.blit(name_surf, (name_x, name_y))
 
+            pd = self._metrics_for_display(display) if has_metrics else {}
+            if pd:
+                sc_block = pd.get("scores", {})
+                final_v = sc_block.get("final", "—")
+                code_q  = sc_block.get("code_quality", "—")
+                gp_v    = sc_block.get("gameplay", "—")
+                sub_text = _clip_text(
+                    f"Final {final_v}   Quality {code_q}/100   Gameplay {gp_v}/100"
+                )
+                sub_surf = sub_font.render(sub_text, True, colors.TEXT_MUTED)
+                surface.blit(sub_surf, (name_x, name_y + name_surf.get_height() + 3))
+
+            # Score number — vertically centred, right-aligned
             num_surf = num_font.render(str(sc), True, rank_color)
-            num_x = mx + panel_w - _PANEL_PAD - num_surf.get_width()
-            num_y = row_y + (name_surf.get_height() - num_surf.get_height()) // 2 + 4
+            num_x = row_rect.right - 14 - num_surf.get_width()
+            num_y = row_y + (row_h - num_surf.get_height()) // 2
             surface.blit(num_surf, (num_x, num_y))
 
-            res_surf = sub_font.render("resources", True, colors.TEXT_MUTED)
-            res_x = num_x - res_surf.get_width() - 6
-            res_y = num_y + num_surf.get_height() - res_surf.get_height() - 1
-            surface.blit(res_surf, (res_x, res_y))
-
-            if has_metrics and self.metrics:
-                pd = self.metrics.get("players", {}).get(pid, {})
-                if pd:
-                    sc_block = pd.get("scores", {})
-                    final_v  = sc_block.get("final", "—")
-                    code_q   = sc_block.get("code_quality", "—")
-                    gp_v     = sc_block.get("gameplay", "—")
-                    sub_text = _clip_text(
-                        f"Final: {final_v} pts   Quality: {code_q}/100   Gameplay: {gp_v}/100"
-                    )
-                    sub_surf = sub_font.render(sub_text, True, colors.TEXT_MUTED)
-                    sub_x = name_x
-                    sub_y = name_y + name_surf.get_height() + 4
-                    surface.blit(sub_surf, (sub_x, sub_y))
-
-            row_y += row_h
+            row_y += row_h + _ROW_GAP
 
     # ── Scrollbar ─────────────────────────────────────────────────────────────
 

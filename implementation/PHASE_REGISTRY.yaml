@@ -95,9 +95,9 @@ phases:
   - id: phase-5
     file: Phase_5.md
     title: Boss Fight scenario
-    status: not_started
+    status: done
     depends_on: [phase-4]
-    completed_at: null
+    completed_at: "2026-05-25"
     plan_reference: "New scenario: cooperative PvE boss fight (8x8 map)"
 
   - id: phase-6

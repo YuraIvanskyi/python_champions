@@ -1,9 +1,12 @@
 """
 
 Example student bot for Resource Wars.
-Optional presentation (sandbox-safe — strings only):
+Optional presentation (sandbox-safe):
   BOT_DISPLAY_NAME = "Explorer"
-  BOT_ICON = "ui/assets/icons/student.png"   # under student_bots/ or ui/assets/icons/
+  BOT_ICON_INDEX = 7          # portrait index 0-99 from the character sheet
+  # or an explicit path:
+  # BOT_ICON = "ui/assets/icons/char_007.png"
+  # If neither is set, a portrait is assigned automatically from the filename.
 
 
 Turn function receives a readonly GameView (state). Common calls:

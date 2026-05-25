@@ -70,6 +70,8 @@ def draw_score_card(
     gameplay_score: object,
     code_score: object,
     final_score: object,
+    *,
+    icon_surf: pygame.Surface | None = None,
 ) -> None:
     """Draw the prominent score summary at the top of the quest column.
 
@@ -93,8 +95,13 @@ def draw_score_card(
         align="center", pad_x=4,
     )
 
-    # Bot name to the right of the ribbon
+    # Optional portrait icon to the right of the ribbon
     name_x = inner_x + ribbon_w + 8
+    if icon_surf is not None:
+        icon_y = rect.y + pad_y + (ribbon_h - icon_surf.get_height()) // 2
+        surface.blit(icon_surf, (name_x, icon_y))
+        name_x += icon_surf.get_width() + 6
+
     name_avail = rect.right - pad_x - name_x
     name_rect  = pygame.Rect(name_x, rect.y + pad_y, name_avail, ribbon_h)
     name_font  = title_font(_TITLE_PT)

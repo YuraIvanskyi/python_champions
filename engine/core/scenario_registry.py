@@ -6,7 +6,6 @@ import tomllib
 from pathlib import Path
 
 from engine.core.scenario import ScenarioBase
-from scenarios.resource_wars import ResourceWarsScenario
 
 SCENARIOS_ROOT = Path(__file__).resolve().parents[2] / "scenarios"
 
@@ -19,7 +18,11 @@ def create_scenario(
     player_ids: list[str] | None = None,
 ) -> ScenarioBase:
     if scenario_id == "resource_wars":
+        from scenarios.resource_wars import ResourceWarsScenario
         return ResourceWarsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
+    if scenario_id == "boss_fight":
+        from scenarios.boss_fight import BossFightScenario
+        return BossFightScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
     raise ValueError(f"Unknown scenario: {scenario_id}")
 
 

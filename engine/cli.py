@@ -9,7 +9,7 @@ from pathlib import Path
 from engine.core.config import load_config
 from engine.core.game import run_game
 from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
-from scenarios.resource_wars.game import ResourceWarsScenario
+from engine.core.scenario_registry import create_scenario
 
 
 def _cmd_gui(args: argparse.Namespace) -> int:
@@ -83,8 +83,22 @@ def _cmd_analysis_only(args: argparse.Namespace) -> int:
     return 0
 
 
+def _scenario_player_limits(scenario_id: str) -> tuple[int, int]:
+    """Return (min_players, max_players) for the given scenario."""
+    try:
+        sc = create_scenario(scenario_id, seed=0)
+        fn = getattr(sc.__class__, "player_limits", None)
+        if callable(fn):
+            return fn()
+    except Exception:
+        pass
+    from scenarios.resource_wars.game import ResourceWarsScenario
+    return ResourceWarsScenario.player_limits()
+
+
 def _resolve_run_bot_paths(args: argparse.Namespace) -> list[Path] | None:
-    _, cap_max = ResourceWarsScenario.player_limits()
+    scenario_id = getattr(args, "scenario", "resource_wars")
+    _, cap_max = _scenario_player_limits(scenario_id)
 
     if args.bots_dir:
         if args.bot is not None or args.bots is not None:
@@ -136,11 +150,11 @@ def _resolve_run_bot_paths(args: argparse.Namespace) -> list[Path] | None:
     return None
 
 
-def _load_bots_for_resource_wars(paths: list[Path]) -> list:
-    min_p, max_p = ResourceWarsScenario.player_limits()
+def _load_bots(paths: list[Path], scenario_id: str) -> list:
+    min_p, max_p = _scenario_player_limits(scenario_id)
     if len(paths) > max_p:
         print(
-            f"Error: resource_wars allows at most {max_p} competitors (got {len(paths)}).",
+            f"Error: {scenario_id} allows at most {max_p} competitors (got {len(paths)}).",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -155,7 +169,7 @@ def _load_bots_for_resource_wars(paths: list[Path]) -> list:
     else:
         if len(paths) < min_p:
             print(
-                f"Error: resource_wars needs at least {min_p} student bots "
+                f"Error: {scenario_id} needs at least {min_p} student bots "
                 f"for a classroom match (got {len(paths)}).",
                 file=sys.stderr,
             )
@@ -177,7 +191,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             return 1
 
     try:
-        student_bots = _load_bots_for_resource_wars(raw_paths)
+        student_bots = _load_bots(raw_paths, args.scenario)
     except BotLoadError as exc:
         print(f"Error loading bot: {exc}", file=sys.stderr)
         return 1

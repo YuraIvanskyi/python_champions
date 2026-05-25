@@ -45,7 +45,7 @@ def test_dumb_turn_returns_legal_action() -> None:
 
 
 def test_dumb_opponent_scores_lower_than_greedy() -> None:
-    bot = load_bot(Path("student_bots/example_bot.py"))
+    bot = load_bot(Path("student_bots/resource_wars/example_bot.py"))
     config = load_config()
     seed = 42
     max_turns = 40

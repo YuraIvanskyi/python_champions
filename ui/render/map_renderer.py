@@ -109,6 +109,28 @@ def _draw_nameplate(
     surface.blit(text_surf, (plate_rect.x + pad_x, plate_rect.y + pad_y))
 
 
+def _draw_single_hp_bar(
+    surface: pygame.Surface,
+    x: int,
+    y: int,
+    bar_w: int,
+    bar_h: int,
+    info: dict,
+) -> None:
+    alive = bool(info.get("alive", True))
+    hp = int(info.get("hp", 0))
+    max_hp = int(info.get("max_hp", 1))
+    bg_rect = pygame.Rect(x, y, bar_w, bar_h)
+    pygame.draw.rect(surface, _HP_BAR_BG, bg_rect, border_radius=2)
+    if max_hp > 0:
+        filled_w = max(0, round(bar_w * hp / max_hp))
+        fg_color = _HP_BAR_PLAYER_FG if alive else _HP_BAR_DEAD
+        if filled_w > 0:
+            fg_rect = pygame.Rect(x, y, filled_w, bar_h)
+            pygame.draw.rect(surface, fg_color, fg_rect, border_radius=2)
+    pygame.draw.rect(surface, (80, 90, 110), bg_rect, 1, border_radius=2)
+
+
 def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) -> pygame.Rect:
     """Draw grid and entities; return the map bounding rect."""
     map_w = int(render_state["map_width"])
@@ -163,4 +185,81 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
         name_top = center_y + TILE_SIZE // 2 + 3
         _draw_nameplate(surface, name_font, label, center_x, name_top)
 
+    # Draw boss entity (boss_fight scenario)
+    boss_entity = render_state.get("boss_entity")
+    if boss_entity:
+        _draw_boss(surface, boss_entity, origin_x, origin_y, name_font)
+
+    # Draw HP bars (boss_fight scenario)
+    hp_bars = render_state.get("hp_bars", {})
+    if hp_bars:
+        _draw_hp_bars(surface, render_state, hp_bars, origin_x, origin_y)
+
     return map_rect
+
+
+# ── Boss Fight extras ──────────────────────────────────────────────────────────
+
+_BOSS_COLOR = (200, 40, 40)
+_BOSS_INNER = (240, 80, 80)
+_HP_BAR_BG = (50, 20, 20)
+_HP_BAR_FG = (200, 60, 60)
+_HP_BAR_PLAYER_FG = (60, 200, 80)
+_HP_BAR_DEAD = (80, 80, 80)
+
+
+def _draw_boss(
+    surface: pygame.Surface,
+    boss: dict,
+    origin_x: int,
+    origin_y: int,
+    font: pygame.font.Font,
+) -> None:
+    px, py = boss["position"]
+    cx = origin_x + int(px) * TILE_SIZE + TILE_SIZE // 2
+    cy = origin_y + int(py) * TILE_SIZE + TILE_SIZE // 2
+    radius = max(TILE_SIZE // 2 - 2, 10)
+    icon_size = max(18, TILE_SIZE - 4)
+
+    # Shadow / glow
+    glow_surf = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (200, 40, 40, 60), (radius * 2, radius * 2), radius + 5)
+    surface.blit(glow_surf, (cx - radius * 2, cy - radius * 2))
+
+    icon_path = boss.get("icon")
+    sprite = load_icon(str(icon_path) if icon_path else None, size=icon_size)
+    if sprite is not None:
+        draw_portrait_frame(surface, (cx, cy), size=icon_size, color=_BOSS_COLOR)
+        surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
+    else:
+        pygame.draw.circle(surface, _BOSS_COLOR, (cx, cy), radius)
+        pygame.draw.circle(surface, _BOSS_INNER, (cx, cy), radius, 3)
+        ltr = font.render("B", True, (255, 230, 180))
+        surface.blit(ltr, ltr.get_rect(center=(cx, cy)))
+
+    # Nameplate
+    hp = int(boss.get("hp", 0))
+    max_hp = int(boss.get("max_hp", 1))
+    label = f"Boss  {hp}/{max_hp}"
+    _draw_nameplate(surface, font, label, cx, cy + radius + 3)
+
+
+def _draw_hp_bars(
+    surface: pygame.Surface,
+    render_state: dict,
+    hp_bars: dict,
+    origin_x: int,
+    origin_y: int,
+) -> None:
+    """Draw small HP bars above each entity that has HP data."""
+    bar_w = TILE_SIZE - 6
+    bar_h = 4
+    for entity in render_state.get("entities", ()):
+        pid = str(entity["id"])
+        if pid not in hp_bars:
+            continue
+        info = hp_bars[pid]
+        px, py_e = entity["position"]
+        ex = origin_x + int(px) * TILE_SIZE + 3
+        ey = origin_y + int(py_e) * TILE_SIZE + 2
+        _draw_single_hp_bar(surface, ex, ey, bar_w, bar_h, info)

@@ -26,6 +26,11 @@ def draw_hud(
     panel_top = y_offset if y_offset is not None else surface.get_height() - height
     panel = pygame.Rect(0, panel_top, surface.get_width(), height)
     skin.draw_panel(surface, panel, style="wood")
+    # Gold top-border accent to visually separate HUD from map area
+    pygame.draw.line(
+        surface, (180, 148, 72),
+        (0, panel_top), (surface.get_width(), panel_top), 2,
+    )
 
     title_font_obj = title_font(HUD_TITLE_PT)
     body_font_obj = body_font(HUD_BODY_PT)

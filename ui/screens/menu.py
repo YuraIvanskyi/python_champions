@@ -13,7 +13,7 @@ from engine.core.config import load_config
 from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
 from engine.core.opponents import OPPONENT_MODES, builtin_icon_path
 from engine.core.scenario_registry import list_scenarios
-from scenarios.resource_wars.game import ResourceWarsScenario
+from engine.core.scenario_registry import create_scenario
 from ui.render.icons import draw_menu_icon, load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -54,9 +54,9 @@ _ARROW_BTN_W = 90
 _ARROW_BTN_H = 28
 _ARROW_BTN_X = _LX + (_LW - _ARROW_BTN_W) // 2   # centred
 _UP_BTN_Y    = _CY               # 137
-_SC_ROW_H    = 80                # tall rows with 4 text lines
-_SC_ROW_GAP  = 6
-_SC_START_Y  = _CY + _ARROW_BTN_H + 4              # 169
+_SC_ROW_H    = 126               # tall rows: name + type + 2-line flavor + 2-line hint
+_SC_ROW_GAP  = 8
+_SC_START_Y  = _CY + _ARROW_BTN_H + 10             # 10 px gap below up-arrow
 
 # ── Right panel: mode tabs ───────────────────────────────────────────────────
 _TAB_H   = 36
@@ -122,12 +122,15 @@ _BOTTOM_BTN_W = (_RW - 6) // 2   # 243 each, with 6 px gap
 # ── Scenario text ─────────────────────────────────────────────────────────────
 _SCENARIO_FLAVOR: dict[str, str] = {
     "resource_wars": "Accursed relics litter a grid of ruins — claim them before your rivals do!",
+    "boss_fight": "A dread titan stalks the 8×8 arena — cooperate to bring it down!",
 }
 _SCENARIO_TYPE: dict[str, str] = {
     "resource_wars": "Turn-based grid  ·  up to 8 players",
+    "boss_fight": "Cooperative PvE  ·  1–6 players vs boss",
 }
 _SCENARIO_HINT: dict[str, str] = {
     "resource_wars": "Gather resources each turn  ·  50 turns  ·  highest score wins",
+    "boss_fight": "Attack, heal, and cooperate  ·  200 turns  ·  slay the boss to win",
 }
 
 # ── Opponent display ──────────────────────────────────────────────────────────
@@ -187,6 +190,7 @@ def _build_minimap_surface(seed: int) -> pygame.Surface | None:
     """Render a 100×100 preview surface from a scenario seed."""
     try:
         from engine.simulation.map import TileType
+        from scenarios.resource_wars.game import ResourceWarsScenario
 
         scenario = ResourceWarsScenario(seed=seed, player_ids=["p1", "p2"])
         scenario.setup()
@@ -211,6 +215,26 @@ def _build_minimap_surface(seed: int) -> pygame.Surface | None:
         return surf
     except Exception:
         return None
+
+
+# ── Text helpers ──────────────────────────────────────────────────────────────
+
+def _wrap_words(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
+    """Word-wrap *text* into lines that fit within *max_w* pixels."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        trial = (current + " " + word).strip() if current else word
+        if font.size(trial)[0] <= max_w:
+            current = trial
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines or [text]
 
 
 # ── Scenario row widget ───────────────────────────────────────────────────────
@@ -247,38 +271,47 @@ class ScenarioRow(ListRow):
             pygame.draw.rect(surface, colors.TEAL_ACCENT, self.rect, 1, border_radius=6)
 
         old_clip = surface.get_clip()
-        surface.set_clip(self.rect.inflate(-6, -4))
+        surface.set_clip(self.rect.inflate(-8, -6))
 
         sel = self.selected
-        x = self.rect.x + 14
-        y = self.rect.y + 7
+        x = self.rect.x + 16
+        y = self.rect.y + 10
+        # Available pixel width for sub-lines (accounts for clip inset + sub-indent)
+        sub_x    = x + 12
+        avail_w  = self.rect.width - 32   # rect.width − left-x-offset(28) − right-clip-inset(4)
 
         # Name
         prefix     = "> " if sel else "  "
         name_color = _PARCH_NAME if sel else _WOOD_NAME
-        name_s     = body_font(16).render(prefix + self.label, True, name_color)
+        name_s     = body_font(17).render(prefix + self.label, True, name_color)
         surface.blit(name_s, (x, y))
-        y += name_s.get_height() + 1
+        y += name_s.get_height() + 3
 
-        # Type line
+        # Type line (single — always short)
         if self._type:
             type_color = _PARCH_TYPE if sel else _WOOD_TYPE
-            type_s     = body_font(12).render(self._type, True, type_color)
-            surface.blit(type_s, (x + 12, y))
-            y += type_s.get_height() + 1
+            type_s     = body_font(13).render(self._type, True, type_color)
+            surface.blit(type_s, (sub_x, y))
+            y += type_s.get_height() + 3
 
-        # Flavour line
+        # Flavour line — word-wrapped, max 2 lines
         if self._flavor:
             fv_color = _PARCH_FLAVOR if sel else _WOOD_FLAVOR
-            fv_s     = body_font(12).render(self._flavor, True, fv_color)
-            surface.blit(fv_s, (x + 12, y))
-            y += fv_s.get_height() + 1
+            fv_font  = body_font(13)
+            for line in _wrap_words(self._flavor, fv_font, avail_w)[:2]:
+                fv_s = fv_font.render(line, True, fv_color)
+                surface.blit(fv_s, (sub_x, y))
+                y += fv_s.get_height() + 2
+            y += 1
 
-        # Hint line
+        # Hint line — word-wrapped, max 2 lines
         if self._hint:
             hint_color = _PARCH_HINT if sel else _WOOD_HINT
-            hint_s     = body_font(11).render(self._hint, True, hint_color)
-            surface.blit(hint_s, (x + 12, y))
+            hint_font  = body_font(12)
+            for line in _wrap_words(self._hint, hint_font, avail_w)[:2]:
+                hint_s = hint_font.render(line, True, hint_color)
+                surface.blit(hint_s, (sub_x, y))
+                y += hint_s.get_height() + 2
 
         surface.set_clip(old_clip)
 
@@ -292,7 +325,7 @@ class MenuScreen:
             {"id": "resource_wars", "name": "Resource Wars", "description": ""}
         ]
         self.selected       = 0
-        self.bot_paths_text = "student_bots/example_bot.py"
+        self.bot_paths_text = "student_bots/resource_wars/example_bot.py"
         self.seed           = 42
         self.opponent_mode  = "dumb"
         self.error          = ""
@@ -594,12 +627,24 @@ class MenuScreen:
             )
             root.destroy()
             if chosen:
-                _, cap = ResourceWarsScenario.player_limits()
+                scenario_id = self.scenarios[self.selected].get("id", "resource_wars")
+                _, cap = self._get_scenario_player_limits(scenario_id)
                 py_files = sorted(Path(chosen).glob("*.py"))[:cap]
                 self.bot_paths_text = ", ".join(str(p) for p in py_files)
                 self._bot_field.text = self.bot_paths_text
         except Exception:
             self.error = "Folder browser unavailable — paste paths into the field."
+
+    def _get_scenario_player_limits(self, scenario_id: str) -> tuple[int, int]:
+        try:
+            sc = create_scenario(scenario_id, seed=0)
+            fn = getattr(sc.__class__, "player_limits", None)
+            if callable(fn):
+                return fn()
+        except Exception:
+            pass
+        from scenarios.resource_wars.game import ResourceWarsScenario
+        return ResourceWarsScenario.player_limits()
 
     # ── Run match ─────────────────────────────────────────────────────────────
 
@@ -622,6 +667,9 @@ class MenuScreen:
             self.error = "Duplicate bot paths are not allowed."
             return
 
+        scenario_id = self.scenarios[self.selected].get("id", "resource_wars")
+        min_p, max_p = self._get_scenario_player_limits(scenario_id)
+
         if self.launch_mode == "practice" and len(paths) != 1:
             self.error = "Practice mode requires exactly one bot file."
             return
@@ -630,9 +678,8 @@ class MenuScreen:
             self.error = "Classroom match requires at least 2 bot files."
             return
 
-        _, max_p = ResourceWarsScenario.player_limits()
         if len(paths) > max_p:
-            self.error = f"At most {max_p} bots for Resource Wars (got {len(paths)})."
+            self.error = f"At most {max_p} bots for {scenario_id} (got {len(paths)})."
             return
 
         try:
@@ -647,9 +694,8 @@ class MenuScreen:
             self.error = str(exc)
             return
 
-        scenario = self.scenarios[self.selected]
         self.app.start_simulation(
-            scenario_id=scenario["id"],
+            scenario_id=scenario_id,
             student_bots=bots,
             seed=run_seed,
             opponent_mode=self.opponent_mode if self.launch_mode == "practice" else None,

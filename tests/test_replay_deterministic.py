@@ -16,7 +16,7 @@ def test_identical_replay_for_same_seed(tmp_path: Path) -> None:
         "--scenario",
         "resource_wars",
         "--bot",
-        "student_bots/example_bot.py",
+        "student_bots/resource_wars/example_bot.py",
         "--seed",
         "42",
         "--results-dir",

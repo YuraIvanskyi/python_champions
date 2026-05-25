@@ -62,6 +62,10 @@ class GameView:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GameView:
+        if "boss_position" in data:
+            from engine.student_api.boss_fight_view import BossFightView
+
+            return BossFightView(data)
         return cls(data)
 
     def turn(self) -> int:
