@@ -94,16 +94,16 @@ phases:
 
   - id: phase-5
     file: Phase_5.md
-    title: Tournament mode
+    title: Boss Fight scenario
     status: not_started
-    depends_on: [phase-2-8, phase-3-1]
+    depends_on: [phase-4]
     completed_at: null
-    plan_reference: "PLAN.md section 16 Phase 5"
+    plan_reference: "New scenario: cooperative PvE boss fight (8x8 map)"
 
   - id: phase-6
     file: Phase_6.md
-    title: Advanced scenarios
+    title: Energy Stations scenario
     status: not_started
     depends_on: [phase-5]
     completed_at: null
-    plan_reference: "PLAN.md section 16 Phase 6"
+    plan_reference: "New scenario: competitive energy gathering with push (16x16 map)"

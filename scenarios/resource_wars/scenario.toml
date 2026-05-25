@@ -1,10 +1,10 @@
 [scenario]
 id = "resource_wars"
 name = "Resource Wars"
-map_width = 8
-map_height = 8
-resource_count = 12
-obstacle_count = 8
+map_width = 12
+map_height = 12
+resource_count = 27
+obstacle_count = 18
 score_threshold = 15
 max_turns = 300
 # Classroom / multi-bot (Phase 2.7): simultaneous agents on one map
