@@ -4,12 +4,11 @@ Icon resolution priority (highest wins):
   1. BOT_ICON_INDEX = <int 0-99>  — picks char_NNN.png from the portrait sheet
   2. BOT_ICON = "<path>"          — explicit path under student_bots/ or ui/assets/icons/
   3. get_bot_profile() dict       — dict with optional "icon_index" or "icon" keys
-  4. No declaration               — a random portrait is assigned at load time
+  4. No declaration               — default portrait char_085.png
 """
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -24,18 +23,13 @@ ALLOWED_ICON_PREFIXES = (
 
 CHAR_ICONS_DIR = Path(__file__).resolve().parents[2] / "ui" / "assets" / "icons"
 CHAR_ICON_COUNT = 100
+DEFAULT_STUDENT_ICON_INDEX = 85
 
 
 def char_icon_path(index: int, *, root: Path | None = None) -> Path:
     """Return the absolute path for portrait icon *index* (0–99)."""
     base = root or Path(__file__).resolve().parents[2]
     return base / "ui" / "assets" / "icons" / f"char_{index % CHAR_ICON_COUNT:03d}.png"
-
-
-def random_icon_index(seed_str: str) -> int:
-    """Deterministic 'random' icon index derived from a seed string (e.g. bot filename)."""
-    digest = hashlib.md5(seed_str.encode(), usedforsecurity=False).digest()
-    return int.from_bytes(digest[:2], "little") % CHAR_ICON_COUNT
 
 
 def project_root() -> Path:
@@ -96,7 +90,7 @@ def read_profile_from_module(
       1. get_bot_profile() dict  →  "icon_index" (int) or "icon" (str path)
       2. BOT_ICON_INDEX = <int>
       3. BOT_ICON = "<path>"
-      4. Deterministic random portrait derived from the bot filename
+      4. Default portrait char_085.png
     """
     display_name = default_name
     icon_path: str | None = None
@@ -139,9 +133,9 @@ def _coerce_icon_index(value: Any) -> int:
 
 
 def _fallback_icon(bot_file: Path, *, root: Path | None = None) -> str | None:
-    """Return a deterministic portrait path based on the bot filename."""
-    idx = random_icon_index(bot_file.stem)
-    path = char_icon_path(idx, root=root)
+    """Return the default student portrait when the bot declares no icon."""
+    del bot_file  # kept for call-site compatibility
+    path = char_icon_path(DEFAULT_STUDENT_ICON_INDEX, root=root)
     if path.is_file():
         return str(path)
     return None

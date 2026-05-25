@@ -245,10 +245,9 @@ class ListRow(Widget):
         else:
             color = colors.TEXT_MUTED
 
-        prefix = "> " if self.selected else "  "
         skin.draw_text_clipped(
             surface,
-            f"{prefix}{self.label}",
+            self.label,
             pygame.Rect(self.rect.x + 8, self.rect.y, self.rect.width - 16, self.rect.height),
             font,
             color,

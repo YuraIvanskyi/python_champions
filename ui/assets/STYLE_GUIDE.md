@@ -11,7 +11,7 @@ Medieval fantasy RPG chrome aligned to `implementation/ui_reference.png`.
 | wood_light | 168, 132, 88 | Wood panel accent |
 | parchment | 232, 216, 176 | Hint / quest text areas |
 | gold_text | 240, 200, 80 | Titles, primary button labels |
-| teal_accent | 72, 180, 170 | Efficiency / selected list accent |
+| teal_accent | 232, 178, 48 | Selection borders, active tabs, efficiency ribbon |
 | purple_accent | 140, 100, 200 | Logic / warning category |
 | green_ok | 80, 200, 120 | Confirm, praise |
 | red_fail | 220, 80, 80 | Cancel, critical |

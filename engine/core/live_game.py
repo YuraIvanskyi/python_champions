@@ -19,11 +19,13 @@ from engine.analysis.runtime import RuntimeCollector
 from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
-def _scenario_needs_external_opponent(scenario_id: str) -> bool:
-    """Return False for self-contained scenarios that manage their own AI."""
-    # boss_fight: internal boss AI; energy_stations: PvP-only, no AI opponent needed
-    _SELF_CONTAINED = {"boss_fight", "energy_stations"}
-    return scenario_id not in _SELF_CONTAINED
+def _scenario_needs_external_opponent(scenario_id: str, *, student_count: int) -> bool:
+    """Return False when the scenario supplies its own opponent AI."""
+    if scenario_id == "boss_fight":
+        return False
+    if scenario_id == "energy_stations":
+        return student_count < 2
+    return True
 
 
 def build_render_state(
@@ -111,8 +113,9 @@ class LiveGame:
         self.student_bots: list[Bot] = list(student_bots)
         self.seed = seed
         self.config = config
-        # Boss Fight and similar cooperative scenarios don't need an external AI opponent
-        _needs_opp = _scenario_needs_external_opponent(scenario_id)
+        _needs_opp = _scenario_needs_external_opponent(
+            scenario_id, student_count=len(student_bots)
+        )
         self.multi_student_match = len(student_bots) >= 2 or not _needs_opp
 
         if self.multi_student_match:
@@ -145,7 +148,10 @@ class LiveGame:
         elif ai_turn is not None:
             self._ai_fn = ai_turn
         else:
-            resolved_ai = resolve_ai_turn(self.opponent_mode or "greedy")
+            resolved_ai = resolve_ai_turn(
+                self.opponent_mode or "greedy",
+                scenario_id=scenario_id,
+            )
 
             def _bound(state: dict[str, Any], r: random.Random = rng) -> Action:
                 return resolved_ai(state, r)

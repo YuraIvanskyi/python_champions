@@ -7,16 +7,17 @@ from collections.abc import Callable
 from typing import Any
 
 from engine.core.action import Action
-from engine.core.bot_profile import project_root
+from engine.core.bot_profile import char_icon_path
 from engine.core.player import Player
 from engine.simulation.dumb_ai import dumb_turn
+from engine.simulation.energy_stations_ai import dumb_energy_turn, greedy_energy_turn
 from engine.simulation.simple_ai import greedy_turn
 
 OPPONENT_MODES = ("greedy", "dumb")
 
-_BUILTIN_ICONS: dict[str, str] = {
-    "greedy": "ui/assets/icons/rival.png",
-    "dumb": "ui/assets/icons/rookie.png",
+_BUILTIN_ICON_INDEX: dict[str, int] = {
+    "greedy": 33,  # Rival
+    "dumb": 53,    # Rookie
 }
 
 _BUILTIN_NAMES: dict[str, str] = {
@@ -34,10 +35,10 @@ def normalize_opponent_mode(mode: str | None, *, default: str = "greedy") -> str
 
 
 def builtin_icon_path(mode: str) -> str | None:
-    rel = _BUILTIN_ICONS.get(mode)
-    if rel is None:
+    idx = _BUILTIN_ICON_INDEX.get(mode)
+    if idx is None:
         return None
-    path = project_root() / rel
+    path = char_icon_path(idx)
     return str(path) if path.is_file() else None
 
 
@@ -51,8 +52,14 @@ def opponent_player(mode: str) -> Player:
     )
 
 
-def resolve_ai_turn(mode: str) -> Callable[[dict[str, Any], random.Random], Action]:
+def resolve_ai_turn(
+    mode: str,
+    *,
+    scenario_id: str = "resource_wars",
+) -> Callable[[dict[str, Any], random.Random], Action]:
     normalized = normalize_opponent_mode(mode)
+    if scenario_id == "energy_stations":
+        return dumb_energy_turn if normalized == "dumb" else greedy_energy_turn
     if normalized == "dumb":
         return dumb_turn
     return greedy_turn

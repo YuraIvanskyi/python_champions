@@ -42,7 +42,9 @@ TEXT_BODY  = (230, 235, 250)     # cool near-white (reads on dark stone)
 TEXT_MUTED = (150, 160, 185)     # desaturated mid-blue
 
 # ── Accents (ui_reference.png gem/ribbon palette) ────────────────────────────
-TEAL_ACCENT    = (38, 218, 198)   # vivid gemstone teal (crystal in ui_reference)
+# Warm torch-gold — selection borders, active tabs, map picks, coach highlights.
+# Slightly deeper than GOLD_TEXT so 2 px borders read without competing with titles.
+TEAL_ACCENT    = (232, 178, 48)
 PURPLE_ACCENT  = (165, 95, 225)   # arcane purple ribbon
 EMERALD_PRAISE = (34, 197, 94)    # fresh emerald — praise / pass ribbon
 GREEN_OK       = (58, 228, 128)   # potion green (UI success)

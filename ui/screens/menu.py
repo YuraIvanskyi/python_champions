@@ -19,10 +19,8 @@ from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
 from ui.theme import (
-    FOOTER_PT,
     MARGIN_X,
     content_width,
-    footer_top,
 )
 from ui.widgets import Button, ListRow, TextField, WidgetGroup
 
@@ -49,14 +47,10 @@ _CY = _PANEL_Y  + _HDR          # 137
 _LW = _LPANEL_W - 24            # 380
 _RW = _RPANEL_W - 24            # 492
 
-# ── Left panel: ▲/▼ + scenario rows ─────────────────────────────────────────
-_ARROW_BTN_W = 90
-_ARROW_BTN_H = 28
-_ARROW_BTN_X = _LX + (_LW - _ARROW_BTN_W) // 2   # centred
-_UP_BTN_Y    = _CY               # 137
+# ── Left panel: scenario rows ─────────────────────────────────────────────────
 _SC_ROW_H    = 126               # tall rows: name + type + 2-line flavor + 2-line hint
 _SC_ROW_GAP  = 8
-_SC_START_Y  = _CY + _ARROW_BTN_H + 10             # 10 px gap below up-arrow
+_SC_START_Y  = _CY
 
 # ── Right panel: mode tabs ───────────────────────────────────────────────────
 _TAB_H   = 36
@@ -136,12 +130,14 @@ _SCENARIO_HINT: dict[str, str] = {
     "energy_stations": "GATHER from adjacent stations  ·  ATTACK pushes rivals  ·  300 turns",
 }
 
-# Scenarios that don't support Practice (vs AI) mode — require 2+ real bots
-_CLASSROOM_ONLY_SCENARIOS: set[str] = {"energy_stations", "boss_fight"}
+_DEFAULT_BOT: dict[str, str] = {
+    "resource_wars": "student_bots/resource_wars/example_bot.py",
+    "boss_fight": "student_bots/boss_fight/boss_fight_starter.py",
+    "energy_stations": "student_bots/energy_stations/energy_stations_starter.py",
+}
 
 # ── Opponent display ──────────────────────────────────────────────────────────
 _OPPONENT_NAMES: dict[str, str]      = {"greedy": "Rival",  "dumb": "Rookie"}
-_OPPONENT_LABELS: dict[str, str]     = {"greedy": "Rival",  "dumb": "Rookie"}
 _OPPONENT_SHORT_DESC: dict[str, str] = {
     "greedy": "Chases resources efficiently",
     "dumb":   "Wanders — great first win",
@@ -296,9 +292,8 @@ class ScenarioRow(ListRow):
         avail_w  = self.rect.width - 32   # rect.width − left-x-offset(28) − right-clip-inset(4)
 
         # Name
-        prefix     = "> " if sel else "  "
         name_color = _PARCH_NAME if sel else _WOOD_NAME
-        name_s     = body_font(17).render(prefix + self.label, True, name_color)
+        name_s     = body_font(17).render(self.label, True, name_color)
         surface.blit(name_s, (x, y))
         y += name_s.get_height() + 3
 
@@ -370,28 +365,24 @@ class MenuScreen:
         self._widgets: WidgetGroup = WidgetGroup()
         self._scenario_rows: list[ScenarioRow] = []
         self._opponent_cards: list[tuple[str, pygame.Rect]] = []
+        self._opponent_buttons: list[tuple[str, Button]] = []
         self._tiles_y: int = _PRAC_TILES_Y
         self._build_widgets()
 
     # ── Widget construction ───────────────────────────────────────────────────
 
+    def _default_bot_path(self, scenario_id: str) -> str:
+        return _DEFAULT_BOT.get(
+            scenario_id, "student_bots/resource_wars/example_bot.py"
+        )
+
     def _build_widgets(self) -> None:
         self._widgets = WidgetGroup()
         self._scenario_rows = []
         self._opponent_cards = []
+        self._opponent_buttons = []
 
-        # ── Left panel: ▲/▼ + scenarios ───────────────────────────────────
-        self._up_btn = Button(
-            pygame.Rect(_ARROW_BTN_X, _UP_BTN_Y, _ARROW_BTN_W, _ARROW_BTN_H),
-            "",
-            on_click=lambda: self._select_scenario(
-                (self.selected - 1) % len(self.scenarios)
-            ),
-            icon="arrow_up",
-            icon_size=14,
-        )
-        self._widgets.add(self._up_btn)
-
+        # ── Left panel: scenarios ─────────────────────────────────────────
         ly = _SC_START_Y
         for index, sc in enumerate(self.scenarios):
             row = ScenarioRow(
@@ -404,39 +395,16 @@ class MenuScreen:
             self._widgets.add(row)
             ly += _SC_ROW_H + _SC_ROW_GAP
 
-        self._down_btn = Button(
-            pygame.Rect(_ARROW_BTN_X, ly + 2, _ARROW_BTN_W, _ARROW_BTN_H),
-            "",
-            on_click=lambda: self._select_scenario(
-                (self.selected + 1) % len(self.scenarios)
-            ),
-            icon="arrow_down",
-            icon_size=14,
-        )
-        self._widgets.add(self._down_btn)
-
-        # ── Right panel: mode tabs ─────────────────────────────────────────
-        current_sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
-        _is_classroom_only = current_sid in _CLASSROOM_ONLY_SCENARIOS
+        # ── Right panel: mode tabs (visuals drawn in _draw_mode_tabs) ────────
         self._prac_tab = Button(
             pygame.Rect(_RX, _CY, _TAB_W, _TAB_H),
-            "Practice (vs AI)",
+            "",
             on_click=lambda: self._set_mode("practice"),
-            font_size=15,
-            icon="shield",
-            icon_size=18,
         )
-        self._prac_tab.enabled = not _is_classroom_only
         self._class_tab = Button(
             pygame.Rect(_RX + _TAB_W + _TAB_GAP, _CY, _TAB_W, _TAB_H),
-            "Classroom Match",
+            "",
             on_click=lambda: self._set_mode("classroom"),
-            font_size=15,
-            icon="classroom",
-            icon_size=18,
         )
         self._widgets.add(self._prac_tab)
         self._widgets.add(self._class_tab)
@@ -477,21 +445,23 @@ class MenuScreen:
         else:
             self._folder_btn = None
 
-        # ── Practice: opponent cards ───────────────────────────────────────
+        # ── Practice: opponent cards (visuals drawn in _draw_opponent_cards) ─
         if self.launch_mode == "practice":
             self._opponent_cards = []
             for i, mode in enumerate(OPPONENT_MODES):
                 cx    = _RX + i * (_OPP_CARD_W + 8)
                 crect = pygame.Rect(cx, _OPP_CARD_Y, _OPP_CARD_W, _OPP_CARD_H)
                 self._opponent_cards.append((mode, crect))
-                self._widgets.add(Button(
+                btn = Button(
                     crect,
-                    _OPPONENT_LABELS[mode],
+                    "",
                     on_click=lambda m=mode: self._set_opponent(m),
-                    font_size=15,
-                ))
+                )
+                self._opponent_buttons.append((mode, btn))
+                self._widgets.add(btn)
         else:
             self._opponent_cards = []
+            self._opponent_buttons = []
 
         # ── Tile row y (mode-specific) ─────────────────────────────────────
         self._tiles_y = (
@@ -537,17 +507,18 @@ class MenuScreen:
     def _set_mode(self, mode: LaunchMode) -> None:
         if mode == self.launch_mode:
             return
-        current_sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
-        if mode == "practice" and current_sid in _CLASSROOM_ONLY_SCENARIOS:
-            return
         if mode == "classroom":
             self.opponent_mode = "dumb"
+        else:
+            current_sid = (
+                self.scenarios[self.selected].get("id", "resource_wars")
+                if self.scenarios else "resource_wars"
+            )
+            self.bot_paths_text = self._default_bot_path(current_sid)
         self.launch_mode = mode
         self.error = ""
-        self.bot_paths_text = ""
+        if mode == "classroom":
+            self.bot_paths_text = ""
         self._build_widgets()
 
     def _select_scenario(self, index: int) -> None:
@@ -560,10 +531,8 @@ class MenuScreen:
                 _build_minimap_surface(s, sid) for s in self._preset_seeds
             ]
         self._minimap_surfs = self._minimap_cache[sid]
-        # If scenario requires classroom-only, switch mode automatically
-        if sid in _CLASSROOM_ONLY_SCENARIOS and self.launch_mode == "practice":
-            self.launch_mode = "classroom"
-            self.error = ""
+        if self.launch_mode == "practice":
+            self.bot_paths_text = self._default_bot_path(sid)
         self._build_widgets()
 
     def _set_bot_paths_text(self, text: str) -> None:
@@ -761,28 +730,12 @@ class MenuScreen:
             surface, pygame.Rect(_LPANEL_X, _PANEL_Y, _LPANEL_W, _PANEL_H),
             "Scenarios", style="wood",
         )
-        n = len(self.scenarios)
-        sc = self.scenarios[self.selected] if self.scenarios else {}
-        # id tag below ▼ button
-        id_y = _SC_START_Y + n * (_SC_ROW_H + _SC_ROW_GAP) + _ARROW_BTN_H + 16
-        _draw_label(
-            surface, f"id: {sc.get('id', '')}",
-            _LX, id_y, color=colors.TEXT_MUTED, pt=12, max_w=_LW,
-        )
 
         # ── Right panel ───────────────────────────────────────────────────
         skin.draw_panel_titled(
             surface, pygame.Rect(_RPANEL_X, _PANEL_Y, _RPANEL_W, _PANEL_H),
             "Configuration", style="stone",
         )
-
-        # Active tab border
-        for tab, mode in [
-            (self._prac_tab,  "practice"),
-            (self._class_tab, "classroom"),
-        ]:
-            if self.launch_mode == mode:
-                pygame.draw.rect(surface, colors.TEAL_ACCENT, tab.rect, 2, border_radius=6)
 
         # Bot path label
         paths = _parse_bot_path_lines(self._bot_field.text)
@@ -808,8 +761,11 @@ class MenuScreen:
             skin.draw_ornamental_divider(
                 surface, pygame.Rect(_RX, _OPP_DIV_Y, _RW, 10)
             )
-            _draw_label(surface, "Opponent", _RX, _OPP_LABEL_Y, max_w=_RW)
-            self._draw_opponent_cards(surface)
+            opp_name = _OPPONENT_NAMES.get(self.opponent_mode, self.opponent_mode)
+            _draw_label(
+                surface, f"Opponent  —  {opp_name}",
+                _RX, _OPP_LABEL_Y, max_w=_RW,
+            )
             map_div_y   = _PRAC_MAP_DIV_Y
             map_label_y = _PRAC_MAP_LABEL_Y
             error_y     = _PRAC_ERROR_Y
@@ -856,6 +812,11 @@ class MenuScreen:
         # Widgets (drawn before tile row so tiles render on top)
         self._widgets.draw(surface)
 
+        self._draw_mode_tabs(surface)
+
+        if self.launch_mode == "practice":
+            self._draw_opponent_cards(surface)
+
         # Tile row (drawn on top of widget hit-areas)
         self._draw_tile_row(surface, self._tiles_y)
 
@@ -867,49 +828,113 @@ class MenuScreen:
                 body_font(13), colors.RED_FAIL, align="left",
             )
 
-        # Footer
-        foot_font = body_font(FOOTER_PT)
-        foot_surf = foot_font.render(
-            "↑↓ scenario  ·  Enter run  ·  Esc quit",
-            True, colors.TEXT_MUTED,
-        )
-        old_clip = surface.get_clip()
-        surface.set_clip(
-            pygame.Rect(MARGIN_X, footer_top() + 4, content_width(), FOOTER_PT + 8)
-        )
-        surface.blit(foot_surf, (MARGIN_X, footer_top() + 4))
-        surface.set_clip(old_clip)
-
     # ── Sub-drawing helpers ───────────────────────────────────────────────────
+
+    def _draw_selectable_card(
+        self,
+        surface: pygame.Surface,
+        rect: pygame.Rect,
+        *,
+        is_active: bool,
+        is_hovered: bool,
+    ) -> None:
+        skin.draw_panel(surface, rect, style="parchment" if is_active else "stone")
+
+        if is_active:
+            bar = pygame.Rect(rect.x, rect.y, 4, rect.height)
+            pygame.draw.rect(surface, colors.TEAL_ACCENT, bar, border_radius=2)
+            pygame.draw.rect(surface, colors.TEAL_ACCENT, rect, 2, border_radius=6)
+        elif is_hovered:
+            ov = pygame.Surface(rect.size, pygame.SRCALPHA)
+            ov.fill((255, 220, 120, 28))
+            surface.blit(ov, rect.topleft)
+            pygame.draw.rect(surface, colors.STONE_HIGHLIGHT, rect, 1, border_radius=6)
+        else:
+            ov = pygame.Surface(rect.size, pygame.SRCALPHA)
+            ov.fill((0, 0, 0, 40))
+            surface.blit(ov, rect.topleft)
+
+    def _draw_selected_badge(
+        self,
+        surface: pygame.Surface,
+        rect: pygame.Rect,
+    ) -> None:
+        badge_font = body_font(10)
+        badge = badge_font.render("SELECTED", True, colors.TEAL_ACCENT)
+        surface.blit(badge, (rect.right - badge.get_width() - 8, rect.y + 6))
+
+    def _draw_mode_tabs(self, surface: pygame.Surface) -> None:
+        tabs: list[tuple[LaunchMode, Button, str, str]] = [
+            ("practice", self._prac_tab, "Practice (vs AI)", "shield"),
+            ("classroom", self._class_tab, "Classroom Match", "classroom"),
+        ]
+        icon_size = 18
+        font = body_font(15)
+
+        for mode, btn, label, icon in tabs:
+            rect = btn.rect
+            is_active = self.launch_mode == mode
+            is_hovered = btn.hovered and btn.enabled and not is_active
+            self._draw_selectable_card(
+                surface, rect, is_active=is_active, is_hovered=is_hovered
+            )
+
+            text_color = colors.PARCHMENT_TEXT if is_active else (
+                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
+            )
+            text_surf = font.render(label, True, text_color)
+            gap = 6
+            content_w = icon_size + gap + text_surf.get_width()
+            content_x = rect.x + (rect.width - content_w) // 2
+            text_y = rect.y + (rect.height - text_surf.get_height()) // 2
+
+            icon_rect = pygame.Rect(content_x, rect.y, icon_size, rect.height)
+            draw_menu_icon(surface, icon, icon_rect, text_color)
+            surface.blit(text_surf, (content_x + icon_size + gap, text_y))
+
+            if is_active:
+                self._draw_selected_badge(surface, rect)
+
+    def _opponent_button(self, mode: str) -> Button | None:
+        for opp_mode, btn in self._opponent_buttons:
+            if opp_mode == mode:
+                return btn
+        return None
 
     def _draw_opponent_cards(self, surface: pygame.Surface) -> None:
         for mode, card_rect in self._opponent_cards:
             is_active = mode == self.opponent_mode
-            skin.draw_panel(surface, card_rect, style="parchment" if is_active else "stone")
-            if is_active:
-                pygame.draw.rect(surface, colors.TEAL_ACCENT, card_rect, 2, border_radius=6)
-            else:
-                ov = pygame.Surface(card_rect.size, pygame.SRCALPHA)
-                ov.fill((0, 0, 0, 40))
-                surface.blit(ov, card_rect.topleft)
+            btn = self._opponent_button(mode)
+            is_hovered = bool(btn and btn.hovered and btn.enabled and not is_active)
+
+            self._draw_selectable_card(
+                surface, card_rect, is_active=is_active, is_hovered=is_hovered
+            )
 
             icon_path = builtin_icon_path(mode)
             icon_surf = load_icon(icon_path, size=32) if icon_path else None
-            tx = card_rect.x + 8
+            tx = card_rect.x + 12
             if icon_surf:
                 surface.blit(icon_surf,
                               (tx, card_rect.y + (card_rect.height - 32) // 2))
                 tx += 40
 
-            tc   = colors.PARCHMENT_TEXT if is_active else colors.TEXT_MUTED
-            ns   = body_font(15).render(_OPPONENT_NAMES[mode], True, tc)
+            tc = colors.PARCHMENT_TEXT if is_active else (
+                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
+            )
+            ns = body_font(15).render(_OPPONENT_NAMES[mode], True, tc)
             surface.blit(ns, (tx, card_rect.y + 6))
-            ds   = body_font(12).render(_OPPONENT_SHORT_DESC[mode], True, colors.TEXT_MUTED)
-            dy   = card_rect.y + 6 + ns.get_height() + 2
-            old  = surface.get_clip()
+
+            desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
+            ds = body_font(12).render(_OPPONENT_SHORT_DESC[mode], True, desc_color)
+            dy = card_rect.y + 6 + ns.get_height() + 2
+            old = surface.get_clip()
             surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 16))
             surface.blit(ds, (tx, dy))
             surface.set_clip(old)
+
+            if is_active:
+                self._draw_selected_badge(surface, card_rect)
 
     def _current_preset_names(self) -> list[str]:
         """Return the preset names for the currently selected scenario."""

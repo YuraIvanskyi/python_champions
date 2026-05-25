@@ -9,6 +9,7 @@ import pytest
 
 from engine.core.bot_profile import read_profile_from_module, validate_icon_path
 from engine.core.loader import BotLoadError, load_bot
+from engine.core.opponents import builtin_icon_path
 
 
 def test_load_bot_display_name() -> None:
@@ -35,6 +36,30 @@ def test_missing_icon_file_raises(tmp_path: Path) -> None:
     )
     with pytest.raises(BotLoadError, match="not found"):
         load_bot(bot_file)
+
+
+def test_default_student_icon_when_unset(tmp_path: Path) -> None:
+    root = tmp_path
+    icon = root / "ui" / "assets" / "icons" / "char_085.png"
+    icon.parent.mkdir(parents=True)
+    icon.write_bytes(
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc``\x00\x00\x00\x02\x00\x01\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    bot_file = root / "student_bots" / "plain.py"
+    bot_file.parent.mkdir()
+    bot_file.write_text("def make_turn(s): return 'WAIT'\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("plain", bot_file)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _, icon_path = read_profile_from_module(module, bot_file=bot_file, root=root)
+    assert icon_path == str(icon.resolve())
+
+
+def test_builtin_opponent_icons() -> None:
+    assert builtin_icon_path("greedy").endswith("char_033.png")
+    assert builtin_icon_path("dumb").endswith("char_053.png")
 
 
 def test_read_profile_valid_icon(tmp_path: Path) -> None:
