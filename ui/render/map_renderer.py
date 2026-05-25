@@ -65,6 +65,20 @@ def _draw_tile(surface: pygame.Surface, rect: pygame.Rect, tile_type: str) -> No
         crack = _darker(color, 30)
         pygame.draw.line(surface, crack, (cx - m, cy - m), (cx + m, cy + m), 1)
         pygame.draw.line(surface, crack, (cx + m, cy - m), (cx - m, cy + m), 1)
+    elif tile_type == "station":
+        # Lightning bolt symbol
+        lw = max(3, TILE_SIZE // 5)
+        lh = max(5, TILE_SIZE // 3)
+        bolt = [
+            (cx,        cy - lh),
+            (cx - lw,   cy),
+            (cx,        cy),
+            (cx,        cy + lh),
+            (cx + lw,   cy),
+            (cx,        cy),
+        ]
+        bolt_fill = _lighter(color, 80)
+        pygame.draw.lines(surface, bolt_fill, False, bolt, max(1, TILE_SIZE // 14))
 
 
 def _entity_palette_index(render_state: dict, player_id: str) -> int:
@@ -195,6 +209,16 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
     if hp_bars:
         _draw_hp_bars(surface, render_state, hp_bars, origin_x, origin_y)
 
+    # Draw station capacity overlays (energy_stations scenario)
+    station_caps = render_state.get("station_capacities", {})
+    if station_caps:
+        _draw_station_overlays(surface, render_state, station_caps, origin_x, origin_y, name_font)
+
+    # Draw energy bars (energy_stations scenario)
+    energy_bars = render_state.get("energy_bars", {})
+    if energy_bars:
+        _draw_energy_bars(surface, render_state, energy_bars, origin_x, origin_y)
+
     return map_rect
 
 
@@ -263,3 +287,62 @@ def _draw_hp_bars(
         ex = origin_x + int(px) * TILE_SIZE + 3
         ey = origin_y + int(py_e) * TILE_SIZE + 2
         _draw_single_hp_bar(surface, ex, ey, bar_w, bar_h, info)
+
+
+# ── Energy Stations extras ────────────────────────────────────────────────────
+
+_ENERGY_BAR_BG = (30, 28, 14)
+_ENERGY_BAR_FG = (255, 200, 50)   # amber/yellow — distinct from HP green
+
+
+def _draw_station_overlays(
+    surface: pygame.Surface,
+    render_state: dict,
+    station_caps: dict,
+    origin_x: int,
+    origin_y: int,
+    font: pygame.font.Font,
+) -> None:
+    """Draw capacity numbers on station tiles."""
+    for key, cap in station_caps.items():
+        try:
+            sx, sy = (int(v) for v in str(key).split(","))
+        except ValueError:
+            continue
+        cx = origin_x + sx * TILE_SIZE + TILE_SIZE // 2
+        cy = origin_y + sy * TILE_SIZE + TILE_SIZE // 2
+        cap_surf = font.render(str(cap), True, (255, 240, 140))
+        surface.blit(cap_surf, cap_surf.get_rect(center=(cx, cy + TILE_SIZE // 4)))
+
+
+def _draw_energy_bars(
+    surface: pygame.Surface,
+    render_state: dict,
+    energy_bars: dict,
+    origin_x: int,
+    origin_y: int,
+) -> None:
+    """Draw amber energy bars above each entity — positioned below HP bar if both present."""
+    bar_w = TILE_SIZE - 6
+    bar_h = 4
+    hp_bars = render_state.get("hp_bars", {})
+    for entity in render_state.get("entities", ()):
+        pid = str(entity["id"])
+        if pid not in energy_bars:
+            continue
+        info = energy_bars[pid]
+        energy = int(info.get("energy", 0))
+        max_energy = int(info.get("max_energy", 1)) or 1
+        px, py_e = entity["position"]
+        ex = origin_x + int(px) * TILE_SIZE + 3
+        # Stack below HP bar if present, otherwise use top row
+        base_ey = origin_y + int(py_e) * TILE_SIZE + 2
+        ey = base_ey + bar_h + 2 if pid in hp_bars else base_ey
+
+        bg_rect = pygame.Rect(ex, ey, bar_w, bar_h)
+        pygame.draw.rect(surface, _ENERGY_BAR_BG, bg_rect, border_radius=2)
+        filled_w = max(0, round(bar_w * energy / max_energy))
+        if filled_w > 0:
+            fg_rect = pygame.Rect(ex, ey, filled_w, bar_h)
+            pygame.draw.rect(surface, _ENERGY_BAR_FG, fg_rect, border_radius=2)
+        pygame.draw.rect(surface, (80, 72, 20), bg_rect, 1, border_radius=2)

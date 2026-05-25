@@ -7,11 +7,12 @@ from typing import Any
 
 
 class TileKind:
-    """Tile type strings for Resource Wars (and compatible scenarios)."""
+    """Tile type strings for all scenarios."""
 
     EMPTY = "empty"
     RESOURCE = "resource"
     OBSTACLE = "obstacle"
+    STATION = "station"
 
 
 class GameView:
@@ -66,6 +67,10 @@ class GameView:
             from engine.student_api.boss_fight_view import BossFightView
 
             return BossFightView(data)
+        if "stations" in data:
+            from engine.student_api.energy_stations_view import EnergyStationsView
+
+            return EnergyStationsView(data)
         return cls(data)
 
     def turn(self) -> int:

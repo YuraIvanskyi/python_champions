@@ -20,8 +20,9 @@ from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
 def _scenario_needs_external_opponent(scenario_id: str) -> bool:
-    """Return False for self-contained scenarios that manage their own AI (e.g. boss_fight)."""
-    _SELF_CONTAINED = {"boss_fight"}
+    """Return False for self-contained scenarios that manage their own AI."""
+    # boss_fight: internal boss AI; energy_stations: PvP-only, no AI opponent needed
+    _SELF_CONTAINED = {"boss_fight", "energy_stations"}
     return scenario_id not in _SELF_CONTAINED
 
 
@@ -285,10 +286,24 @@ class LiveGame:
             if run_analysis:
                 from engine.analysis.pipeline import run_analysis_for_session
 
+                # Collect scenario-specific extra gameplay metrics per player
+                _extra_fn = getattr(self.scenario, "energy_metrics", None)
+                _scenario_metrics: dict | None = (
+                    _extra_fn() if callable(_extra_fn) else None
+                )
+
                 for bot in self.student_bots:
                     if not bot.source_path:
                         continue
                     pid = bot.player.player_id
+                    # Build per-player extra gameplay dict from scenario metrics
+                    extra: dict | None = None
+                    if _scenario_metrics:
+                        extra = {
+                            k: v[pid] if isinstance(v, dict) else v
+                            for k, v in _scenario_metrics.items()
+                            if not isinstance(v, dict) or pid in v
+                        }
                     run_analysis_for_session(
                         session_dir,
                         bot_path=Path(bot.source_path),
@@ -297,6 +312,7 @@ class LiveGame:
                         scenario_id=self.scenario_id,
                         runtime_collector=self._runtime_collectors.get(pid),
                         player_id=pid,
+                        extra_gameplay=extra,
                     )
             return session_dir
         return None

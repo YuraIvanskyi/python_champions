@@ -47,3 +47,8 @@ code_panel_font_pt = 14
 [ui.map_presets]
 seeds = [7, 23, 42, 58, 91]
 names = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
+
+[ui.map_presets.scenario_names]
+resource_wars   = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
+boss_fight      = ["Open Arena",   "Narrow Pass",  "Classic", "Wide Floor", "Tight Cage"]
+energy_stations = ["Spark Field",  "Power Grid",   "Classic", "Open Surge", "Maze Charge"]

@@ -123,15 +123,21 @@ _BOTTOM_BTN_W = (_RW - 6) // 2   # 243 each, with 6 px gap
 _SCENARIO_FLAVOR: dict[str, str] = {
     "resource_wars": "Accursed relics litter a grid of ruins — claim them before your rivals do!",
     "boss_fight": "A dread titan stalks the 8×8 arena — cooperate to bring it down!",
+    "energy_stations": "Spark stations pulse across a 16×16 grid — drain them dry before rivals do!",
 }
 _SCENARIO_TYPE: dict[str, str] = {
     "resource_wars": "Turn-based grid  ·  up to 8 players",
     "boss_fight": "Cooperative PvE  ·  1–6 players vs boss",
+    "energy_stations": "Competitive PvP  ·  2–8 players  ·  push & gather",
 }
 _SCENARIO_HINT: dict[str, str] = {
     "resource_wars": "Gather resources each turn  ·  50 turns  ·  highest score wins",
     "boss_fight": "Attack, heal, and cooperate  ·  200 turns  ·  slay the boss to win",
+    "energy_stations": "GATHER from adjacent stations  ·  ATTACK pushes rivals  ·  300 turns",
 }
+
+# Scenarios that don't support Practice (vs AI) mode — require 2+ real bots
+_CLASSROOM_ONLY_SCENARIOS: set[str] = {"energy_stations", "boss_fight"}
 
 # ── Opponent display ──────────────────────────────────────────────────────────
 _OPPONENT_NAMES: dict[str, str]      = {"greedy": "Rival",  "dumb": "Rookie"}
@@ -186,13 +192,21 @@ def _draw_label(
     surface.set_clip(old_clip)
 
 
-def _build_minimap_surface(seed: int) -> pygame.Surface | None:
+def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pygame.Surface | None:
     """Render a 100×100 preview surface from a scenario seed."""
     try:
         from engine.simulation.map import TileType
-        from scenarios.resource_wars.game import ResourceWarsScenario
 
-        scenario = ResourceWarsScenario(seed=seed, player_ids=["p1", "p2"])
+        if scenario_id == "boss_fight":
+            from scenarios.boss_fight.game import BossFightScenario
+            scenario = BossFightScenario(seed=seed, player_ids=["p1"])
+        elif scenario_id == "energy_stations":
+            from scenarios.energy_stations.game import EnergyStationsScenario
+            scenario = EnergyStationsScenario(seed=seed, player_ids=["p1", "p2"])
+        else:
+            from scenarios.resource_wars.game import ResourceWarsScenario
+            scenario = ResourceWarsScenario(seed=seed, player_ids=["p1", "p2"])
+
         scenario.setup()
         m = scenario._map
         if m is None:
@@ -202,6 +216,7 @@ def _build_minimap_surface(seed: int) -> pygame.Surface | None:
             TileType.EMPTY:    (62, 72, 94),
             TileType.RESOURCE: (72, 200, 100),
             TileType.OBSTACLE: (118, 86, 52),
+            TileType.STATION:  (255, 200, 50),
         }
         size = 100
         cell = max(1, size // max(m.width, m.height))
@@ -338,14 +353,19 @@ class MenuScreen:
             cfg = load_config()
             self._preset_seeds = cfg.ui.map_presets.seeds
             self._preset_names = cfg.ui.map_presets.names
+            self._scenario_preset_names: dict[str, list[str]] = cfg.ui.map_presets.scenario_names
         except Exception:
             self._preset_seeds = [7, 23, 42, 58, 91]
-            self._preset_names = ["The Clearing", "Obstacle Run", "Classic",
-                                  "Open Field",   "The Maze"]
+            self._preset_names = [
+                "The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"
+            ]
+            self._scenario_preset_names = {}
 
         self._minimap_surfs: list[pygame.Surface | None] = [
             _build_minimap_surface(s) for s in self._preset_seeds
         ]
+        # Cache minimaps per scenario_id so switching scenarios rebuilds them once
+        self._minimap_cache: dict[str, list[pygame.Surface | None]] = {}
 
         self._widgets: WidgetGroup = WidgetGroup()
         self._scenario_rows: list[ScenarioRow] = []
@@ -396,6 +416,11 @@ class MenuScreen:
         self._widgets.add(self._down_btn)
 
         # ── Right panel: mode tabs ─────────────────────────────────────────
+        current_sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        _is_classroom_only = current_sid in _CLASSROOM_ONLY_SCENARIOS
         self._prac_tab = Button(
             pygame.Rect(_RX, _CY, _TAB_W, _TAB_H),
             "Practice (vs AI)",
@@ -404,6 +429,7 @@ class MenuScreen:
             icon="shield",
             icon_size=18,
         )
+        self._prac_tab.enabled = not _is_classroom_only
         self._class_tab = Button(
             pygame.Rect(_RX + _TAB_W + _TAB_GAP, _CY, _TAB_W, _TAB_H),
             "Classroom Match",
@@ -511,6 +537,12 @@ class MenuScreen:
     def _set_mode(self, mode: LaunchMode) -> None:
         if mode == self.launch_mode:
             return
+        current_sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        if mode == "practice" and current_sid in _CLASSROOM_ONLY_SCENARIOS:
+            return
         if mode == "classroom":
             self.opponent_mode = "dumb"
         self.launch_mode = mode
@@ -521,6 +553,18 @@ class MenuScreen:
     def _select_scenario(self, index: int) -> None:
         self.selected = index
         self._sync_scenario_selection()
+        # Rebuild minimaps for new scenario
+        sid = self.scenarios[index].get("id", "resource_wars") if self.scenarios else "resource_wars"
+        if sid not in self._minimap_cache:
+            self._minimap_cache[sid] = [
+                _build_minimap_surface(s, sid) for s in self._preset_seeds
+            ]
+        self._minimap_surfs = self._minimap_cache[sid]
+        # If scenario requires classroom-only, switch mode automatically
+        if sid in _CLASSROOM_ONLY_SCENARIOS and self.launch_mode == "practice":
+            self.launch_mode = "classroom"
+            self.error = ""
+        self._build_widgets()
 
     def _set_bot_paths_text(self, text: str) -> None:
         self.bot_paths_text = text
@@ -770,9 +814,15 @@ class MenuScreen:
             map_label_y = _PRAC_MAP_LABEL_Y
             error_y     = _PRAC_ERROR_Y
         else:
+            _cur_sid = (
+                self.scenarios[self.selected].get("id", "resource_wars")
+                if self.scenarios else "resource_wars"
+            )
+            _min_p, _max_p = self._get_scenario_player_limits(_cur_sid)
+            _class_hint = f"Add {_min_p}–{_max_p} student .py bots for the match"
             _draw_label(
                 surface,
-                "Add 2–8 student .py bots for the class match",
+                _class_hint,
                 _RX, _CLASS_COUNT_Y,
                 color=colors.TEXT_MUTED, pt=12, max_w=_RW,
             )
@@ -784,13 +834,14 @@ class MenuScreen:
         skin.draw_ornamental_divider(
             surface, pygame.Rect(_RX, map_div_y, _RW, 10)
         )
+        _cur_preset_names = self._current_preset_names()
         if self._use_random_seed:
             seed_lbl = "Map / Seed  —  random pick at launch"
         elif (self._selected_preset is not None
-              and self._selected_preset < len(self._preset_names)):
+              and self._selected_preset < len(_cur_preset_names)):
             seed_lbl = (
                 f"Map / Seed  —  "
-                f"{self._preset_names[self._selected_preset]} (seed {self.seed})"
+                f"{_cur_preset_names[self._selected_preset]} (seed {self.seed})"
             )
         else:
             seed_lbl = f"Map / Seed  —  seed {self.seed}"
@@ -860,9 +911,18 @@ class MenuScreen:
             surface.blit(ds, (tx, dy))
             surface.set_clip(old)
 
+    def _current_preset_names(self) -> list[str]:
+        """Return the preset names for the currently selected scenario."""
+        sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        return self._scenario_preset_names.get(sid, self._preset_names)
+
     def _draw_tile_row(self, surface: pygame.Surface, row_y: int) -> None:
         """Draw the 6 tiles: col 0 = Random die, cols 1-5 = map presets."""
         label_font = body_font(11)
+        preset_names = self._current_preset_names()
 
         for col in range(_TILE_TOTAL):
             rect      = _tile_rect(col, row_y)
@@ -907,8 +967,8 @@ class MenuScreen:
                         rect.x + (rect.width  - fb.get_width())  // 2,
                         rect.y + (rect.height - fb.get_height()) // 2,
                     ))
-                label = (self._preset_names[preset_i]
-                         if preset_i < len(self._preset_names) else "")
+                label = (preset_names[preset_i]
+                         if preset_i < len(preset_names) else "")
 
             pygame.draw.rect(surface, border_col, rect, 2, border_radius=3)
 

@@ -1,11 +1,12 @@
 ---
 phase_id: phase-6
-status: not_started
+status: done
 depends_on: [phase-5]
 source_plan: New scenario — competitive energy gathering with push
+completed_at: "2026-05-25"
 ---
 
-> **PHASE_STATUS:** `NOT_STARTED`
+> **PHASE_STATUS:** `DONE`
 
 # Phase 6 — Energy Stations scenario
 
@@ -186,15 +187,15 @@ def make_turn(state):
 
 ## Definition of done
 
-- [ ] `code-scenarios run --scenario energy_stations --bots-dir student_bots --seed 1` completes headless with 2+ bots
-- [ ] `GATHER` only fires when adjacent to a station; non-adjacent GATHER → WAIT
-- [ ] Up to 4 simultaneous gatherers confirmed by multiside test
-- [ ] `ATTACK` pushes the target; blocked push consumes `attack_cost` but target does not move
-- [ ] Station capacity drains correctly; depleted stations removed from map; scenario ends on full depletion
-- [ ] `metrics.json` includes `energy_final`, `gathers`, `pushes_landed`, `pushes_blocked` per bot
-- [ ] `EnergyStationsView` methods accessible from starter bot; documented in template comments
-- [ ] UI shows station tiles with capacity indicator; bot energy bars visible during simulation
-- [ ] All Phase 6 tests pass
+- [x] `code-scenarios run --scenario energy_stations --bots-dir student_bots --seed 1` completes headless with 2+ bots
+- [x] `GATHER` only fires when adjacent to a station; non-adjacent GATHER → WAIT
+- [x] Up to 4 simultaneous gatherers confirmed by multiside test
+- [x] `ATTACK` pushes the target; blocked push consumes `attack_cost` but target does not move
+- [x] Station capacity drains correctly; depleted stations removed from map; scenario ends on full depletion
+- [x] `metrics.json` includes `energy_final`, `gathers`, `pushes_landed`, `pushes_blocked` per bot
+- [x] `EnergyStationsView` methods accessible from starter bot; documented in template comments
+- [x] UI shows station tiles with capacity indicator; bot energy bars visible during simulation
+- [x] All Phase 6 tests pass
 
 ## Verification
 

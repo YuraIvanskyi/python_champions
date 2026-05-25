@@ -22,6 +22,7 @@ def build_metrics(
     scenario_id: str,
     runtime_collector: RuntimeCollector | None = None,
     player_id: str = "student",
+    extra_gameplay: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     static_metrics = analyze_static(
         bot_path,
@@ -53,13 +54,15 @@ def build_metrics(
         player_id=player_id,
     )
 
-    gameplay_detail = {
+    gameplay_detail: dict[str, Any] = {
         "raw_scores": final_scores,
         "player_id": player_id,
         "resources": final_scores.get(player_id, 0),
         "normalized": breakdown.gameplay,
         "score_threshold": weights.score_threshold,
     }
+    if extra_gameplay:
+        gameplay_detail.update(extra_gameplay)
 
     items = generate_feedback_items(static=static_dict, runtime=runtime_dict)
     feedback = [item.message for item in items]
@@ -97,6 +100,7 @@ def run_analysis_for_session(
     scenario_id: str,
     runtime_collector: RuntimeCollector | None = None,
     player_id: str = "student",
+    extra_gameplay: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Analyze one bot and merge into session metrics.json."""
     per_player = _load_or_init_session_metrics(session_dir)
@@ -107,6 +111,7 @@ def run_analysis_for_session(
         scenario_id=scenario_id,
         runtime_collector=runtime_collector,
         player_id=player_id,
+        extra_gameplay=extra_gameplay,
     )
     payload = _session_metrics_payload(per_player)
     write_metrics(session_dir, payload)

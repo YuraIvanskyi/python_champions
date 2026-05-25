@@ -23,6 +23,9 @@ def create_scenario(
     if scenario_id == "boss_fight":
         from scenarios.boss_fight import BossFightScenario
         return BossFightScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
+    if scenario_id == "energy_stations":
+        from scenarios.energy_stations import EnergyStationsScenario
+        return EnergyStationsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
     raise ValueError(f"Unknown scenario: {scenario_id}")
 
 

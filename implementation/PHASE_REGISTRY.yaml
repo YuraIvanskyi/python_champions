@@ -103,7 +103,7 @@ phases:
   - id: phase-6
     file: Phase_6.md
     title: Energy Stations scenario
-    status: not_started
+    status: done
     depends_on: [phase-5]
-    completed_at: null
+    completed_at: "2026-05-25"
     plan_reference: "New scenario: competitive energy gathering with push (16x16 map)"

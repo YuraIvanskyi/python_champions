@@ -67,6 +67,7 @@ class UIMapPresetsConfig(BaseModel):
             "The Maze",
         ]
     )
+    scenario_names: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class UIConfig(BaseModel):
