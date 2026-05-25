@@ -217,7 +217,7 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
     # Draw station capacity overlays (energy_stations scenario)
     station_caps = render_state.get("station_capacities", {})
     if station_caps:
-        _draw_station_overlays(surface, render_state, station_caps, origin_x, origin_y, name_font)
+        _draw_station_overlays(surface, render_state, station_caps, origin_x, origin_y)
 
     # Draw energy bars (energy_stations scenario)
     energy_bars = render_state.get("energy_bars", {})
@@ -320,6 +320,8 @@ def _draw_hp_bars(
 
 _ENERGY_BAR_BG = (30, 28, 14)
 _ENERGY_BAR_FG = (255, 200, 50)   # amber/yellow — distinct from HP green
+_STATION_BAR_BG = (14, 28, 36)
+_STATION_BAR_FG = (40, 220, 255)  # cyan — station remaining capacity
 
 
 def _draw_station_overlays(
@@ -328,18 +330,30 @@ def _draw_station_overlays(
     station_caps: dict,
     origin_x: int,
     origin_y: int,
-    font: pygame.font.Font,
 ) -> None:
-    """Draw capacity numbers on station tiles."""
+    """Draw cyan capacity bars on station tiles (same placement as HP bars)."""
+    max_cap = int(render_state.get("station_max_capacity", 0))
+    bar_w = TILE_SIZE - 6
+    bar_h = 4
     for key, cap in station_caps.items():
         try:
             sx, sy = (int(v) for v in str(key).split(","))
         except ValueError:
             continue
-        cx = origin_x + sx * TILE_SIZE + TILE_SIZE // 2
-        cy = origin_y + sy * TILE_SIZE + TILE_SIZE // 2
-        cap_surf = font.render(str(cap), True, (255, 240, 140))
-        surface.blit(cap_surf, cap_surf.get_rect(center=(cx, cy + TILE_SIZE // 4)))
+        capacity = int(cap)
+        bar_max = max_cap if max_cap > 0 else max(capacity, 1)
+        bx = origin_x + sx * TILE_SIZE + 3
+        by = origin_y + sy * TILE_SIZE + 2
+        _draw_single_hp_bar(
+            surface,
+            bx,
+            by,
+            bar_w,
+            bar_h,
+            {"hp": capacity, "max_hp": bar_max, "alive": capacity > 0},
+            fg_color=_STATION_BAR_FG,
+            bg_color=_STATION_BAR_BG,
+        )
 
 
 def _draw_energy_bars(

@@ -273,17 +273,38 @@ def draw_banner_title(
     max_width: int | None = None,
 ) -> pygame.Rect:
     """Draw a stone banner with gold text, clipped to max_width."""
-    font = title_font(28)
-    label = font.render(text.upper(), True, colors.GOLD_TEXT)
-    pad_x, pad_y = 28, 10
+    pad_y = 10
+    banner = assets.get_surface("banner_title")
+    if banner is not None:
+        slice_l, _, slice_r, _ = assets.nine_slice_for("banner_title")
+        pad_x = max(slice_l, slice_r, 28)
+    else:
+        pad_x = 28
 
-    bw = label.get_width() + pad_x * 2
+    title_pt = 28
+    min_pt = 18
+
+    font = title_font(title_pt)
+    label = font.render(text.upper(), True, colors.GOLD_TEXT)
+    needed_w = label.get_width() + pad_x * 2
+
+    if max_width and needed_w > max_width:
+        for pt in range(title_pt - 2, min_pt - 1, -2):
+            trial_font = title_font(pt)
+            trial_label = trial_font.render(text.upper(), True, colors.GOLD_TEXT)
+            trial_w = trial_label.get_width() + pad_x * 2
+            if trial_w <= max_width:
+                font = trial_font
+                label = trial_label
+                needed_w = trial_w
+                break
+        else:
+            needed_w = max_width
+
+    bw = needed_w
     bh = label.get_height() + pad_y * 2
-    if max_width:
-        bw = min(bw, max_width)
     rect = pygame.Rect(center_x - bw // 2, y, bw, bh)
 
-    banner = assets.get_surface("banner_title")
     if banner is not None:
         from ui.skin import nine_patch
         nine_patch.draw_nine_patch(surface, banner, rect, border=assets.nine_slice_for("banner_title"))

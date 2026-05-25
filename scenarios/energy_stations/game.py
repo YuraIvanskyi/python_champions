@@ -431,6 +431,7 @@ class EnergyStationsScenario(ScenarioBase):
                 f"{sx},{sy}": cap
                 for (sx, sy), cap in self._station_capacities.items()
             },
+            "station_max_capacity": self._initial_capacity,
         }
 
     # ── Extra metrics for analysis pipeline ───────────────────────────────────

@@ -2,8 +2,8 @@
 id = "energy_stations"
 name = "Energy Stations"
 description = "Competitive PvP — gather energy from stations, push rivals away"
-map_width = 16
-map_height = 16
+map_width = 20
+map_height = 10
 station_count = 12
 obstacle_count = 20
 max_turns = 300

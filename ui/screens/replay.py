@@ -243,7 +243,7 @@ class ReplayScreen:
             surface, scenario_name,
             center_x=sw // 2,
             y=banner_y,
-            max_width=280,
+            max_width=content_width(sw),
         )
 
         names = render_state.get("display_names", {})

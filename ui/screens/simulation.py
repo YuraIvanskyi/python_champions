@@ -21,6 +21,7 @@ from ui.theme import (
     TOOLBAR_BTN_GAP,
     TOOLBAR_BTN_WIDTH,
     TOOLBAR_HEIGHT,
+    content_width,
     hud_text_top,
     toolbar_top,
 )
@@ -215,7 +216,7 @@ class SimulationScreen:
             surface, scenario_name,
             center_x=sw // 2,
             y=banner_y,
-            max_width=320,
+            max_width=content_width(sw),
         )
 
         names = render_state.get("display_names", {})
