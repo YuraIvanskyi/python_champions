@@ -476,12 +476,14 @@ class MenuScreen:
     # ── Callbacks ─────────────────────────────────────────────────────────────
 
     def _set_mode(self, mode: LaunchMode) -> None:
+        if mode == self.launch_mode:
+            return
         if mode == "classroom":
             self.opponent_mode = "dumb"
         self.launch_mode = mode
         self.error = ""
+        self.bot_paths_text = ""
         self._build_widgets()
-        self._bot_field.text = self.bot_paths_text
 
     def _select_scenario(self, index: int) -> None:
         self.selected = index
@@ -571,15 +573,10 @@ class MenuScreen:
             )
             root.destroy()
             if chosen:
-                if self.launch_mode == "practice":
-                    self.bot_paths_text = chosen[0]
-                else:
-                    joined = ", ".join(chosen)
-                    self.bot_paths_text = (
-                        self.bot_paths_text.rstrip(" ,") + ", " + joined
-                        if self.bot_paths_text.strip()
-                        else joined
-                    )
+                self.bot_paths_text = (
+                    chosen[0] if self.launch_mode == "practice"
+                    else ", ".join(chosen)
+                )
                 self._bot_field.text = self.bot_paths_text
         except Exception:
             self.error = "File browser unavailable — edit the path field manually."

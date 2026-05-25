@@ -18,7 +18,7 @@ from ui.coach_data import (
     read_bot_source,
 )
 from ui.render.code_panel import draw_code_panel
-from ui.render.quest_card import draw_quest_card, draw_score_card
+from ui.render.quest_card import draw_quest_card, draw_score_card, quest_card_height
 from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -27,7 +27,6 @@ from ui.theme import MARGIN_X, coach_config, content_width, footer_top
 from ui.widgets import Button, WidgetGroup
 from ui.widgets.scroll import ScrollState
 
-_CARD_H       = 104
 _CARD_GAP     = 8
 _SCORE_CARD_H = 116   # score summary card is taller to give columns room
 _LABEL_PT     = 14
@@ -336,18 +335,19 @@ class CoachScreen:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos    = event.pos
                 quests = self._current_quests()
-                y      = layout["quests"].y - self._quest_scroll.offset
-                for index, _ in enumerate(quests):
-                    card_rect = pygame.Rect(
-                        layout["quests"].x, y, layout["quests"].width, _CARD_H
-                    )
+                inner_q = layout["quests"].inflate(-8, -8)
+                card_w  = inner_q.width - 8   # matches draw() card_w approximation
+                y       = inner_q.y - self._quest_scroll.offset
+                for index, item in enumerate(quests):
+                    card_h = quest_card_height(item, card_w)
+                    card_rect = pygame.Rect(inner_q.x, y, card_w, card_h)
                     if card_rect.collidepoint(pos):
                         self.selected_quest = index
                         lines = quests[index].get("lines", [])
                         if lines and isinstance(lines[0], int):
                             self._code_scroll.offset = max(0, (lines[0] - 2) * 18)
                         return
-                    y += _CARD_H + _CARD_GAP
+                    y += card_h + _CARD_GAP
 
         if self._widgets.handle_event(event):
             return
@@ -459,23 +459,25 @@ class CoachScreen:
         quests = self._current_quests()
         skin.draw_panel(surface, layout["quests"], style="wood")
         inner    = layout["quests"].inflate(-8, -8)
-        total_h  = len(quests) * (_CARD_H + _CARD_GAP)
-        self._quest_scroll.set_content(total_h, inner.height)
-        y = inner.y - self._quest_scroll.offset
 
         _SCROLLBAR_W = 6
         card_w = inner.width - _SCROLLBAR_W - 2   # leave room for scrollbar
 
+        card_heights = [quest_card_height(item, card_w) for item in quests]
+        total_h = sum(card_heights) + max(0, len(card_heights) - 1) * _CARD_GAP
+        self._quest_scroll.set_content(total_h, inner.height)
+        y = inner.y - self._quest_scroll.offset
+
         old_clip = surface.get_clip()
         surface.set_clip(inner)
-        for index, item in enumerate(quests):
-            card_rect = pygame.Rect(inner.x, y, card_w, _CARD_H)
+        for index, (item, card_h) in enumerate(zip(quests, card_heights)):
+            card_rect = pygame.Rect(inner.x, y, card_w, card_h)
             if card_rect.bottom >= inner.top and card_rect.top <= inner.bottom:
                 draw_quest_card(
                     surface, card_rect, item,
                     selected=index == self.selected_quest,
                 )
-            y += _CARD_H + _CARD_GAP
+            y += card_h + _CARD_GAP
         surface.set_clip(old_clip)
 
         # Scrollbar on the right edge of the quest panel

@@ -10,12 +10,14 @@ from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, title_font
 
-_CARD_PAD_X = 16
-_CARD_PAD_Y = 10
-_RIBBON_H   = 22
-_TITLE_PT   = 15
-_BODY_PT    = 13
-_LINE_H     = _BODY_PT + 4   # pixel height per wrapped line
+_CARD_PAD_X     = 16
+_CARD_PAD_Y     = 10
+_RIBBON_H       = 22
+_TITLE_PT       = 15
+_BODY_PT        = 13
+_LINE_H         = _BODY_PT + 4   # pixel height per wrapped line
+_MAX_MSG_LINES  = 5
+_MAX_HINT_LINES = 2
 
 
 # ── Text helpers ──────────────────────────────────────────────────────────────
@@ -149,7 +151,24 @@ def draw_score_card(
 # ── Feedback quest card ───────────────────────────────────────────────────────
 
 def quest_card_height(item: dict[str, Any], width: int) -> int:
-    return 104
+    """Return the pixel height needed for this card at the given width."""
+    inner_w = max(1, width - _CARD_PAD_X * 2)
+    font = body_font(_BODY_PT)
+    msg_lines = min(
+        _MAX_MSG_LINES,
+        len(_wrap_text(str(item.get("message", "")), font, inner_w)),
+    )
+    hint = str(item.get("fix_hint", ""))
+    hint_lines = (
+        min(_MAX_HINT_LINES, len(_wrap_text(f"Quest: {hint}", font, inner_w)))
+        if hint else 0
+    )
+    h  = _CARD_PAD_Y + _RIBBON_H + 5   # top pad + ribbon row + gap below ribbon
+    h += msg_lines * _LINE_H
+    if hint_lines:
+        h += 4 + hint_lines * _LINE_H
+    h += _CARD_PAD_Y                    # bottom padding
+    return max(72, h)
 
 
 def draw_quest_card(
@@ -229,7 +248,7 @@ def draw_quest_card(
 
     after_msg_y = _draw_wrapped(
         surface, str(item.get("message", "")),
-        body_font_obj, body_color, msg_x, msg_y, msg_w, max_lines=2,
+        body_font_obj, body_color, msg_x, msg_y, msg_w, max_lines=_MAX_MSG_LINES,
     )
 
     # ── Fix hint — readable colour on every background ────────────────────────
@@ -237,13 +256,12 @@ def draw_quest_card(
     if fix:
         fix_y = after_msg_y + 4
         if is_parchment:
-            # Muted amber-brown — high contrast on warm parchment, neither gold nor grey
             fix_color: tuple[int, int, int] = (118, 82, 28)
         else:
             fix_color = colors.GOLD_TEXT if selected else colors.TEXT_MUTED
         _draw_wrapped(
             surface, f"Quest: {fix}",
-            body_font_obj, fix_color, msg_x, fix_y, msg_w, max_lines=1,
+            body_font_obj, fix_color, msg_x, fix_y, msg_w, max_lines=_MAX_HINT_LINES,
         )
 
     surface.set_clip(old_clip)
