@@ -1,4 +1,4 @@
-"""Energy Stations — competitive PvP energy gathering scenario."""
+"""Mana Pools — competitive PvP mana gathering scenario."""
 
 from scenarios.energy_stations.game import EnergyStationsScenario
 

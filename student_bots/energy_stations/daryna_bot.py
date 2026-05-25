@@ -1,7 +1,7 @@
 """
-Energy Stations bot — Daryna.
+Mana Pools bot — Daryna.
 
-Balanced explorer: picks a station that no one else is near,
+Balanced explorer: picks a pool that no one else is near,
 gathers efficiently, and retreats when rivals get too close.
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT

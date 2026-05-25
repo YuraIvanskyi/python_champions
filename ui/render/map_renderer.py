@@ -66,19 +66,20 @@ def _draw_tile(surface: pygame.Surface, rect: pygame.Rect, tile_type: str) -> No
         pygame.draw.line(surface, crack, (cx - m, cy - m), (cx + m, cy + m), 1)
         pygame.draw.line(surface, crack, (cx + m, cy - m), (cx - m, cy + m), 1)
     elif tile_type == "station":
-        # Lightning bolt symbol
-        lw = max(3, TILE_SIZE // 5)
-        lh = max(5, TILE_SIZE // 3)
-        bolt = [
-            (cx,        cy - lh),
-            (cx - lw,   cy),
-            (cx,        cy),
-            (cx,        cy + lh),
-            (cx + lw,   cy),
-            (cx,        cy),
-        ]
-        bolt_fill = _lighter(color, 80)
-        pygame.draw.lines(surface, bolt_fill, False, bolt, max(1, TILE_SIZE // 14))
+        # Mana flask — bulb + narrow neck
+        lw = max(4, TILE_SIZE // 5)
+        nh = max(3, TILE_SIZE // 8)
+        bh = max(6, TILE_SIZE // 3)
+        liquid = (140, 100, 255)
+        glass = _lighter(color, 60)
+        neck = pygame.Rect(cx - lw // 3, cy - bh // 2 - nh, max(2, lw // 2), nh)
+        bulb = pygame.Rect(cx - lw // 2, cy - bh // 2, lw, bh)
+        pygame.draw.rect(surface, glass, neck, border_radius=1)
+        pygame.draw.ellipse(surface, glass, bulb)
+        liquid_rect = bulb.inflate(-max(2, lw // 4), -max(2, bh // 4))
+        liquid_rect.top = bulb.centery - liquid_rect.height // 3
+        pygame.draw.ellipse(surface, liquid, liquid_rect)
+        pygame.draw.ellipse(surface, _lighter(liquid, 40), bulb, 1)
 
 
 def _entity_palette_index(render_state: dict, player_id: str) -> int:
@@ -214,12 +215,12 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
     if hp_bars:
         _draw_hp_bars(surface, render_state, hp_bars, origin_x, origin_y)
 
-    # Draw station capacity overlays (energy_stations scenario)
+    # Draw pool capacity overlays (mana_pools / energy_stations scenario)
     station_caps = render_state.get("station_capacities", {})
     if station_caps:
         _draw_station_overlays(surface, render_state, station_caps, origin_x, origin_y)
 
-    # Draw energy bars (energy_stations scenario)
+    # Draw mana bars (mana_pools / energy_stations scenario)
     energy_bars = render_state.get("energy_bars", {})
     if energy_bars:
         _draw_energy_bars(surface, render_state, energy_bars, origin_x, origin_y)
@@ -316,12 +317,12 @@ def _draw_hp_bars(
         )
 
 
-# ── Energy Stations extras ────────────────────────────────────────────────────
+# ── Mana Pools extras ─────────────────────────────────────────────────────────
 
-_ENERGY_BAR_BG = (30, 28, 14)
-_ENERGY_BAR_FG = (255, 200, 50)   # amber/yellow — distinct from HP green
-_STATION_BAR_BG = (14, 28, 36)
-_STATION_BAR_FG = (40, 220, 255)  # cyan — station remaining capacity
+_MANA_BAR_BG = (20, 16, 40)
+_MANA_BAR_FG = (90, 120, 255)    # bright mana blue — distinct from HP green
+_POOL_BAR_BG = (24, 16, 36)
+_POOL_BAR_FG = (180, 120, 255)   # lavender — remaining pool capacity
 
 
 def _draw_station_overlays(
@@ -331,7 +332,7 @@ def _draw_station_overlays(
     origin_x: int,
     origin_y: int,
 ) -> None:
-    """Draw cyan capacity bars on station tiles (same placement as HP bars)."""
+    """Draw lavender capacity bars on mana pool tiles (same placement as HP bars)."""
     max_cap = int(render_state.get("station_max_capacity", 0))
     bar_w = TILE_SIZE - 6
     bar_h = 4
@@ -351,8 +352,8 @@ def _draw_station_overlays(
             bar_w,
             bar_h,
             {"hp": capacity, "max_hp": bar_max, "alive": capacity > 0},
-            fg_color=_STATION_BAR_FG,
-            bg_color=_STATION_BAR_BG,
+            fg_color=_POOL_BAR_FG,
+            bg_color=_POOL_BAR_BG,
         )
 
 
@@ -363,7 +364,7 @@ def _draw_energy_bars(
     origin_x: int,
     origin_y: int,
 ) -> None:
-    """Draw amber energy bars above each entity — positioned below HP bar if both present."""
+    """Draw mana bars above each entity — positioned below HP bar if both present."""
     bar_w = TILE_SIZE - 6
     bar_h = 4
     hp_bars = render_state.get("hp_bars", {})
@@ -381,9 +382,9 @@ def _draw_energy_bars(
         ey = base_ey + bar_h + 2 if pid in hp_bars else base_ey
 
         bg_rect = pygame.Rect(ex, ey, bar_w, bar_h)
-        pygame.draw.rect(surface, _ENERGY_BAR_BG, bg_rect, border_radius=2)
+        pygame.draw.rect(surface, _MANA_BAR_BG, bg_rect, border_radius=2)
         filled_w = max(0, round(bar_w * energy / max_energy))
         if filled_w > 0:
             fg_rect = pygame.Rect(ex, ey, filled_w, bar_h)
-            pygame.draw.rect(surface, _ENERGY_BAR_FG, fg_rect, border_radius=2)
-        pygame.draw.rect(surface, (80, 72, 20), bg_rect, 1, border_radius=2)
+            pygame.draw.rect(surface, _MANA_BAR_FG, fg_rect, border_radius=2)
+        pygame.draw.rect(surface, (50, 40, 90), bg_rect, 1, border_radius=2)

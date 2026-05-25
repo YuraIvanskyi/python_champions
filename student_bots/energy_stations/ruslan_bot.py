@@ -1,8 +1,8 @@
 """
-Energy Stations bot — Ruslan.
+Mana Pools bot — Ruslan.
 
-Energy hoarder: focuses on filling up to max energy as fast as possible.
-Chains gathers from multiple stations, uses ATTACK only to clear the way.
+Mana hoarder: focuses on filling up to max mana as fast as possible.
+Chains gathers from multiple pools, uses ATTACK only to clear the way.
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT
 """

@@ -115,9 +115,9 @@ _BOTTOM_BTN_W = (_RW - 6) // 2   # 243 each, with 6 px gap
 
 # ── Scenario text ─────────────────────────────────────────────────────────────
 _SCENARIO_FLAVOR: dict[str, str] = {
-    "resource_wars": "Accursed relics litter a grid of ruins — claim them before your rivals do!",
-    "boss_fight": "A dread titan stalks the 8×8 arena — cooperate to bring it down!",
-    "energy_stations": "Spark stations pulse across a 16×16 grid — drain them dry before rivals do!",
+    "resource_wars": "Accursed relics litter the ruins — claim them before your rivals do!",
+    "boss_fight": "A dread titan stalks the arena — cooperate to bring it down!",
+    "energy_stations": "Arcane pools shimmer across the field — drain them dry before rivals do!",
 }
 _SCENARIO_TYPE: dict[str, str] = {
     "resource_wars": "Turn-based grid  ·  up to 8 players",
@@ -127,7 +127,7 @@ _SCENARIO_TYPE: dict[str, str] = {
 _SCENARIO_HINT: dict[str, str] = {
     "resource_wars": "Gather resources each turn  ·  50 turns  ·  highest score wins",
     "boss_fight": "Attack, heal, and cooperate  ·  200 turns  ·  slay the boss to win",
-    "energy_stations": "GATHER from adjacent stations  ·  ATTACK pushes rivals  ·  300 turns",
+    "energy_stations": "GATHER from adjacent pools  ·  ATTACK pushes rivals  ·  300 turns",
 }
 
 _DEFAULT_BOT: dict[str, str] = {
@@ -216,7 +216,7 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
             TileType.EMPTY:    (62, 72, 94),
             TileType.RESOURCE: (72, 200, 100),
             TileType.OBSTACLE: (118, 86, 52),
-            TileType.STATION:  (255, 200, 50),
+            TileType.STATION:  (120, 70, 180),
         }
         size = 100
         cell = max(1, size // max(m.width, m.height))

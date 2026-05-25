@@ -1,14 +1,14 @@
-"""Energy Stations starter bot.
+"""Mana Pools starter bot.
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT
 
 state methods (EnergyStationsView):
-  my_energy()        — current energy level
-  max_energy()       — maximum energy cap
-  can_gather()       — True if adjacent to a station with capacity > 0
-  nearest_station()  — (x, y) of closest station, or None
-  stations()         — all remaining stations as list of (x, y, capacity)
-  adjacent_stations() — stations you can gather from: (x, y, capacity)
+  my_energy()        — current mana level
+  max_energy()       — maximum mana cap
+  can_gather()       — True if adjacent to a pool with capacity > 0
+  nearest_station()  — (x, y) of closest pool, or None
+  stations()         — all remaining pools as list of (x, y, capacity)
+  adjacent_stations() — pools you can gather from: (x, y, capacity)
   my_x(), my_y()    — your position
   is_walkable(x, y) — True if the tile can be entered
   others_positions() — list of (player_id, x, y) for all other bots
@@ -16,11 +16,11 @@ state methods (EnergyStationsView):
 
 
 def make_turn(state):
-    # Gather if standing next to a station
+    # Gather if standing next to a mana pool
     if state.can_gather():
         return "GATHER"
 
-    # Move toward the nearest station
+    # Move toward the nearest pool
     nearest = state.nearest_station()
     if nearest:
         nx, ny = nearest

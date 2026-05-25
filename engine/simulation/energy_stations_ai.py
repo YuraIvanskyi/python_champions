@@ -1,4 +1,4 @@
-"""Built-in opponents for Energy Stations solo practice."""
+"""Built-in opponents for Mana Pools solo practice."""
 
 from __future__ import annotations
 

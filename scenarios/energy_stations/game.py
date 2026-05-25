@@ -1,4 +1,4 @@
-"""Energy Stations scenario — competitive PvP on a 16×16 grid."""
+"""Mana Pools scenario — competitive PvP mana gathering."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ ORTHOGONAL_DELTAS = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 
 
 class EnergyStationsScenario(ScenarioBase):
-    """Competitive PvP: gather energy from stations; push rivals away with ATTACK."""
+    """Competitive PvP: gather mana from pools; push rivals away with ATTACK."""
 
     NEEDS_EXTERNAL_OPPONENT = False
 
@@ -63,11 +63,11 @@ class EnergyStationsScenario(ScenarioBase):
             cleaned = list(player_ids)
             if len(cleaned) < self._min_players or len(cleaned) > self._max_players:
                 raise ValueError(
-                    f"Energy Stations supports {self._min_players}–{self._max_players} players; "
+                    f"Mana Pools supports {self._min_players}–{self._max_players} players; "
                     f"got {len(cleaned)}"
                 )
             if len(set(cleaned)) != len(cleaned):
-                raise ValueError("Duplicate player_id in Energy Stations setup")
+                raise ValueError("Duplicate player_id in Mana Pools setup")
             self._player_ids = cleaned
 
         # State initialised in setup()

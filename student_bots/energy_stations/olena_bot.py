@@ -1,8 +1,8 @@
 """
-Energy Stations bot — Olena.
+Mana Pools bot — Olena.
 
-Greedy gatherer: always heads to the highest-capacity station.
-Avoids approaching bots when energy is low to dodge pushes.
+Greedy gatherer: always heads to the highest-capacity pool.
+Avoids approaching bots when mana is low to dodge pushes.
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT
 """

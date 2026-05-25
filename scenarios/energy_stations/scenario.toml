@@ -1,7 +1,7 @@
 [scenario]
 id = "energy_stations"
-name = "Energy Stations"
-description = "Competitive PvP — gather energy from stations, push rivals away"
+name = "Mana Pools"
+description = "Competitive PvP — gather mana from pools, push rivals away"
 map_width = 20
 map_height = 10
 station_count = 12

@@ -1,7 +1,7 @@
 """
-Energy Stations bot — Mykhailo.
+Mana Pools bot — Mykhailo.
 
-Aggressive pusher: seeks out rivals near stations and attacks them to steal
+Aggressive pusher: seeks out rivals near pools and attacks them to steal
 their position, then quickly gathers.
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT

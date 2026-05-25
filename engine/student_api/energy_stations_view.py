@@ -1,4 +1,4 @@
-"""Extended GameView for the Energy Stations scenario."""
+"""Extended GameView for the Mana Pools scenario."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from engine.student_api.view import GameView
 
 
 class EnergyStationsView(GameView):
-    """Readonly state snapshot for one bot in the Energy Stations scenario.
+    """Readonly state snapshot for one bot in the Mana Pools scenario.
 
-    Extends GameView with energy and station methods.
+    Extends GameView with mana and pool methods.
     """
 
     __slots__ = (
@@ -42,32 +42,32 @@ class EnergyStationsView(GameView):
                         (int(s["x"]), int(s["y"]), int(s["capacity"]))
                     )
 
-    # ── Energy ─────────────────────────────────────────────────────────────────
+    # ── Mana ───────────────────────────────────────────────────────────────────
 
     def my_energy(self) -> int:
-        """Current energy level."""
+        """Current mana level."""
         return self._my_energy
 
     def max_energy(self) -> int:
-        """Maximum energy cap."""
+        """Maximum mana cap."""
         return self._max_energy
 
-    # ── Stations ───────────────────────────────────────────────────────────────
+    # ── Pools ──────────────────────────────────────────────────────────────────
 
     def stations(self) -> list[tuple[int, int, int]]:
-        """All remaining stations as list of (x, y, capacity)."""
+        """All remaining pools as list of (x, y, capacity)."""
         return list(self._stations)
 
     def adjacent_stations(self) -> list[tuple[int, int, int]]:
-        """Stations the bot can currently gather from: (x, y, capacity)."""
+        """Pools the bot can currently gather from: (x, y, capacity)."""
         return list(self._adjacent_stations)
 
     def can_gather(self) -> bool:
-        """True if any orthogonally adjacent station has capacity > 0."""
+        """True if any orthogonally adjacent pool has capacity > 0."""
         return bool(self._adjacent_stations)
 
     def nearest_station(self) -> tuple[int, int] | None:
-        """(x, y) of the closest station by Manhattan distance, or None."""
+        """(x, y) of the closest pool by Manhattan distance, or None."""
         if not self._stations:
             return None
         x, y = self._x, self._y
