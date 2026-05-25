@@ -19,8 +19,9 @@ the corrected form of a single bad expression. Keep the block self-contained.
 3. Keep your student summary to at most 5 sentences.
 4. Keep your teacher notes to at most 3 bullet points.
 5. Be encouraging and constructive; avoid harsh language.
-6. Base your analysis only on the metrics and feedback provided — do not invent issues.
-7. When describing the bot's strategy, refer to the action distribution data provided.
+6. Base your analysis only on the metrics and feedback provided — including movement \
+patterns — do not invent issues.
+7. When describing the bot's strategy, refer to the action distribution and movement data provided.
 """
 
 
@@ -44,6 +45,8 @@ def build_user_prompt(
     complexity_rank: str,
     max_nesting_depth: int,
     function_line_count: int,
+    movement: dict | None = None,
+    static_movement: dict | None = None,
 ) -> str:
     """Build the user prompt from session metrics only (no engine internals)."""
     lines: list[str] = [
@@ -84,6 +87,42 @@ def build_user_prompt(
             f"Runtime: avg turn {avg_turn_ms:.1f} ms  |  timeouts: {timeout_count}"
             f"  |  crashes: {crash_count}  |  invalid actions: {invalid_action_count}"
         )
+        lines.append("")
+
+    # ── Movement / pathfinding analysis ──────────────────────────────────────
+    _movement = movement or {}
+    _static_mv = static_movement or {}
+    if _movement.get("analyzed"):
+        blocked_pct = int(float(_movement.get("blocked_move_ratio", 0)) * 100)
+        wait_pct    = int(float(_movement.get("wait_ratio", 0)) * 100)
+        stuck       = int(_movement.get("stuck_episodes", 0))
+        osc         = int(_movement.get("oscillation_episodes", 0))
+        repeat      = int(_movement.get("max_consecutive_same_action", 0))
+        stall       = int(_movement.get("score_stall_turns", 0))
+        unique_pct  = int(float(_movement.get("unique_positions_ratio", 0)) * 100)
+        worst_range: list[int] = _movement.get("worst_stuck_turn_range") or []
+
+        lines.append("Movement / pathfinding analysis:")
+        lines.append(f"  - Blocked move ratio: {blocked_pct}%  |  Wait ratio: {wait_pct}%")
+        lines.append(f"  - Stuck episodes: {stuck}" + (
+            f" (worst: turns {worst_range[0]}–{worst_range[1]})" if len(worst_range) == 2 else ""
+        ))
+        lines.append(f"  - Oscillation (ping-pong) episodes: {osc}")
+        lines.append(f"  - Max consecutive same action: {repeat} turns")
+        lines.append(f"  - Score stall while moving: {stall} turns")
+        lines.append(f"  - Unique positions visited: {unique_pct}% of turns")
+
+        code_flags: list[str] = []
+        if _static_mv.get("no_walkable_check"):
+            code_flags.append("no is_walkable() call")
+        if _static_mv.get("constant_action_return"):
+            code_flags.append("constant return (no branching)")
+        if _static_mv.get("no_target_logic"):
+            code_flags.append("no goal-seeking helpers used")
+        if _static_mv.get("missing_fallback"):
+            code_flags.append("no WAIT/fallback in movement helper")
+        if code_flags:
+            lines.append(f"  - Code pattern flags: {', '.join(code_flags)}")
         lines.append("")
 
     # ── Code structure ────────────────────────────────────────────────────────

@@ -13,6 +13,16 @@ class EngineConfig(BaseModel):
     max_turns: int = 300
 
 
+class MovementAnalysisConfig(BaseModel):
+    stuck_window_turns: int = 10
+    stuck_revisit_threshold: int = 3
+    consecutive_action_warn: int = 8
+    blocked_ratio_warn: float = 0.35
+    score_stall_warn: int = 12
+    oscillation_min_cycles: int = 3
+    min_turns_for_analysis: int = 5
+
+
 class AnalysisConfig(BaseModel):
     enable_ai: bool = False
     enable_static_analysis: bool = True
@@ -29,6 +39,7 @@ class AnalysisConfig(BaseModel):
             "exec",
         ]
     )
+    movement: MovementAnalysisConfig = Field(default_factory=MovementAnalysisConfig)
 
 
 class AiConfig(BaseModel):
@@ -52,7 +63,7 @@ class UIThemeConfig(BaseModel):
 
 
 class UICoachConfig(BaseModel):
-    max_quest_cards: int = 12
+    max_quest_cards: int = 20
     code_panel_font_pt: int = 14
 
 

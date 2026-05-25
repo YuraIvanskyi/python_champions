@@ -37,11 +37,17 @@ def test_run_writes_metrics_json(tmp_path: Path) -> None:
     assert "runtime" in metrics
     assert "scores" in metrics
     assert "feedback" in metrics
+    assert "movement" in metrics
     assert "gameplay" in metrics["scores"]
     assert "code_quality" in metrics["scores"]
     assert "final" in metrics["scores"]
     assert isinstance(metrics["feedback"], list)
     assert len(metrics["feedback"]) >= 1
+    # Movement block has expected shape
+    mv = metrics["movement"]
+    assert "analyzed" in mv
+    assert "blocked_move_ratio" in mv
+    assert "stuck_episodes" in mv
 
 
 def test_no_analysis_skips_metrics(tmp_path: Path) -> None:

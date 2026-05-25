@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from engine.analysis.movement import MovementConfig
 
 
 @dataclass
@@ -44,7 +47,7 @@ def _item(
     )
 
 
-_RUFF_INLINE_THRESHOLD = 7   # show individual cards up to this many issues
+_RUFF_INLINE_THRESHOLD = 10  # show individual cards up to this many issues
 
 # Maps ruff code *prefixes* → short kid-friendly card title
 _RUFF_TITLE_MAP: list[tuple[str, str]] = [
@@ -126,8 +129,14 @@ def generate_feedback_items(
     *,
     static: dict[str, Any],
     runtime: dict[str, Any],
+    movement: dict[str, Any] | None = None,
+    movement_cfg: "MovementConfig | None" = None,
 ) -> list[FeedbackItem]:
     """Return structured hints ordered by priority (most important first)."""
+    from engine.analysis.movement import MovementConfig as _MovementConfig
+    _mcfg = movement_cfg or _MovementConfig()
+    _mv = movement or {}
+
     items: list[FeedbackItem] = []
 
     if runtime.get("timeout_count", 0) > 0:
@@ -159,6 +168,20 @@ def generate_feedback_items(
                 panel="parchment",
             )
         )
+        # Inform students that crashes cap the code quality score
+        items.append(
+            _item(
+                category="runtime",
+                severity="warn",
+                title="Code quality capped at 50",
+                message=(
+                    "Because your bot crashed, the maximum code quality score is capped at 50/100. "
+                    "A bot that crashes cannot earn full quality points even with clean style."
+                ),
+                fix_hint="Fix the crash first — once the bot runs without errors, the cap is lifted.",
+                panel="stone",
+            )
+        )
 
     if runtime.get("invalid_action_count", 0) > 0:
         items.append(
@@ -174,6 +197,9 @@ def generate_feedback_items(
                 panel="wood",
             )
         )
+
+    # ── Movement / pathfinding feedback ──────────────────────────────────────
+    _movement_items(items, _mv, _mcfg, static)
 
     max_complexity = static.get("max_complexity", 0)
     if max_complexity >= 10:
@@ -377,10 +403,252 @@ def generate_feedback_items(
     return items
 
 
+def _movement_items(
+    items: list[FeedbackItem],
+    mv: dict[str, Any],
+    cfg: "MovementConfig",
+    static: dict[str, Any],
+) -> None:
+    """Append movement-quality feedback cards to *items* (mutates in place)."""
+    if not mv.get("analyzed", False):
+        # No replay data — fall back to pure static signals only
+        _movement_static_items(items, static)
+        return
+
+    static_mv: dict[str, Any] = static.get("movement", {})
+    make_turn_line: int | None = static_mv.get("make_turn_line")
+    hint_lines = [make_turn_line] if isinstance(make_turn_line, int) else []
+
+    # Stuck between obstacles
+    stuck = int(mv.get("stuck_episodes", 0))
+    if stuck >= 1:
+        stuck_range: list[int] = mv.get("worst_stuck_turn_range") or []
+        range_str = f" (around turns {stuck_range[0]}–{stuck_range[1]})" if len(stuck_range) == 2 else ""
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="Stuck between obstacles",
+                message=(
+                    f"Your bot got stuck {stuck} time{'s' if stuck > 1 else ''}{range_str} — "
+                    "it kept revisiting the same cell without gaining any score."
+                ),
+                fix_hint="When a move is blocked, try a different direction or WAIT, then pick a new target.",
+                panel="wood",
+                lines=hint_lines,
+            )
+        )
+
+    # Oscillation (A → B → A ping-pong)
+    osc = int(mv.get("oscillation_episodes", 0))
+    if osc >= 1:
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="Bouncing between two tiles",
+                message=(
+                    f"Your bot ping-ponged between the same two tiles {osc} time{'s' if osc > 1 else ''}. "
+                    "This wastes turns and prevents progress."
+                ),
+                fix_hint="Break the loop: pick a different target tile or wait one turn before re-trying.",
+                panel="wood",
+                lines=hint_lines,
+            )
+        )
+
+    # Repetitive single action
+    max_run = int(mv.get("max_consecutive_same_action", 0))
+    if max_run >= cfg.consecutive_action_warn:
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="Repeating the same move",
+                message=(
+                    f"Your bot returned the same action {max_run} turns in a row. "
+                    "A stuck bot wastes turns that could be spent gathering resources."
+                ),
+                fix_hint="Track whether the last move succeeded; if blocked, choose a different direction.",
+                panel="wood",
+                lines=hint_lines,
+            )
+        )
+
+    # High blocked-move ratio (combined with static: no walkable check)
+    blocked_ratio = float(mv.get("blocked_move_ratio", 0.0))
+    no_walkable = static_mv.get("no_walkable_check", False)
+    if blocked_ratio >= cfg.blocked_ratio_warn:
+        pct = int(blocked_ratio * 100)
+        extra = " The code does not check is_walkable() before moving." if no_walkable else ""
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="Many blocked moves",
+                message=(
+                    f"Your bot tried to move into obstacles {pct}% of the time.{extra} "
+                    "Checking for walls before moving will save turns."
+                ),
+                fix_hint="Call is_walkable(x, y) before returning MOVE_* to avoid walking into walls.",
+                panel="wood",
+                lines=hint_lines if no_walkable else [],
+            )
+        )
+    elif no_walkable and blocked_ratio > 0:
+        # Moderate blocking + missing walkable check — info card
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="No obstacle check in code",
+                message=(
+                    "Your bot never calls is_walkable() or is_obstacle(). "
+                    "Adding obstacle checks lets the bot pick safer paths."
+                ),
+                fix_hint="Add: if state.is_walkable(nx, ny): before each MOVE_ return.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+    # Score stall while moving
+    stall = int(mv.get("score_stall_turns", 0))
+    if stall >= cfg.score_stall_warn:
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="Moving without scoring",
+                message=(
+                    f"Your bot moved for {stall} turns in a row without increasing its score. "
+                    "It may be heading in the wrong direction or targeting empty tiles."
+                ),
+                fix_hint="Head toward resources/stations; use nearest_station() or resource_tiles() to find active targets.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+    # Static-only signals when replay is available (confirmation bias guard)
+    if static_mv.get("constant_action_return", False):
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="No decision logic in make_turn",
+                message=(
+                    "make_turn always returns the same fixed action with no branching. "
+                    "The bot cannot react to the map or game state."
+                ),
+                fix_hint="Add if/elif branches to choose different actions based on state.on_resource(), state.nearest_station(), etc.",
+                panel="stone",
+                lines=hint_lines,
+            )
+        )
+
+    if static_mv.get("no_target_logic", False) and not static_mv.get("constant_action_return", False):
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="No goal-seeking in code",
+                message=(
+                    "Your bot never uses helpers like on_resource(), nearest_station(), or can_gather(). "
+                    "Without goal logic it moves randomly and misses easy score opportunities."
+                ),
+                fix_hint="Use state.nearest_station() or state.resource_tiles() to pick a target each turn.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+    if static_mv.get("missing_fallback", False) and not stuck and not osc:
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="No fallback when path is blocked",
+                message=(
+                    "Your movement helper has no WAIT or alternate direction when the direct path is blocked. "
+                    "Adding a fallback prevents the bot from freezing."
+                ),
+                fix_hint="Return 'WAIT' or a perpendicular direction when is_walkable() returns False.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+
+def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any]) -> None:
+    """Emit static-only movement cards when no replay data is available."""
+    static_mv: dict[str, Any] = static.get("movement", {})
+    make_turn_line: int | None = static_mv.get("make_turn_line")
+    hint_lines = [make_turn_line] if isinstance(make_turn_line, int) else []
+
+    if static_mv.get("constant_action_return", False):
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title="No decision logic in make_turn",
+                message=(
+                    "make_turn always returns the same fixed action with no branching. "
+                    "The bot cannot react to the map or game state."
+                ),
+                fix_hint="Add if/elif branches based on state.on_resource(), state.nearest_station(), etc.",
+                panel="stone",
+                lines=hint_lines,
+            )
+        )
+
+    if static_mv.get("no_walkable_check", False):
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="No obstacle check in code",
+                message=(
+                    "Your bot never calls is_walkable() or is_obstacle(). "
+                    "Without obstacle checks the bot will walk into walls."
+                ),
+                fix_hint="Add: if state.is_walkable(nx, ny): before each MOVE_ return.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+    if static_mv.get("no_target_logic", False) and not static_mv.get("constant_action_return", False):
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title="No goal-seeking in code",
+                message=(
+                    "Your bot never uses helpers like on_resource() or nearest_station(). "
+                    "Goal-seeking logic turns random walking into effective play."
+                ),
+                fix_hint="Use state.nearest_station() or state.resource_tiles() to pick a target each turn.",
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
+
 def generate_feedback(
     *,
     static: dict[str, Any],
     runtime: dict[str, Any],
+    movement: dict[str, Any] | None = None,
+    movement_cfg: "MovementConfig | None" = None,
 ) -> list[str]:
     """Return plain-language hints ordered by priority (CLI / legacy JSON)."""
-    return [item.message for item in generate_feedback_items(static=static, runtime=runtime)]
+    return [
+        item.message
+        for item in generate_feedback_items(
+            static=static,
+            runtime=runtime,
+            movement=movement,
+            movement_cfg=movement_cfg,
+        )
+    ]

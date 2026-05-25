@@ -159,6 +159,10 @@ def _extract_prompt_kwargs(
     action_dist       = _action_distribution(replay, player_id)
     score_traj        = _score_trajectory(replay, player_id)
 
+    # Movement analysis
+    movement          = block.get("movement", {})
+    static_movement   = block.get("static", {}).get("movement", {})
+
     return {
         "scenario_name":       scenario_name,
         "turn_count":          turn_count,
@@ -178,4 +182,6 @@ def _extract_prompt_kwargs(
         "complexity_rank":     complexity_rank,
         "max_nesting_depth":   max_nesting_depth,
         "function_line_count": function_line_count,
+        "movement":            movement,
+        "static_movement":     static_movement,
     }

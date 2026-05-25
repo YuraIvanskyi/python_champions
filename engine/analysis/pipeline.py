@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from engine.analysis.feedback import generate_feedback_items
+from engine.analysis.movement import MovementConfig, MovementMetrics, analyze_movement, empty_movement_dict
 from engine.analysis.runtime import RuntimeCollector
-from engine.analysis.static import analyze_static, static_to_dict
+from engine.analysis.static import analyze_movement_static, analyze_static, static_to_dict
 from engine.core.config import AppConfig
 from engine.scoring.combined import compute_scores
 from engine.scoring.weights import load_scoring_weights
@@ -23,6 +24,7 @@ def build_metrics(
     runtime_collector: RuntimeCollector | None = None,
     player_id: str = "student",
     extra_gameplay: dict[str, Any] | None = None,
+    session_dir: Path | None = None,
 ) -> dict[str, Any]:
     static_metrics = analyze_static(
         bot_path,
@@ -31,6 +33,9 @@ def build_metrics(
         enabled=config.analysis.enable_static_analysis,
     )
     static_dict = static_to_dict(static_metrics)
+
+    # Static movement heuristics (AST-based code patterns)
+    static_dict["movement"] = analyze_movement_static(bot_path)
 
     runtime_dict = (
         runtime_collector.to_dict()
@@ -46,12 +51,23 @@ def build_metrics(
         }
     )
 
+    # Replay-based movement behavioral analysis
+    move_cfg = _movement_config(config)
+    if session_dir is not None:
+        movement_metrics: MovementMetrics = analyze_movement(
+            session_dir, player_id, cfg=move_cfg
+        )
+    else:
+        movement_metrics = MovementMetrics()
+    movement_dict = movement_metrics.to_dict()
+
     weights = load_scoring_weights(scenario_id)
     breakdown = compute_scores(
         final_scores=final_scores,
         static=static_dict,
         weights=weights,
         player_id=player_id,
+        runtime=runtime_dict,
     )
 
     gameplay_detail: dict[str, Any] = {
@@ -64,25 +80,48 @@ def build_metrics(
     if extra_gameplay:
         gameplay_detail.update(extra_gameplay)
 
-    items = generate_feedback_items(static=static_dict, runtime=runtime_dict)
+    items = generate_feedback_items(
+        static=static_dict,
+        runtime=runtime_dict,
+        movement=movement_dict,
+        movement_cfg=move_cfg,
+    )
     feedback = [item.message for item in items]
+
+    scores_block: dict[str, Any] = {
+        "gameplay": breakdown.gameplay,
+        "code_quality": breakdown.code_quality,
+        "final": breakdown.final,
+        "weights": {
+            "gameplay": breakdown.gameplay_weight,
+            "code": breakdown.code_weight,
+        },
+    }
+    if breakdown.crash_penalty_applied:
+        scores_block["crash_quality_cap"] = True
 
     return {
         "gameplay": gameplay_detail,
         "static": static_dict,
         "runtime": runtime_dict,
-        "scores": {
-            "gameplay": breakdown.gameplay,
-            "code_quality": breakdown.code_quality,
-            "final": breakdown.final,
-            "weights": {
-                "gameplay": breakdown.gameplay_weight,
-                "code": breakdown.code_weight,
-            },
-        },
+        "movement": movement_dict,
+        "scores": scores_block,
         "feedback": feedback,
         "feedback_items": [item.to_dict() for item in items],
     }
+
+
+def _movement_config(config: AppConfig) -> MovementConfig:
+    mc = config.analysis.movement
+    return MovementConfig(
+        stuck_window_turns=mc.stuck_window_turns,
+        stuck_revisit_threshold=mc.stuck_revisit_threshold,
+        consecutive_action_warn=mc.consecutive_action_warn,
+        blocked_ratio_warn=mc.blocked_ratio_warn,
+        score_stall_warn=mc.score_stall_warn,
+        oscillation_min_cycles=mc.oscillation_min_cycles,
+        min_turns_for_analysis=mc.min_turns_for_analysis,
+    )
 
 
 def write_metrics(session_dir: Path, metrics: dict[str, Any]) -> Path:
@@ -112,6 +151,7 @@ def run_analysis_for_session(
         runtime_collector=runtime_collector,
         player_id=player_id,
         extra_gameplay=extra_gameplay,
+        session_dir=session_dir,
     )
     payload = _session_metrics_payload(per_player)
     write_metrics(session_dir, payload)

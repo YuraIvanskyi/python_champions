@@ -60,6 +60,49 @@ def _clip_text(text: str) -> str:
     return text
 
 
+def _best_feedback_hint(pdata: dict) -> str:
+    """Return the most relevant feedback string for the analysis panel.
+
+    Prefers logic/movement/runtime items over style/praise so that students
+    see actionable issues even when the hint slot shows only one line.
+    """
+    items = pdata.get("feedback_items", [])
+    priority_order = ("runtime", "logic", "efficiency", "style", "praise")
+    by_category: dict[str, str] = {}
+    for item in items:
+        cat = item.get("category", "")
+        if cat not in by_category:
+            by_category[cat] = item.get("message", "")
+    for cat in priority_order:
+        if cat in by_category:
+            return _clip_text(by_category[cat])
+    # Fallback to plain feedback strings
+    feedback = pdata.get("feedback", [])
+    return _clip_text(str(feedback[0])) if feedback else ""
+
+
+def _movement_summary(mv: dict) -> str:
+    """Build a compact one-line movement summary for the analysis panel."""
+    if not mv.get("analyzed"):
+        return ""
+    parts: list[str] = []
+    blocked_ratio = float(mv.get("blocked_move_ratio", 0.0))
+    if blocked_ratio >= 0.15:
+        parts.append(f"{int(blocked_ratio * 100)}% blocked")
+    stuck = int(mv.get("stuck_episodes", 0))
+    if stuck:
+        parts.append(f"stuck {stuck}\u00d7")
+    osc = int(mv.get("oscillation_episodes", 0))
+    if osc:
+        parts.append(f"bounced {osc}\u00d7")
+    max_run = int(mv.get("max_consecutive_same_action", 0))
+    if max_run >= 6:
+        parts.append(f"{max_run}-turn repeat")
+    if not parts:
+        return ""
+    return "Movement: " + " \u00b7 ".join(parts)
+
+
 class ScoresScreen:
     def __init__(self, app: object) -> None:
         self.app = app
@@ -459,19 +502,23 @@ class ScoresScreen:
                     stats_parts.append(f"Crashes: {crashes}  Timeouts: {timeouts}")
                 stats_line = "   ".join(stats_parts)
 
-                feedback = pdata.get("feedback", [])
-                hint = _clip_text(str(feedback[0])) if feedback else ""
+                # Prefer a movement/logic feedback item over generic praise
+                hint = _best_feedback_hint(pdata)
+
+                # Compact movement summary line
+                mv_line = _movement_summary(pdata.get("movement", {}))
 
                 if i > 0:
                     sections.append({"type": "divider", "h": 10})
 
-                # Name on its own line, then stats, then hint
-                n_lines = 1 + 1 + (1 if hint else 0)  # name + stats + optional hint
-                entry_h = n_lines * line_h + 4
+                # Name on its own line, then stats, then optional movement, then hint
+                n_extra = (1 if mv_line else 0) + (1 if hint else 0)
+                entry_h = (1 + 1 + n_extra) * line_h + 4
                 sections.append({
                     "type": "player",
                     "display": display,
                     "stats": _clip_text(stats_line),
+                    "movement": mv_line,
                     "hint": hint,
                     "h": entry_h,
                 })
@@ -517,6 +564,15 @@ class ScoresScreen:
                     (ax + 14, ay),
                 )
                 ay += line_h
+
+                # Movement summary line (indented, amber tint)
+                mv_line = sec.get("movement", "")
+                if mv_line:
+                    surface.blit(
+                        af.render(mv_line, True, (160, 120, 40)),
+                        (ax + 14, ay),
+                    )
+                    ay += line_h
 
                 # Hint line (indented, only if present)
                 if sec["hint"]:

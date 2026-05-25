@@ -10,6 +10,15 @@ enable_ai = true            # flip to true once vLLM is running
 enable_static_analysis = true
 ruff_select = ["E", "F", "W"]
 
+[analysis.movement]
+stuck_window_turns = 10
+stuck_revisit_threshold = 3
+consecutive_action_warn = 8
+blocked_ratio_warn = 0.35
+score_stall_warn = 12
+oscillation_min_cycles = 3
+min_turns_for_analysis = 5
+
 [ai]
 provider         = "ollama"
 base_url         = "http://localhost:11434/v1"
@@ -41,7 +50,7 @@ game_font = "ui/assets/fonts/Skranji-Regular.ttf"
 code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
 
 [ui.coach]
-max_quest_cards = 12
+max_quest_cards = 20
 code_panel_font_pt = 14
 
 [ui.map_presets]

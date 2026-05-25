@@ -289,3 +289,138 @@ def static_to_dict(metrics: StaticMetrics) -> dict[str, Any]:
         "forbidden_constructs": metrics.forbidden_constructs,
         "ast_error": metrics.ast_error,
     }
+
+
+# ---------------------------------------------------------------------------
+# Static movement heuristics
+# ---------------------------------------------------------------------------
+
+# Helpers exposed via GameView that indicate the bot navigates toward a goal
+_GOAL_HELPERS = frozenset(
+    [
+        "on_resource",
+        "can_gather",
+        "nearest_station",
+        "has_resource_at",
+        "resource_tiles",
+        "adjacent_stations",
+        "stations",
+        "is_boss_adjacent",
+    ]
+)
+
+# Helpers that guard against walking into obstacles
+_WALKABLE_HELPERS = frozenset(["is_walkable", "is_obstacle", "is_inside"])
+
+
+def analyze_movement_static(bot_path: Path) -> dict[str, Any]:
+    """Inspect *bot_path* for movement-quality code patterns.
+
+    Returns a dict with boolean flags and line hints.  All values default to
+    ``False`` / ``None`` when the file cannot be parsed or the analysis is
+    not applicable.
+    """
+    empty: dict[str, Any] = {
+        "no_walkable_check": False,
+        "constant_action_return": False,
+        "no_target_logic": False,
+        "missing_fallback": False,
+        "make_turn_line": None,
+    }
+    try:
+        source = bot_path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(bot_path))
+    except Exception:  # noqa: BLE001
+        return empty
+
+    analyzer = _MovementStaticAnalyzer()
+    analyzer.visit(tree)
+    return analyzer.result()
+
+
+class _MovementStaticAnalyzer(ast.NodeVisitor):
+    """Single-pass visitor that collects movement code-quality signals."""
+
+    def __init__(self) -> None:
+        self._called_names: set[str] = set()
+        self._make_turn_node: ast.FunctionDef | None = None
+        self._make_turn_has_branch: bool = False
+        self._make_turn_returns: list[ast.Return] = []
+        self._make_turn_line: int | None = None
+        self._all_function_defs: list[ast.FunctionDef] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._all_function_defs.append(node)
+        if node.name == "make_turn":
+            self._make_turn_node = node
+            self._make_turn_line = node.lineno
+            self._make_turn_has_branch = any(
+                isinstance(child, (ast.If, ast.For, ast.While, ast.Match))
+                for child in ast.walk(node)
+            )
+            self._make_turn_returns = [
+                child
+                for child in ast.walk(node)
+                if isinstance(child, ast.Return)
+            ]
+        self.generic_visit(node)
+
+    # Also handle class-based bots that use make_turn as a method
+    visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
+
+    def visit_Call(self, node: ast.Call) -> None:
+        name = _call_name(node)
+        if name:
+            self._called_names.add(name)
+        self.generic_visit(node)
+
+    def result(self) -> dict[str, Any]:
+        # no_walkable_check: none of the obstacle guards are called anywhere
+        no_walkable_check = not bool(self._called_names & _WALKABLE_HELPERS)
+
+        # constant_action_return: make_turn exists, has no branching, and all
+        # returns are string literals
+        constant_action_return = False
+        if self._make_turn_node and not self._make_turn_has_branch:
+            if self._make_turn_returns and all(
+                isinstance(r.value, ast.Constant)
+                and isinstance(r.value.value, str)
+                for r in self._make_turn_returns
+                if r.value is not None
+            ):
+                constant_action_return = True
+
+        # no_target_logic: no goal helper is called anywhere in the file
+        no_target_logic = not bool(self._called_names & _GOAL_HELPERS)
+
+        # missing_fallback: make_turn exists, calls a move toward target but
+        # has no WAIT branch — heuristic: "WAIT" never appears as a string
+        # constant in a return anywhere in the file
+        missing_fallback = False
+        if self._make_turn_node and not constant_action_return:
+            wait_returned = any(
+                isinstance(r.value, ast.Constant)
+                and r.value.value == "WAIT"
+                for fn in self._all_function_defs
+                for r in ast.walk(fn)
+                if isinstance(r, ast.Return) and r.value is not None
+            )
+            if not wait_returned and not no_target_logic:
+                missing_fallback = True
+
+        return {
+            "no_walkable_check": no_walkable_check,
+            "constant_action_return": constant_action_return,
+            "no_target_logic": no_target_logic,
+            "missing_fallback": missing_fallback,
+            "make_turn_line": self._make_turn_line,
+        }
+
+
+def _call_name(node: ast.Call) -> str | None:
+    """Return the bare attribute or function name from a Call node."""
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    return None
