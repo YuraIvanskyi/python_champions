@@ -15,6 +15,7 @@ def test_ui_import_with_dummy_display() -> None:
 
     import ui.app  # noqa: F401
     import ui.render.map_renderer  # noqa: F401
+    import ui.screens.bot_guide  # noqa: F401
     import ui.screens.menu  # noqa: F401
     import ui.screens.replay  # noqa: F401
     import ui.screens.simulation  # noqa: F401

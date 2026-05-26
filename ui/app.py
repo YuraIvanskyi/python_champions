@@ -9,6 +9,7 @@ import pygame
 from engine.core.config import load_config
 from engine.core.player import Bot
 from ui import theme
+from ui.screens.bot_guide import BotGuideScreen
 from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
 from ui.screens.replay import ReplayScreen
@@ -31,6 +32,7 @@ class App:
         self.replay_path: Path | None = None
 
         self.menu = MenuScreen(self)
+        self.bot_guide = BotGuideScreen(self)
         self.simulation = SimulationScreen(self)
         self.scores = ScoresScreen(self)
         self.replay = ReplayScreen(self)
@@ -40,6 +42,11 @@ class App:
     def goto_menu(self) -> None:
         self._current = self.menu
         self.menu.on_enter()
+
+    def goto_bot_guide(self, scenario_id: str) -> None:
+        self.bot_guide.open_scenario(scenario_id)
+        self._current = self.bot_guide
+        self.bot_guide.on_enter()
 
     def goto_replay(self) -> None:
         self.replay.replay = None

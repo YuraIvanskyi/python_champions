@@ -12,8 +12,9 @@ import pygame
 from engine.core.config import load_config
 from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
 from engine.core.opponents import OPPONENT_MODES, builtin_icon_path
-from engine.core.scenario_registry import list_scenarios
 from engine.core.scenario_registry import create_scenario
+from engine.core.scenario_registry import list_scenarios
+from engine.core.scenario_registry import scenario_display_name
 from ui.render.icons import draw_menu_icon, load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -94,9 +95,11 @@ _PRAC_TILES_Y     = _PRAC_MAP_LABEL_Y + 18                  # 375
 _PRAC_DIV2_Y      = _PRAC_TILES_Y + _TILE_ROW_H + 8         # 475
 _PRAC_RUN_Y       = _PRAC_DIV2_Y + 10                       # 485
 _PRAC_RUN_H       = 58
-_PRAC_BOTTOM_Y    = _PRAC_RUN_Y + _PRAC_RUN_H + 8           # 551
+_PRAC_GUIDE_Y     = _PRAC_RUN_Y + _PRAC_RUN_H + 8           # 551
+_PRAC_GUIDE_H     = 40
+_PRAC_BOTTOM_Y    = _PRAC_GUIDE_Y + _PRAC_GUIDE_H + 8     # 599
 _PRAC_BOTTOM_H    = 38
-_PRAC_ERROR_Y     = _PRAC_BOTTOM_Y + _PRAC_BOTTOM_H + 6     # 595
+_PRAC_ERROR_Y     = _PRAC_BOTTOM_Y + _PRAC_BOTTOM_H + 6   # 643
 
 # ── Classroom: map section + action row ──────────────────────────────────────
 _CLASS_COUNT_Y     = _AFTER_BOT_Y                             # 249
@@ -106,9 +109,11 @@ _CLASS_TILES_Y     = _CLASS_MAP_LABEL_Y + 18                  # 309
 _CLASS_DIV2_Y      = _CLASS_TILES_Y + _TILE_ROW_H + 8         # 409
 _CLASS_RUN_Y       = _CLASS_DIV2_Y + 10                       # 419
 _CLASS_RUN_H       = 58
-_CLASS_BOTTOM_Y    = _CLASS_RUN_Y + _CLASS_RUN_H + 8          # 485
+_CLASS_GUIDE_Y     = _CLASS_RUN_Y + _CLASS_RUN_H + 8        # 485
+_CLASS_GUIDE_H     = 40
+_CLASS_BOTTOM_Y    = _CLASS_GUIDE_Y + _CLASS_GUIDE_H + 8    # 533
 _CLASS_BOTTOM_H    = 38
-_CLASS_ERROR_Y     = _CLASS_BOTTOM_Y + _CLASS_BOTTOM_H + 6    # 529
+_CLASS_ERROR_Y     = _CLASS_BOTTOM_Y + _CLASS_BOTTOM_H + 6  # 577
 
 # ── Bottom row button layout (View Replays + Quit) ────────────────────────────
 _BOTTOM_BTN_W = (_RW - 6) // 2   # 243 each, with 6 px gap
@@ -487,6 +492,23 @@ class MenuScreen:
         )
         self._widgets.add(self._run_btn)
 
+        guide_y = _PRAC_GUIDE_Y if self.launch_mode == "practice" else _CLASS_GUIDE_Y
+        guide_h = _PRAC_GUIDE_H if self.launch_mode == "practice" else _CLASS_GUIDE_H
+        sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        guide_label = f"How to write a bot for {scenario_display_name(sid)}"
+        self._guide_btn = Button(
+            pygame.Rect(_RX, guide_y, _RW, guide_h),
+            guide_label,
+            on_click=self._open_bot_guide,
+            font_size=14,
+            icon="scroll",
+            icon_size=18,
+        )
+        self._widgets.add(self._guide_btn)
+
         # ── Bottom row: View Replays + Quit (side by side) ─────────────────
         self._replays_btn = Button(
             pygame.Rect(_RX, bot_y, _BOTTOM_BTN_W, bot_h),
@@ -545,6 +567,13 @@ class MenuScreen:
 
     def _set_opponent(self, mode: str) -> None:
         self.opponent_mode = mode
+
+    def _open_bot_guide(self) -> None:
+        sid = (
+            self.scenarios[self.selected].get("id", "resource_wars")
+            if self.scenarios else "resource_wars"
+        )
+        self.app.goto_bot_guide(sid)
 
     def _toggle_random(self) -> None:
         self._use_random_seed = not self._use_random_seed
