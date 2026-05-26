@@ -124,3 +124,15 @@ def test_draw_background_procedural() -> None:
     # Background should no longer be pure black
     color = surf.get_at((200, 150))
     assert color[3] == 255  # fully opaque
+
+
+def test_draw_loading_overlay_procedural() -> None:
+    import pygame
+    from ui.render.loading_overlay import draw_loading_overlay
+
+    pygame.display.init()
+    pygame.font.init()
+    surf = pygame.Surface((640, 480))
+    draw_loading_overlay(surf, spinner_angle=0.5)
+    center = surf.get_at((320, 240))
+    assert center[3] == 255

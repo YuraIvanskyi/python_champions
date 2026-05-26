@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import threading
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from ui.coach_data import (
 )
 from ui.render.code_panel import draw_code_panel
 from ui.render.icons import load_icon
+from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.quest_card import draw_quest_card, draw_score_card, quest_card_height
 from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
 from ui.skin import chrome as skin
@@ -71,6 +73,7 @@ class CoachScreen:
         self._ai_tab_active = False       # user clicked the AI tab
         self._ai_state = _AI_TAB_CHECKING
         self._ai_report_text: str | None = None
+        self._spinner_angle = 0.0
         self._vllm_panel = VllmSetupPanel(
             on_retry=self._retry_ai,
             on_use_templates=self._use_templates,
@@ -108,6 +111,7 @@ class CoachScreen:
         self._ai_tab_active = False
         self._ai_state = _AI_TAB_CHECKING
         self._ai_report_text = None
+        self._spinner_angle = 0.0
         self._report_panel.reset()
 
         # Pre-load report if it already exists in the session folder
@@ -125,6 +129,7 @@ class CoachScreen:
         from ai.health import reset_cache
         reset_cache()
         self._ai_state = _AI_TAB_LOADING
+        self._spinner_angle = 0.0
         self._generate_ai_report_async()
 
     def _use_templates(self) -> None:
@@ -148,6 +153,7 @@ class CoachScreen:
         from ai.health import is_vllm_reachable
         if is_vllm_reachable(config.ai.health_check_url, use_cache=False):
             self._ai_state = _AI_TAB_LOADING
+            self._spinner_angle = 0.0
             self._generate_ai_report_async()
         else:
             self._ai_state = _AI_TAB_OFFLINE
@@ -175,6 +181,10 @@ class CoachScreen:
 
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
+
+    def update(self, dt_ms: int) -> None:
+        if self._ai_tab_active and self._ai_state == _AI_TAB_LOADING:
+            self._spinner_angle = (self._spinner_angle + dt_ms * 0.004) % math.tau
 
     def _build_player_tabs(self) -> None:
         self._player_tabs = []
@@ -450,6 +460,7 @@ class CoachScreen:
             ai_rect = layout["ai_panel"]
             self._draw_ai_panel(surface, ai_rect, block)
             self._widgets.draw(surface)
+            self._draw_ai_loading_overlay_if_needed(surface)
             return
 
         # ── Normal coach view ─────────────────────────────────────────────────
@@ -541,7 +552,7 @@ class CoachScreen:
         if state == _AI_TAB_CHECKING:
             _draw_status(surface, rect, "Checking vLLM connection…", colors.TEXT_MUTED)
         elif state == _AI_TAB_LOADING:
-            _draw_status(surface, rect, "Generating AI summary…", colors.TEAL_ACCENT)
+            skin.draw_panel(surface, rect, style="stone")
         elif state == _AI_TAB_OFFLINE:
             self._vllm_panel.draw(surface, rect)
         elif state == _AI_TAB_TEMPLATES:
@@ -550,6 +561,16 @@ class CoachScreen:
         elif state == _AI_TAB_REPORT:
             text = self._ai_report_text or ""
             self._report_panel.draw(surface, rect, text, players=self._player_info_for_report())
+
+    def _draw_ai_loading_overlay_if_needed(self, surface: pygame.Surface) -> None:
+        if not self._ai_tab_active or self._ai_state != _AI_TAB_LOADING:
+            return
+        draw_loading_overlay(
+            surface,
+            message="Generating AI summary…",
+            subtitle="Consulting the arcane advisor…",
+            spinner_angle=self._spinner_angle,
+        )
 
 
 def _draw_status(

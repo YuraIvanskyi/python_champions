@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import threading
 from pathlib import Path
 
 import pygame
@@ -11,6 +13,7 @@ from engine.core.live_game import LiveGame
 from engine.core.player import Bot
 from engine.core.scenario_registry import scenario_display_name
 from ui.render.hud import draw_hud, draw_toolbar_strip
+from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
 from ui.theme import (
@@ -38,6 +41,11 @@ class SimulationScreen:
         self.live: LiveGame | None = None
         self.auto_mode = False
         self._auto_timer = 0
+        self._finishing = False
+        self._finish_go_menu = False
+        self._spinner_angle = 0.0
+        self._finish_thread: threading.Thread | None = None
+        self._finish_result: tuple[dict[str, int], Path | None, bool] | None = None
         self._toolbar = WidgetGroup()
         self._build_toolbar()
 
@@ -88,19 +96,28 @@ class SimulationScreen:
         )
         self.auto_mode = False
         self._auto_timer = 0
+        self._reset_finish_state()
         self.app.pending_session_dir = None
         self.app.results_dir = results_dir
 
     def on_enter(self) -> None:
         self.auto_mode = False
         self._auto_timer = 0
+        self._reset_finish_state()
         self._sync_play_label()
+
+    def _reset_finish_state(self) -> None:
+        self._finishing = False
+        self._finish_go_menu = False
+        self._spinner_angle = 0.0
+        self._finish_thread = None
+        self._finish_result = None
 
     def _sync_play_label(self) -> None:
         self._play_btn.label = "Pause" if self.auto_mode else "Play"
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        if self.live is None:
+        if self._finishing or self.live is None:
             return
         if self._toolbar.handle_event(event):
             return
@@ -125,6 +142,11 @@ class SimulationScreen:
         self._sync_play_label()
 
     def update(self, dt_ms: int) -> None:
+        if self._finishing:
+            self._spinner_angle = (self._spinner_angle + dt_ms * 0.004) % math.tau
+            if self._finish_thread is not None and not self._finish_thread.is_alive():
+                self._complete_finish()
+            return
         if not self.auto_mode or self.live is None or self.live.is_finished():
             return
         self._auto_timer += dt_ms
@@ -133,7 +155,7 @@ class SimulationScreen:
             self._step_once()
 
     def _step_once(self) -> None:
-        if self.live is None or self.live.is_finished():
+        if self._finishing or self.live is None or self.live.is_finished():
             return
         self.live.step()
         if self.live.is_finished():
@@ -143,14 +165,42 @@ class SimulationScreen:
         if self.live is None:
             self.app.goto_menu()
             return
-        final_scores = self.live.scenario.calculate_score()
+        if self._finishing:
+            return
+
+        self.auto_mode = False
+        self._sync_play_label()
+        self._finishing = True
+        self._finish_go_menu = go_menu
+        self._spinner_angle = 0.0
+        self._finish_result = None
+
+        live = self.live
+        final_scores = live.scenario.calculate_score()
         display_scores = self._scores_with_labels(final_scores)
-        session_dir = self.live.finish(
-            results_dir=self.app.results_dir,
-            write_results=True,
-        )
+        results_dir = self.app.results_dir
+
+        def _worker() -> None:
+            session_dir = live.finish(
+                results_dir=results_dir,
+                write_results=True,
+            )
+            self._finish_result = (display_scores, session_dir, go_menu)
+
+        self._finish_thread = threading.Thread(target=_worker, daemon=True)
+        self._finish_thread.start()
+
+    def _complete_finish(self) -> None:
+        if self._finish_result is None:
+            display_scores: dict[str, int] = {}
+            session_dir: Path | None = None
+            go_menu = self._finish_go_menu
+        else:
+            display_scores, session_dir, go_menu = self._finish_result
+
         self.app.pending_session_dir = session_dir
         self.live = None
+        self._reset_finish_state()
         if go_menu:
             self.app.goto_menu()
         else:
@@ -256,6 +306,9 @@ class SimulationScreen:
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
         self._layout_toolbar(surface)
         self._toolbar.draw(surface)
+
+        if self._finishing:
+            draw_loading_overlay(surface, spinner_angle=self._spinner_angle)
 
     def _build_status_message(self) -> str:
         if self.live is None or not self.live.is_finished():
