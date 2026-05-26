@@ -42,10 +42,44 @@ def test_measure_guide_content_positive() -> None:
 
     pygame.display.init()
     pygame.font.init()
+    pygame.display.set_mode((1, 1), flags=pygame.NOFRAME)
     blocks = guide_blocks_for_scenario("resource_wars")
     h = measure_guide_content(blocks, content_width=800)
     assert h > 200
-    pygame.quit()
+
+
+def test_guide_mentor_float_wraps_intro() -> None:
+    import os
+
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
+    import pygame
+
+    from ui.bot_guide_layout import _mentor_float_rect, _wrap_text, _width_at
+    from ui.skin import typography
+
+    pygame.display.init()
+    pygame.font.init()
+    pygame.display.set_mode((1, 1), flags=pygame.NOFRAME)
+    typography._game_cache.clear()
+    typography._code_cache.clear()
+    font = pygame.font.SysFont("consolas", 15)
+    for sid in ("resource_wars", "boss_fight", "energy_stations"):
+        blocks = guide_blocks_for_scenario(sid)
+        float_rect = _mentor_float_rect(blocks, content_width=700, start_y=0)
+        assert float_rect is not None
+        assert float_rect.width > 100
+        intro = blocks[1].text
+        width_at = _width_at(700, float_rect, font.get_height() + 2)
+        lines = _wrap_text(
+            intro,
+            font,
+            start_y=float_rect.top,
+            line_h=font.get_height() + 2,
+            width_at=width_at,
+        )
+        assert len(lines) >= 2
+        narrow_w = 700 - float_rect.width - 14
+        assert font.size(lines[0])[0] <= narrow_w + 2
 
 
 def test_unknown_scenario_falls_back_to_resource_wars() -> None:

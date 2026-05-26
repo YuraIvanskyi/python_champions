@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pygame
 
 from ui.skin import chrome as skin
@@ -14,6 +16,91 @@ _HUD_PAD_Y = 6
 _HUD_TITLE_GAP = 2
 _HUD_SUBTITLE_GAP = 4
 _HUD_BODY_LINE = HUD_BODY_PT + 4
+_HUD_MENTOR_GAP = 12
+_MENTOR_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_1.png"
+_MENTOR_CACHE: dict[int, pygame.Surface | None] = {}
+
+
+def _mentor_surface(max_height: int) -> pygame.Surface | None:
+    if max_height in _MENTOR_CACHE:
+        return _MENTOR_CACHE[max_height]
+    if not _MENTOR_PATH.is_file():
+        _MENTOR_CACHE[max_height] = None
+        return None
+    try:
+        image = pygame.image.load(str(_MENTOR_PATH))
+        if pygame.display.get_surface() is not None:
+            image = image.convert_alpha()
+        src_w, src_h = image.get_size()
+        if src_h <= 0:
+            _MENTOR_CACHE[max_height] = None
+            return None
+        display_h = min(max_height, src_h)
+        display_w = max(1, int(display_h * src_w / src_h))
+        scaled = pygame.transform.smoothscale(image, (display_w, display_h))
+        _MENTOR_CACHE[max_height] = scaled
+        return scaled
+    except pygame.error:
+        _MENTOR_CACHE[max_height] = None
+        return None
+
+
+def _wrap_text(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
+    words = text.split()
+    if not words:
+        return [""]
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        trial = f"{current} {word}".strip() if current else word
+        if font.size(trial)[0] <= max_w:
+            current = trial
+            continue
+        if current:
+            lines.append(current)
+            current = word
+            continue
+        current = word
+    if current:
+        lines.append(current)
+    return lines or [text]
+
+
+def _hud_text_column(panel: pygame.Rect) -> tuple[int, int, pygame.Surface | None]:
+    inner_h = max(1, panel.height - _HUD_PAD_Y * 2)
+    mentor = _mentor_surface(inner_h)
+    if mentor is None:
+        return _HUD_PAD_X, panel.width - _HUD_PAD_X * 2, None
+    text_x = _HUD_PAD_X + mentor.get_width() + _HUD_MENTOR_GAP
+    text_w = max(80, panel.width - text_x - _HUD_PAD_X)
+    return text_x, text_w, mentor
+
+
+def _draw_wrapped_entry(
+    surface: pygame.Surface,
+    *,
+    text: str,
+    rect_x: int,
+    rect_w: int,
+    y: int,
+    line_h: int,
+    font: pygame.font.Font,
+    color: tuple[int, int, int],
+    panel_bottom: int,
+) -> int:
+    for line in _wrap_text(text, font, rect_w):
+        if y + line_h > panel_bottom - _HUD_PAD_Y:
+            return y
+        skin.draw_text_clipped(
+            surface,
+            line,
+            pygame.Rect(rect_x, y, rect_w, line_h),
+            font,
+            color,
+            align="left",
+        )
+        y += line_h
+    return y
 
 
 def draw_hud(
@@ -37,55 +124,70 @@ def draw_hud(
 
     title_font_obj = title_font(HUD_TITLE_PT)
     body_font_obj = body_font(HUD_BODY_PT)
-    inner = panel.inflate(-_HUD_PAD_X * 2, -_HUD_PAD_Y * 2)
+    subtitle_font = body_font(max(HUD_BODY_PT - 2, 13))
+    text_x, text_w, mentor = _hud_text_column(panel)
 
     old_clip = surface.get_clip()
     surface.set_clip(panel)
 
+    if mentor is not None:
+        inner_h = panel.height - _HUD_PAD_Y * 2
+        mentor_y = panel_top + _HUD_PAD_Y + (inner_h - mentor.get_height()) // 2
+        surface.blit(mentor, (_HUD_PAD_X, mentor_y))
+
     y = panel_top + _HUD_PAD_Y
-    skin.draw_text_clipped(
+    panel_bottom = panel.bottom
+
+    y = _draw_wrapped_entry(
         surface,
-        title,
-        pygame.Rect(_HUD_PAD_X, y, inner.width, HUD_TITLE_PT + 4),
-        title_font_obj,
-        colors.GOLD_TEXT,
-        align="left",
+        text=title,
+        rect_x=text_x,
+        rect_w=text_w,
+        y=y,
+        line_h=HUD_TITLE_PT + 4,
+        font=title_font_obj,
+        color=colors.GOLD_TEXT,
+        panel_bottom=panel_bottom,
     )
-    y += HUD_TITLE_PT + _HUD_TITLE_GAP
+    y += _HUD_TITLE_GAP
 
     if subtitle:
-        subtitle_font = body_font(max(HUD_BODY_PT - 2, 13))
-        skin.draw_text_clipped(
+        y = _draw_wrapped_entry(
             surface,
-            subtitle,
-            pygame.Rect(_HUD_PAD_X, y, inner.width, HUD_BODY_PT),
-            subtitle_font,
-            colors.TEXT_MUTED,
-            align="left",
+            text=subtitle,
+            rect_x=text_x,
+            rect_w=text_w,
+            y=y,
+            line_h=HUD_BODY_PT,
+            font=subtitle_font,
+            color=colors.TEXT_MUTED,
+            panel_bottom=panel_bottom,
         )
-        y += HUD_BODY_PT + _HUD_SUBTITLE_GAP
+        y += _HUD_SUBTITLE_GAP
 
     for line in lines[:4]:
         if not line:
             continue
-        skin.draw_text_clipped(
+        y = _draw_wrapped_entry(
             surface,
-            line,
-            pygame.Rect(_HUD_PAD_X, y, inner.width, _HUD_BODY_LINE),
-            body_font_obj,
-            colors.TEXT_BODY,
-            align="left",
+            text=line,
+            rect_x=text_x,
+            rect_w=text_w,
+            y=y,
+            line_h=_HUD_BODY_LINE,
+            font=body_font_obj,
+            color=colors.TEXT_BODY,
+            panel_bottom=panel_bottom,
         )
-        y += _HUD_BODY_LINE
 
     if footer:
         skin.draw_text_clipped(
             surface,
             footer,
             pygame.Rect(
-                _HUD_PAD_X,
+                text_x,
                 panel.bottom - _HUD_PAD_Y - HUD_BODY_PT,
-                inner.width,
+                text_w,
                 HUD_BODY_PT,
             ),
             body_font_obj,

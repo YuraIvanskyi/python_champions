@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pygame
@@ -18,6 +19,9 @@ _BODY_PT        = 13
 _LINE_H         = _BODY_PT + 4   # pixel height per wrapped line
 _MAX_MSG_LINES  = 5
 _MAX_HINT_LINES = 2
+_SCORE_MENTOR_GAP = 10
+_MENTOR2_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_2.png"
+_MENTOR2_CACHE: dict[int, pygame.Surface | None] = {}
 
 
 # ── Text helpers ──────────────────────────────────────────────────────────────
@@ -63,6 +67,42 @@ def _draw_wrapped(
 
 # ── Score summary card ────────────────────────────────────────────────────────
 
+def _mentor2_surface(max_height: int) -> pygame.Surface | None:
+    if max_height in _MENTOR2_CACHE:
+        return _MENTOR2_CACHE[max_height]
+    if not _MENTOR2_PATH.is_file():
+        _MENTOR2_CACHE[max_height] = None
+        return None
+    try:
+        image = pygame.image.load(str(_MENTOR2_PATH))
+        if pygame.display.get_surface() is not None:
+            image = image.convert_alpha()
+        src_w, src_h = image.get_size()
+        if src_h <= 0:
+            _MENTOR2_CACHE[max_height] = None
+            return None
+        display_h = min(max_height, src_h)
+        display_w = max(1, int(display_h * src_w / src_h))
+        scaled = pygame.transform.smoothscale(image, (display_w, display_h))
+        _MENTOR2_CACHE[max_height] = scaled
+        return scaled
+    except pygame.error:
+        _MENTOR2_CACHE[max_height] = None
+        return None
+
+
+def score_card_text_column(rect: pygame.Rect) -> tuple[int, int]:
+    """Return (text_x, text_width) for the score card content beside mentor_2."""
+    pad_x = 12
+    inner_h = max(1, rect.height - 8 * 2)
+    mentor = _mentor2_surface(inner_h)
+    if mentor is None:
+        return rect.x + pad_x, rect.width - pad_x * 2
+    text_x = rect.x + pad_x + mentor.get_width() + _SCORE_MENTOR_GAP
+    text_w = max(80, rect.right - pad_x - text_x)
+    return text_x, text_w
+
+
 def draw_score_card(
     surface: pygame.Surface,
     rect: pygame.Rect,
@@ -70,88 +110,65 @@ def draw_score_card(
     gameplay_score: object,
     code_score: object,
     final_score: object,
-    *,
-    icon_surf: pygame.Surface | None = None,
 ) -> None:
-    """Draw the prominent score summary at the top of the quest column.
-
-    Shows three equally-spaced score columns (Gameplay / Code / Final) with
-    the bot name in a header row, all on a parchment panel.
-    """
+    """Draw the score summary at the top of the quest column."""
     skin.draw_panel(surface, rect, style="parchment")
 
-    pad_x, pad_y = 16, 10
-    inner_x = rect.x + pad_x
-    inner_w  = rect.width - pad_x * 2
+    pad_x, pad_y = 12, 8
+    inner_h = max(1, rect.height - pad_y * 2)
+    mentor = _mentor2_surface(inner_h)
+    text_x, text_w = score_card_text_column(rect)
 
-    # ── Row 1: "RESULTS" ribbon  +  bot name ─────────────────────────────────
-    ribbon_h = 20
-    ribbon_w = min(82, inner_w // 3)
-    ribbon_rect = pygame.Rect(inner_x, rect.y + pad_y, ribbon_w, ribbon_h)
-    skin.draw_category_ribbon(surface, ribbon_rect, category="praise")
-    lbl_font = body_font(_BODY_PT - 1)
-    skin.draw_text_clipped(
-        surface, "RESULTS", ribbon_rect, lbl_font, (18, 72, 36),
-        align="center", pad_x=4,
-    )
+    if mentor is not None:
+        mentor_x = rect.x + pad_x
+        mentor_y = rect.y + pad_y + (inner_h - mentor.get_height()) // 2
+        surface.blit(mentor, (mentor_x, mentor_y))
 
-    # Optional portrait icon to the right of the ribbon
-    name_x = inner_x + ribbon_w + 8
-    if icon_surf is not None:
-        icon_y = rect.y + pad_y + (ribbon_h - icon_surf.get_height()) // 2
-        surface.blit(icon_surf, (name_x, icon_y))
-        name_x += icon_surf.get_width() + 6
+    greeting = f"Lets see your results, {bot_name}!"
+    greeting_font = body_font(14)
+    greeting_lines = _wrap_text(greeting, greeting_font, text_w)[:2]
+    y = rect.y + pad_y
+    for line in greeting_lines:
+        skin.draw_text_clipped(
+            surface,
+            line,
+            pygame.Rect(text_x, y, text_w, greeting_font.get_height() + 2),
+            greeting_font,
+            colors.PARCHMENT_TEXT,
+            align="left",
+        )
+        y += greeting_font.get_height() + 2
 
-    name_avail = rect.right - pad_x - name_x
-    name_rect  = pygame.Rect(name_x, rect.y + pad_y, name_avail, ribbon_h)
-    name_font  = title_font(_TITLE_PT)
-    skin.draw_text_clipped(
-        surface, bot_name, name_rect, name_font, colors.PARCHMENT_TEXT,
-        align="left",
-    )
+    score_top = y + 4
+    score_bottom = rect.bottom - pad_y
+    avail_h = max(24, score_bottom - score_top)
+    col_w = max(36, text_w // 3)
 
-    # ── Divider ───────────────────────────────────────────────────────────────
-    div_y = rect.y + pad_y + ribbon_h + 6
-    pygame.draw.line(
-        surface, colors.PARCHMENT_EDGE,
-        (inner_x + 6, div_y), (rect.right - pad_x - 6, div_y),
-    )
+    val_font = title_font(16)
+    lbl_font = body_font(11)
 
-    # ── Three score columns ───────────────────────────────────────────────────
-    col_y   = div_y + 7
-    avail_h = rect.bottom - pad_y - col_y
-    col_w   = inner_w // 3
-
-    val_font = title_font(18)
-    lbl_font_sm = body_font(_BODY_PT - 1)
-
-    # Final score gets a warm amber to stand out; others use dark parchment ink
     entries: list[tuple[str, str, tuple[int, int, int]]] = [
         ("Gameplay", str(gameplay_score), colors.PARCHMENT_TEXT),
-        ("Code",     str(code_score),     colors.PARCHMENT_TEXT),
-        ("Final",    str(final_score),    (165, 88, 18)),
+        ("Code", str(code_score), colors.PARCHMENT_TEXT),
+        ("Final", str(final_score), (165, 88, 18)),
     ]
 
     for i, (label, val, color) in enumerate(entries):
-        cx = inner_x + col_w * i + col_w // 2
-
+        cx = text_x + col_w * i + col_w // 2
         val_surf = val_font.render(val, True, color)
-        lbl_surf = lbl_font_sm.render(label, True, colors.PARCHMENT_EDGE)
-
-        block_h = val_surf.get_height() + 3 + lbl_surf.get_height()
-        base_y  = col_y + max(0, (avail_h - block_h) // 2)
-
+        lbl_surf = lbl_font.render(label, True, colors.PARCHMENT_EDGE)
+        block_h = val_surf.get_height() + 2 + lbl_surf.get_height()
+        base_y = score_top + max(0, (avail_h - block_h) // 2)
         surface.blit(val_surf, (cx - val_surf.get_width() // 2, base_y))
-        surface.blit(lbl_surf, (
-            cx - lbl_surf.get_width() // 2,
-            base_y + val_surf.get_height() + 3,
-        ))
+        surface.blit(
+            lbl_surf,
+            (cx - lbl_surf.get_width() // 2, base_y + val_surf.get_height() + 2),
+        )
 
-    # Vertical separators between the three columns
-    sep_top = col_y + 4
-    sep_bot = rect.bottom - pad_y - 4
-    for i in [1, 2]:
-        sx = inner_x + col_w * i
+    sep_top = score_top + 2
+    sep_bot = score_bottom - 2
+    for i in (1, 2):
+        sx = text_x + col_w * i
         pygame.draw.line(surface, colors.PARCHMENT_EDGE, (sx, sep_top), (sx, sep_bot))
 
 

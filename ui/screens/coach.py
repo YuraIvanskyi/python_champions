@@ -472,7 +472,6 @@ class CoachScreen:
             gameplay_score=scores.get("gameplay", "—"),
             code_score=scores.get("code_quality", "—"),
             final_score=scores.get("final", "—"),
-            icon_surf=self._player_icon(pid, size=20),
         )
 
         # Scrollable quest list
@@ -521,6 +520,20 @@ class CoachScreen:
                     iy = tab_btn.rect.y + (tab_btn.rect.height - _TAB_ICON) // 2
                     surface.blit(tab_icon, (ix, iy))
 
+    def _player_info_for_report(self) -> dict[str, dict[str, object]]:
+        info: dict[str, dict[str, object]] = {}
+        if not self.replay:
+            return info
+        for pid in self.player_ids:
+            meta = self.replay.get("players", {}).get(pid, {})
+            bot_path = bot_path_for_player(self.replay, pid)
+            info[pid] = {
+                "display_name": meta.get("display_name", pid),
+                "icon": meta.get("icon"),
+                "bot_file": bot_path.name if bot_path else pid,
+            }
+        return info
+
     def _draw_ai_panel(
         self, surface: pygame.Surface, rect: pygame.Rect, block: dict[str, Any]
     ) -> None:
@@ -536,7 +549,7 @@ class CoachScreen:
             self._template_panel.draw(surface, rect, feedback)
         elif state == _AI_TAB_REPORT:
             text = self._ai_report_text or ""
-            self._report_panel.draw(surface, rect, text)
+            self._report_panel.draw(surface, rect, text, players=self._player_info_for_report())
 
 
 def _draw_status(

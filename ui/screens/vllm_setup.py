@@ -6,6 +6,7 @@ Provides Retry and Use-Templates-Only buttons.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 import pygame
@@ -267,6 +268,22 @@ _Row = tuple[str, str, "pygame.font.Font", tuple, int, int]
 
 _SCROLLBAR_W   = 8
 _SCROLLBAR_PAD = 4
+_MENTOR4_GAP = 10
+_MENTOR4_PAD_LEFT = 4
+_MENTOR4_STICKY_H = 88
+_MENTOR4_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_4.png"
+_MENTOR4_CACHE: dict[int, pygame.Surface | None] = {}
+_AI_STICKY_HEADING = "Words of wisdom"
+_AI_ADVISORY_DEFAULT = (
+    "AI-generated summary — advisory only. "
+    "Numeric scores come from static analysis."
+)
+_AI_TEACHER_TRUST_NOTE = (
+    "Your teacher's feedback still matters most — treat this summary as helpful hints, "
+    "not the final grade."
+)
+_PLAYER_ICON_SIZE = 24
+_PLAYER_ROW_GAP = 4
 
 # Code block visual constants
 _CODE_BG    = (30, 32, 42)   # dark slate
@@ -275,20 +292,255 @@ _CODE_PAD_X = 10
 _CODE_PAD_Y = 5
 
 
+def _mentor4_surface(max_height: int) -> pygame.Surface | None:
+    if max_height in _MENTOR4_CACHE:
+        return _MENTOR4_CACHE[max_height]
+    if not _MENTOR4_PATH.is_file():
+        _MENTOR4_CACHE[max_height] = None
+        return None
+    try:
+        image = pygame.image.load(str(_MENTOR4_PATH))
+        if pygame.display.get_surface() is not None:
+            image = image.convert_alpha()
+        src_w, src_h = image.get_size()
+        if src_h <= 0:
+            _MENTOR4_CACHE[max_height] = None
+            return None
+        display_h = min(max_height, src_h)
+        display_w = max(1, int(display_h * src_w / src_h))
+        scaled = pygame.transform.smoothscale(image, (display_w, display_h))
+        _MENTOR4_CACHE[max_height] = scaled
+        return scaled
+    except pygame.error:
+        _MENTOR4_CACHE[max_height] = None
+        return None
+
+
+def _parse_player_id(display: str) -> str:
+    match = _re.match(r"(?i)player:\s*(.+)", display.strip())
+    return match.group(1).strip() if match else display.strip()
+
+
+def _sticky_note_lines(advisory: str, body_font_obj: pygame.font.Font, text_w: int) -> list[str]:
+    lines = _wrap(body_font_obj, advisory, text_w)
+    lines.extend(_wrap(body_font_obj, _AI_TEACHER_TRUST_NOTE, text_w))
+    return lines
+
+
+def _extract_advisory_note(report_text: str) -> tuple[str, str]:
+    """Return advisory copy and report body with leading blockquote removed."""
+    lines = report_text.splitlines()
+    advisory_parts: list[str] = []
+    rest_start = 0
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("> "):
+            advisory_parts.append(_strip_inline(stripped[2:]))
+            rest_start = index + 1
+            continue
+        if not advisory_parts and not stripped:
+            rest_start = index + 1
+            continue
+        break
+    while rest_start < len(lines) and not lines[rest_start].strip():
+        rest_start += 1
+    advisory = " ".join(advisory_parts).strip() if advisory_parts else _AI_ADVISORY_DEFAULT
+    body = "\n".join(lines[rest_start:])
+    return advisory, body
+
+
+def _measure_sticky_header(
+    *,
+    max_w: int,
+    advisory: str,
+    heading_font: pygame.font.Font,
+    body_font_obj: pygame.font.Font,
+) -> tuple[int, int]:
+    mentor = _mentor4_surface(_MENTOR4_STICKY_H)
+    text_x = _MENTOR4_PAD_LEFT
+    if mentor is not None:
+        text_x += mentor.get_width() + _MENTOR4_GAP
+    text_w = max(80, max_w - text_x)
+    heading_h = heading_font.get_height() + 4
+    note_lines = _sticky_note_lines(advisory, body_font_obj, text_w)
+    note_h = len(note_lines) * (body_font_obj.get_height() + 2)
+    block_h = max(_MENTOR4_STICKY_H, heading_h + note_h) + 14
+    return block_h, text_x
+
+
+def _draw_sticky_header(
+    surface: pygame.Surface,
+    header_rect: pygame.Rect,
+    *,
+    pad_x: int,
+    max_w: int,
+    advisory: str,
+    heading_font: pygame.font.Font,
+    body_font_obj: pygame.font.Font,
+) -> None:
+    mentor = _mentor4_surface(_MENTOR4_STICKY_H)
+    mentor_x = pad_x + _MENTOR4_PAD_LEFT
+    text_x = pad_x + _MENTOR4_PAD_LEFT
+    if mentor is not None:
+        mentor_y = header_rect.y + 6 + (_MENTOR4_STICKY_H - mentor.get_height()) // 2
+        surface.blit(mentor, (mentor_x, mentor_y))
+        text_x = mentor_x + mentor.get_width() + _MENTOR4_GAP
+    text_w = max(80, pad_x + max_w - text_x)
+
+    y = header_rect.y + 6
+    skin.draw_text_clipped(
+        surface,
+        _AI_STICKY_HEADING,
+        pygame.Rect(text_x, y, text_w, heading_font.get_height() + 2),
+        heading_font,
+        colors.WOOD_FILL,
+        align="left",
+    )
+    y += heading_font.get_height() + 4
+    for line in _sticky_note_lines(advisory, body_font_obj, text_w):
+        skin.draw_text_clipped(
+            surface,
+            line,
+            pygame.Rect(text_x, y, text_w, body_font_obj.get_height() + 2),
+            body_font_obj,
+            colors.PARCHMENT_TEXT,
+            align="left",
+        )
+        y += body_font_obj.get_height() + 2
+
+    pygame.draw.line(
+        surface,
+        colors.PARCHMENT_EDGE,
+        (header_rect.x + 12, header_rect.bottom - 1),
+        (header_rect.right - 12, header_rect.bottom - 1),
+    )
+
+
+def _draw_player_header(
+    surface: pygame.Surface,
+    *,
+    x: int,
+    y: int,
+    max_w: int,
+    display_text: str,
+    font: pygame.font.Font,
+    players: dict[str, dict[str, object]] | None,
+) -> int:
+    from ui.render.icons import load_icon
+
+    player_id = _parse_player_id(display_text)
+    info = (players or {}).get(player_id, {})
+    display_name = str(info.get("display_name", player_id))
+    bot_file = str(info.get("bot_file", player_id))
+    icon_path = info.get("icon")
+    icon = load_icon(str(icon_path), size=_PLAYER_ICON_SIZE) if icon_path else None
+
+    cursor_x = x
+    row_h = max(_PLAYER_ICON_SIZE, font.get_height())
+    if icon is not None:
+        icon_y = y + (row_h - icon.get_height()) // 2
+        surface.blit(icon, (cursor_x, icon_y))
+        cursor_x += icon.get_width() + 8
+
+    name_surf = font.render(display_name, True, colors.WOOD_BORDER)
+    surface.blit(name_surf, (cursor_x, y + (row_h - name_surf.get_height()) // 2))
+    cursor_x += name_surf.get_width() + 10
+
+    file_surf = font.render(bot_file, True, colors.PARCHMENT_TEXT)
+    surface.blit(file_surf, (cursor_x, y + (row_h - file_surf.get_height()) // 2))
+    return row_h
+
+
+def _build_report_rows(
+    report_text: str,
+    *,
+    max_w: int,
+    style_cfg: dict[str, tuple],
+    f_small: pygame.font.Font,
+    f_code: pygame.font.Font,
+) -> list[_Row]:
+    rows: list[_Row] = []
+    _, body = _extract_advisory_note(report_text)
+    segments = _preprocess(body)
+    i = 0
+
+    while i < len(segments):
+        kind, text = segments[i]
+
+        if kind == "spacer_pre_code":
+            rows.append((_STYLE_SPACER, "", f_small, colors.PARCHMENT_TEXT, 0, 4))
+            i += 1
+            continue
+
+        if kind == "spacer_post_code":
+            rows.append((_STYLE_SPACER, "", f_small, colors.PARCHMENT_TEXT, 0, 8))
+            i += 1
+            continue
+
+        if kind == "code":
+            rows.append((_STYLE_CODE, text, f_code, _CODE_FG, _CODE_PAD_X, 2))
+            i += 1
+            continue
+
+        style, display = _classify(text)
+        if style == _STYLE_SPACER:
+            rows.append((_STYLE_SPACER, "", f_small, colors.PARCHMENT_TEXT, 0, 8))
+            i += 1
+            continue
+
+        if style == _STYLE_ADVISORY:
+            i += 1
+            continue
+
+        font, color, indent, gap = style_cfg[style]
+        prefix = "• " if style == _STYLE_BULLET else ""
+        wrapped = _wrap(font, prefix + display, max(40, max_w - indent))
+        for j, line in enumerate(wrapped):
+            row_gap = gap if j == len(wrapped) - 1 else 2
+            rows.append((style, line, font, color, indent, row_gap))
+        i += 1
+
+    return rows
+
+
+def _report_total_height(rows: list[_Row]) -> int:
+    h = 14
+    prev_code = False
+    for style, _, font, _, _, gap in rows:
+        if style == _STYLE_CODE and not prev_code:
+            h += _CODE_PAD_Y
+        if style == _STYLE_PLAYER:
+            h += max(_PLAYER_ICON_SIZE, font.get_height()) + min(gap, _PLAYER_ROW_GAP)
+        else:
+            h += font.get_height() + gap
+        if style == _STYLE_CODE:
+            prev_code = True
+        else:
+            if prev_code:
+                h += _CODE_PAD_Y
+            prev_code = False
+    if prev_code:
+        h += _CODE_PAD_Y
+    return h
+
+
 class AiReportPanel:
     """Markdown-aware renderer for ai_report.md with code blocks and scrollbar."""
 
     def __init__(self) -> None:
         self._scroll_offset = 0
         self._total_h = 0
+        self._sticky_h = 0
 
     def reset(self) -> None:
         self._scroll_offset = 0
         self._total_h = 0
+        self._sticky_h = 0
 
     def handle_wheel(self, event: pygame.event.Event, rect: pygame.Rect) -> bool:
         if event.type == pygame.MOUSEWHEEL and rect.collidepoint(pygame.mouse.get_pos()):
-            max_scroll = max(0, self._total_h - rect.height + 28)
+            scroll_h = max(1, rect.height - self._sticky_h - 8)
+            max_scroll = max(0, self._total_h - scroll_h)
             self._scroll_offset = max(0, min(max_scroll, self._scroll_offset - event.y * 22))
             return True
         return False
@@ -298,6 +550,8 @@ class AiReportPanel:
         surface: pygame.Surface,
         rect: pygame.Rect,
         report_text: str,
+        *,
+        players: dict[str, dict[str, object]] | None = None,
     ) -> None:
         from ui.skin.typography import code_font as _code_font
 
@@ -315,10 +569,20 @@ class AiReportPanel:
         f_body   = body_font(14)
         f_small  = body_font(13)
         f_code   = _code_font(13)
+        f_sticky = body_font(15)
+
+        advisory, _ = _extract_advisory_note(report_text)
+        sticky_h, _ = _measure_sticky_header(
+            max_w=max_w,
+            advisory=advisory,
+            heading_font=f_sticky,
+            body_font_obj=f_small,
+        )
+        self._sticky_h = sticky_h
 
         style_cfg: dict[str, tuple] = {
             _STYLE_ADVISORY: (f_small, _C.TEXT_MUTED,       0,   6),
-            _STYLE_PLAYER:   (f_player, _C.WOOD_BORDER,     0,  10),
+            _STYLE_PLAYER:   (f_player, _C.WOOD_BORDER,     0,  _PLAYER_ROW_GAP),
             _STYLE_HEADING:  (f_head,  _C.WOOD_FILL,        0,   8),
             _STYLE_NUMBERED: (f_body,  _C.PARCHMENT_TEXT,  18,   5),
             _STYLE_BULLET:   (f_body,  _C.PARCHMENT_TEXT,  22,   4),
@@ -329,80 +593,40 @@ class AiReportPanel:
         }
 
         # ── Build flat render rows ────────────────────────────────────────────
-        rows: list[_Row] = []
-        segments = _preprocess(report_text)
+        rows = _build_report_rows(
+            report_text,
+            max_w=max_w,
+            style_cfg=style_cfg,
+            f_small=f_small,
+            f_code=f_code,
+        )
 
-        # Collect consecutive code lines so we can compute the bg box height
-        # We emit them together, but render as individual rows tagged _STYLE_CODE
-        i = 0
-        while i < len(segments):
-            kind, text = segments[i]
-
-            if kind == "spacer_pre_code":
-                rows.append((_STYLE_SPACER, "", f_small, _C.PARCHMENT_TEXT, 0, 4))
-                i += 1
-                continue
-
-            if kind == "spacer_post_code":
-                rows.append((_STYLE_SPACER, "", f_small, _C.PARCHMENT_TEXT, 0, 8))
-                i += 1
-                continue
-
-            if kind == "code":
-                rows.append((_STYLE_CODE, text, f_code, _CODE_FG, _CODE_PAD_X, 2))
-                i += 1
-                continue
-
-            # Normal markdown line
-            style, display = _classify(text)
-            if style == _STYLE_SPACER:
-                rows.append((_STYLE_SPACER, "", f_small, _C.PARCHMENT_TEXT, 0, 8))
-                i += 1
-                continue
-
-            font, color, indent, gap = style_cfg[style]
-            prefix  = "• " if style == _STYLE_BULLET else ""
-            wrapped = _wrap(font, prefix + display, max_w - indent)
-            for j, line in enumerate(wrapped):
-                g = gap if j == len(wrapped) - 1 else 2
-                rows.append((style, line, font, color, indent, g))
-            i += 1
-
-        # ── Measure total content height ──────────────────────────────────────
-        # Code rows share one background box per contiguous group; account for
-        # top+bottom padding of that box.
-        def _total_height(rows: list[_Row]) -> int:
-            h = 14  # top padding
-            prev_code = False
-            for style, _, font, _, _, gap in rows:
-                if style == _STYLE_CODE and not prev_code:
-                    h += _CODE_PAD_Y        # box top padding (first row of block)
-                h += font.get_height() + gap
-                if style == _STYLE_CODE:
-                    prev_code = True
-                else:
-                    if prev_code:
-                        h += _CODE_PAD_Y    # box bottom padding (end of block)
-                    prev_code = False
-            if prev_code:
-                h += _CODE_PAD_Y
-            return h
-
-        total_h = _total_height(rows)
+        total_h = _report_total_height(rows)
         self._total_h = total_h
-        max_scroll = max(0, total_h - vis_h)
+        scroll_h = max(1, vis_h - sticky_h - 4)
+        max_scroll = max(0, total_h - scroll_h)
         self._scroll_offset = min(self._scroll_offset, max_scroll)
 
-        # ── Draw ─────────────────────────────────────────────────────────────
+        sticky_rect = pygame.Rect(inner.x, inner.y, inner.width, sticky_h)
+        _draw_sticky_header(
+            surface,
+            sticky_rect,
+            pad_x=pad_x,
+            max_w=max_w,
+            advisory=advisory,
+            heading_font=f_sticky,
+            body_font_obj=f_small,
+        )
+
+        content_inner = pygame.Rect(inner.x, inner.y + sticky_h + 2, inner.width, inner.height - sticky_h - 2)
+
+        # ── Draw scrollable report body ───────────────────────────────────────
         old_clip = surface.get_clip()
-        surface.set_clip(inner)
+        surface.set_clip(content_inner)
 
-        y = rect.y + 14 - self._scroll_offset
+        y = content_inner.y + 14 - self._scroll_offset
 
-        # We need a two-pass approach for code blocks: first compute the box
-        # rect, draw bg, then draw text. Instead we do a single pass tracking
-        # whether we're inside a code group.
-        code_block_lines: list[tuple[int, str]] = []  # (y, text)
+        code_block_lines: list[tuple[int, str]] = []
         code_block_start_y: int | None = None
 
         def _flush_code_block() -> None:
@@ -411,7 +635,6 @@ class AiReportPanel:
                 code_block_start_y = None
                 code_block_lines = []
                 return
-            # Draw background box
             last_y, _ = code_block_lines[-1]
             lh = f_code.get_height()
             box = pygame.Rect(
@@ -420,12 +643,11 @@ class AiReportPanel:
                 max_w + _CODE_PAD_X * 2,
                 (last_y + lh + _CODE_PAD_Y) - (code_block_start_y - _CODE_PAD_Y),
             )
-            if box.bottom >= inner.top and box.top <= inner.bottom:
+            if box.bottom >= content_inner.top and box.top <= content_inner.bottom:
                 pygame.draw.rect(surface, _CODE_BG, box, border_radius=4)
                 pygame.draw.rect(surface, _C.STONE_BORDER, box, 1, border_radius=4)
-            # Draw each line of code
             for cy, ctext in code_block_lines:
-                if cy + lh >= inner.top and cy <= inner.bottom:
+                if cy + lh >= content_inner.top and cy <= content_inner.bottom:
                     csurf = f_code.render(ctext, True, _CODE_FG)
                     surface.blit(csurf, (pad_x, cy))
             code_block_start_y = None
@@ -435,7 +657,6 @@ class AiReportPanel:
             lh = font.get_height()
 
             if style == _STYLE_CODE:
-                # Accumulate for background-box rendering
                 if code_block_start_y is None:
                     code_block_start_y = y + _CODE_PAD_Y
                     y += _CODE_PAD_Y
@@ -443,20 +664,38 @@ class AiReportPanel:
                 y += lh + gap_after
                 continue
 
-            # Flush any pending code block before drawing a non-code row
             _flush_code_block()
 
             if style == _STYLE_SPACER:
                 y += font.get_height() + gap_after
                 continue
 
-            if y + lh >= inner.top and y <= inner.bottom:
+            if style == _STYLE_PLAYER:
+                if y + _PLAYER_ICON_SIZE >= content_inner.top and y <= content_inner.bottom:
+                    pygame.draw.rect(
+                        surface,
+                        _C.PARCHMENT_EDGE,
+                        pygame.Rect(pad_x, y - 4, max_w, 1),
+                    )
+                    _draw_player_header(
+                        surface,
+                        x=pad_x,
+                        y=y,
+                        max_w=max_w,
+                        display_text=text,
+                        font=f_player,
+                        players=players,
+                    )
+                y += max(_PLAYER_ICON_SIZE, lh) + gap_after
+                continue
+
+            if y + lh >= content_inner.top and y <= content_inner.bottom:
                 if style == _STYLE_HEADING:
-                    pygame.draw.rect(surface, _C.PARCHMENT_EDGE,
-                                     pygame.Rect(pad_x, y + lh - 2, max_w, 1))
-                if style == _STYLE_PLAYER:
-                    pygame.draw.rect(surface, _C.PARCHMENT_EDGE,
-                                     pygame.Rect(pad_x, y - 5, max_w, 1))
+                    pygame.draw.rect(
+                        surface,
+                        _C.PARCHMENT_EDGE,
+                        pygame.Rect(pad_x + indent, y + lh - 2, max_w - indent, 1),
+                    )
                 surf = font.render(text, True, color)
                 surface.blit(surf, (pad_x + indent, y))
 
@@ -467,12 +706,12 @@ class AiReportPanel:
         surface.set_clip(old_clip)
 
         # ── Scrollbar ────────────────────────────────────────────────────────
-        if total_h > vis_h:
-            track_x = inner.right - _SCROLLBAR_W - _SCROLLBAR_PAD
-            track   = pygame.Rect(track_x, inner.top + 4, _SCROLLBAR_W, inner.height - 8)
+        if total_h > scroll_h:
+            track_x = content_inner.right - _SCROLLBAR_W - _SCROLLBAR_PAD
+            track   = pygame.Rect(track_x, content_inner.top + 4, _SCROLLBAR_W, content_inner.height - 8)
             pygame.draw.rect(surface, _C.PARCHMENT_EDGE, track, border_radius=4)
 
-            thumb_ratio = min(1.0, vis_h / total_h)
+            thumb_ratio = min(1.0, scroll_h / total_h)
             thumb_h     = max(24, int(track.height * thumb_ratio))
             thumb_top   = track.top + int((track.height - thumb_h) * self._scroll_offset / max(1, max_scroll))
             thumb       = pygame.Rect(track_x, thumb_top, _SCROLLBAR_W, thumb_h)
