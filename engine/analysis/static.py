@@ -13,6 +13,8 @@ from typing import Any
 from radon.complexity import cc_rank, cc_visit
 from radon.metrics import mi_rank, mi_visit
 
+from engine.paths import bundled_executable
+
 
 @dataclass
 class RuffViolation:
@@ -53,19 +55,32 @@ def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
     if not select:
         return []
     select_arg = ",".join(select)
-    cmd = [
-        sys.executable,
-        "-m",
-        "ruff",
-        "check",
-        str(bot_path),
-        "--select",
-        select_arg,
-        "--output-format",
-        "json",
-        "--no-fix",
-        "--no-cache",
-    ]
+    if getattr(sys, "frozen", False):
+        cmd = [
+            bundled_executable("ruff"),
+            "check",
+            str(bot_path),
+            "--select",
+            select_arg,
+            "--output-format",
+            "json",
+            "--no-fix",
+            "--no-cache",
+        ]
+    else:
+        cmd = [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            str(bot_path),
+            "--select",
+            select_arg,
+            "--output-format",
+            "json",
+            "--no-fix",
+            "--no-cache",
+        ]
     completed = subprocess.run(
         cmd,
         capture_output=True,

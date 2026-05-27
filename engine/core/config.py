@@ -7,6 +7,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from engine.paths import default_config_path
+
 
 class EngineConfig(BaseModel):
     turn_timeout_ms: int = 100
@@ -110,7 +112,7 @@ class AppConfig(BaseModel):
 
 
 def load_config(path: Path | None = None) -> AppConfig:
-    config_path = path or Path("configs/default.toml")
+    config_path = path or default_config_path()
     with config_path.open("rb") as handle:
         data = tomllib.load(handle)
     return AppConfig.model_validate(data)

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from engine.core.config import load_config
+from engine.paths import default_results_dir
 from engine.core.game import run_game
 from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
 from engine.core.scenario_registry import create_scenario
@@ -15,7 +16,10 @@ from engine.core.scenario_registry import create_scenario
 def _cmd_gui(args: argparse.Namespace) -> int:
     from ui.app import App
 
-    App(results_dir=Path(args.results_dir)).run()
+    results_dir = Path(args.results_dir)
+    if args.results_dir == "results":
+        results_dir = default_results_dir()
+    App(results_dir=results_dir).run()
     return 0
 
 

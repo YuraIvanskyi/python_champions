@@ -6,10 +6,9 @@ all functions render a complete, polished result without any external files.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pygame
 
+from engine.paths import resource_path
 from ui.skin import assets, colors
 from ui.skin.typography import body_font, title_font
 
@@ -20,10 +19,29 @@ PANEL_PAD_X = 12
 PANEL_PAD_Y = 8
 
 # ── Background image cache ────────────────────────────────────────────────────
-# Looks for bg.jpg in implementation/ beside the project root (2 levels up
-# from this file: ui/skin/ → ui/ → project root).
-_BG_IMAGE_PATH = Path(__file__).parents[2] / "implementation" / "bg.jpg"
+_BG_CANDIDATES = (
+    resource_path("ui", "assets", "bg.jpg"),
+    resource_path("implementation", "bg.jpg"),
+    resource_path("ui", "assets", "chrome", "bg_main.png"),
+)
+_bg_source_cache: pygame.Surface | None | bool = False
 _bg_cache: dict[tuple[int, int], pygame.Surface | None] = {}
+
+
+def _load_background_source() -> pygame.Surface | None:
+    global _bg_source_cache
+    if _bg_source_cache is not False:
+        return _bg_source_cache or None
+    for path in _BG_CANDIDATES:
+        if not path.is_file():
+            continue
+        try:
+            _bg_source_cache = pygame.image.load(str(path)).convert()
+            return _bg_source_cache
+        except Exception:
+            continue
+    _bg_source_cache = None
+    return None
 
 # ── Background vignette cache ─────────────────────────────────────────────────
 _vignette_cache: dict[tuple[int, int], pygame.Surface] = {}
@@ -160,14 +178,11 @@ def draw_background(surface: pygame.Surface) -> None:
     w, h = surface.get_size()
     size = (w, h)
 
-    # 1. Try bg.jpg from implementation/
+    # 1. Try bundled background image (bg.jpg or chrome slice PNG)
     if size not in _bg_cache:
-        if _BG_IMAGE_PATH.is_file():
-            try:
-                raw = pygame.image.load(str(_BG_IMAGE_PATH)).convert()
-                _bg_cache[size] = pygame.transform.smoothscale(raw, size)
-            except Exception:
-                _bg_cache[size] = None
+        source = _load_background_source()
+        if source is not None:
+            _bg_cache[size] = pygame.transform.smoothscale(source, size)
         else:
             _bg_cache[size] = None
 

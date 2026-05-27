@@ -6,8 +6,9 @@ import tomllib
 from pathlib import Path
 
 from engine.core.scenario import ScenarioBase
+from engine.paths import resource_path
 
-SCENARIOS_ROOT = Path(__file__).resolve().parents[2] / "scenarios"
+SCENARIOS_ROOT = resource_path("scenarios")
 
 # Launcher display order (resource_wars is the default / tutorial scenario).
 _SCENARIO_DISPLAY_ORDER = ("resource_wars", "boss_fight", "energy_stations")

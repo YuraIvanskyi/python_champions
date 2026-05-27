@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from engine.core.config import UIConfig
+from engine.paths import resolve_resource
 from ui.skin import assets as skin_assets
 from ui.skin import colors
 from ui.skin.typography import set_code_font_path, set_game_font_path
@@ -104,13 +105,14 @@ def apply_config(ui: UIConfig) -> None:
     _coach_max_quest = ui.coach.max_quest_cards
     _coach_code_font_pt = ui.coach.code_panel_font_pt
 
-    manifest = Path(ui.theme.asset_manifest)
+    manifest = resolve_resource(ui.theme.asset_manifest)
+    fallback_manifest = resolve_resource("ui/assets/manifest.toml")
     skin_assets.configure(
-        manifest_path=manifest if manifest.is_file() else Path("ui/assets/manifest.toml"),
+        manifest_path=manifest if manifest.is_file() else fallback_manifest,
         use_sliced=ui.theme.use_sliced_assets,
     )
-    set_game_font_path(Path(ui.theme.game_font))
-    set_code_font_path(Path(ui.theme.code_font))
+    set_game_font_path(resolve_resource(ui.theme.game_font))
+    set_code_font_path(resolve_resource(ui.theme.code_font))
 
 
 def hud_text_top(window_height: int | None = None) -> int:

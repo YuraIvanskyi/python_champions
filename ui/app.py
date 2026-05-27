@@ -7,6 +7,7 @@ from pathlib import Path
 import pygame
 
 from engine.core.config import load_config
+from engine.paths import default_results_dir
 from engine.core.player import Bot
 from ui import theme
 from ui.screens.bot_guide import BotGuideScreen
@@ -27,7 +28,7 @@ class App:
         self.screen = pygame.display.set_mode((theme.WINDOW_WIDTH, theme.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
-        self.results_dir = results_dir or Path("results")
+        self.results_dir = results_dir or default_results_dir()
         self.pending_session_dir: Path | None = None
         self.replay_path: Path | None = None
 

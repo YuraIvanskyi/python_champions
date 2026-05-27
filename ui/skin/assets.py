@@ -10,10 +10,11 @@ from typing import Any
 
 import pygame
 
+from engine.paths import resource_path
+
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_MANIFEST = ROOT / "ui" / "assets" / "manifest.toml"
+_DEFAULT_MANIFEST = resource_path("ui", "assets", "manifest.toml")
 
 _cache: dict[str, pygame.Surface] = {}
 _manifest: dict[str, Any] | None = None
@@ -59,7 +60,7 @@ def _entries() -> dict[str, ChromeEntry]:
             ns = [8, 8, 8, 8]
         out[str(short)] = ChromeEntry(
             key=str(short),
-            file=ROOT / file_rel,
+            file=resource_path(*str(file_rel).replace("\\", "/").split("/")),
             nine_slice=(int(ns[0]), int(ns[1]), int(ns[2]), int(ns[3])),
         )
     return out

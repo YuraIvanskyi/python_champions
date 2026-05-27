@@ -15,6 +15,7 @@ from types import ModuleType
 from typing import Any
 
 from engine.core.errors import BotLoadError
+from engine.paths import resource_path, resource_root
 
 ALLOWED_ICON_PREFIXES = (
     "student_bots",
@@ -22,7 +23,7 @@ ALLOWED_ICON_PREFIXES = (
     "ui\\assets\\icons",
 )
 
-CHAR_ICONS_DIR = Path(__file__).resolve().parents[2] / "ui" / "assets" / "icons"
+CHAR_ICONS_DIR = resource_path("ui", "assets", "icons")
 CHAR_ICON_COUNT = 100
 DEFAULT_STUDENT_ICON_INDEX = 85  # reserved default portrait (not used for auto-assignment)
 BOSS_ICON_INDEX = 99
@@ -44,7 +45,7 @@ _ASSIGNABLE_ICON_INDICES = tuple(
 
 def char_icon_path(index: int, *, root: Path | None = None) -> Path:
     """Return the absolute path for portrait icon *index* (0–99)."""
-    base = root or Path(__file__).resolve().parents[2]
+    base = root or resource_root()
     return base / "ui" / "assets" / "icons" / f"char_{index % CHAR_ICON_COUNT:03d}.png"
 
 
@@ -54,7 +55,7 @@ def random_icon_index() -> int:
 
 
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return resource_root()
 
 
 def _normalize_relative(path_str: str) -> str:

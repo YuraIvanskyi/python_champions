@@ -13,11 +13,13 @@ from pathlib import Path
 
 import pygame
 
-_ROOT = Path(__file__).resolve().parents[2]
+from engine.paths import resource_path
 
 # Default font paths (relative to project root)
-_DEFAULT_GAME_FONT = _ROOT / "ui" / "assets" / "fonts" / "Jacquard24-Regular.ttf"
-_DEFAULT_CODE_FONT = _ROOT / "ui" / "assets" / "fonts" / "FantasqueSansMNerdFontMono-Regular.ttf"
+_DEFAULT_GAME_FONT = resource_path("ui", "assets", "fonts", "Jacquard24-Regular.ttf")
+_DEFAULT_CODE_FONT = resource_path(
+    "ui", "assets", "fonts", "FantasqueSansMNerdFontMono-Regular.ttf"
+)
 
 _game_font_path: Path = _DEFAULT_GAME_FONT
 _code_font_path: Path = _DEFAULT_CODE_FONT

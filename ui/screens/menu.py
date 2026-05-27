@@ -15,6 +15,7 @@ from engine.core.opponents import OPPONENT_MODES, builtin_icon_path
 from engine.core.scenario_registry import create_scenario
 from engine.core.scenario_registry import list_scenarios
 from engine.core.scenario_registry import scenario_display_name
+from engine.paths import resolve_bot_path, resource_path
 from ui.render.icons import draw_menu_icon, load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -447,9 +448,10 @@ class MenuScreen:
         return self._classroom_map_div_y() + 12 + 18
 
     def _default_bot_path(self, scenario_id: str) -> str:
-        return _DEFAULT_BOT.get(
+        rel = _DEFAULT_BOT.get(
             scenario_id, "student_bots/resource_wars/example_bot.py"
         )
+        return str(resolve_bot_path(rel))
 
     def _build_widgets(self) -> None:
         self._widgets = WidgetGroup()
@@ -735,7 +737,7 @@ class MenuScreen:
             chosen = filedialog.askopenfilenames(
                 title="Select student bot(s)",
                 filetypes=[("Python", "*.py")],
-                initialdir=str(Path.cwd() / "student_bots"),
+                initialdir=str(resource_path("student_bots")),
             )
             root.destroy()
             if chosen:
@@ -756,7 +758,7 @@ class MenuScreen:
             root.withdraw()
             root.attributes("-topmost", True)
             chosen = filedialog.askdirectory(
-                initialdir=str(Path.cwd() / "student_bots"),
+                initialdir=str(resource_path("student_bots")),
             )
             root.destroy()
             if chosen:
@@ -785,7 +787,7 @@ class MenuScreen:
         self.error = ""
         run_seed = random.randint(0, 99) if self._use_random_seed else self.seed
 
-        paths = _parse_bot_path_lines(self.bot_paths_text)
+        paths = [resolve_bot_path(p) for p in _parse_bot_path_lines(self.bot_paths_text)]
         if not paths:
             self.error = "Enter at least one bot .py path."
             return
