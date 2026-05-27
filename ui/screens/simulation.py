@@ -12,6 +12,7 @@ from engine.core.config import load_config
 from engine.core.live_game import LiveGame
 from engine.core.player import Bot
 from engine.core.scenario_registry import scenario_display_name
+from ui.render.action_effects import ActionEffectManager
 from ui.render.hud import draw_hud, draw_toolbar_strip
 from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.map_renderer import draw_map
@@ -47,6 +48,7 @@ class SimulationScreen:
         self._finish_thread: threading.Thread | None = None
         self._finish_result: tuple[dict[str, int], Path | None, bool] | None = None
         self._toolbar = WidgetGroup()
+        self._effects = ActionEffectManager()
         self._build_toolbar()
 
     def _build_toolbar(self) -> None:
@@ -96,6 +98,7 @@ class SimulationScreen:
         )
         self.auto_mode = False
         self._auto_timer = 0
+        self._effects.clear()
         self._reset_finish_state()
         self.app.pending_session_dir = None
         self.app.results_dir = results_dir
@@ -142,6 +145,7 @@ class SimulationScreen:
         self._sync_play_label()
 
     def update(self, dt_ms: int) -> None:
+        self._effects.update(dt_ms)
         if self._finishing:
             self._spinner_angle = (self._spinner_angle + dt_ms * 0.004) % math.tau
             if self._finish_thread is not None and not self._finish_thread.is_alive():
@@ -157,7 +161,13 @@ class SimulationScreen:
     def _step_once(self) -> None:
         if self._finishing or self.live is None or self.live.is_finished():
             return
-        self.live.step()
+        turn = self.live.step()
+        if turn is not None:
+            self._effects.spawn_from_turn(
+                turn,
+                self.live.get_render_state(),
+                scenario_id=self.live.scenario_id,
+            )
         if self.live.is_finished():
             self._finish(go_menu=False)
 
@@ -258,6 +268,7 @@ class SimulationScreen:
         )
         skin.draw_panel(surface, frame, style="stone")
         draw_map(surface, render_state, origin_y=origin_y)
+        self._effects.draw(surface, origin_x=origin_x, origin_y=origin_y)
 
         # Decorative banner title above the stone frame
         scenario_name = scenario_display_name(self.live.scenario_id)

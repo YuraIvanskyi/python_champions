@@ -8,6 +8,7 @@ import pygame
 
 from engine.core.replay import ReplaySession, list_session_dirs, load_replay
 from engine.core.scenario_registry import scenario_display_name
+from ui.render.action_effects import ActionEffectManager
 from ui.render.hud import draw_centered_text, draw_hud, draw_toolbar_strip
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
@@ -42,6 +43,7 @@ class ReplayScreen:
         self._session_rows: list[ListRow] = []
         self._picker_widgets = WidgetGroup()
         self._transport = WidgetGroup()
+        self._effects = ActionEffectManager()
         self._build_transport()
 
     def _build_transport(self) -> None:
@@ -138,6 +140,7 @@ class ReplayScreen:
             data = load_replay(path)
             self.replay = ReplaySession(data)
             self._pick_mode = False
+            self._effects.clear()
             self.app.replay_path = path
         except (OSError, ValueError, KeyError) as exc:
             self.error = f"Could not load replay: {exc}"
@@ -147,23 +150,36 @@ class ReplayScreen:
     def _step_back(self) -> None:
         if self.replay is not None:
             self.replay.step_backward()
+            self._effects.clear()
 
     def _step_fwd(self) -> None:
         if self.replay is not None:
-            self.replay.step_forward()
+            turn = self.replay.step_forward()
+            if turn is not None:
+                self._effects.spawn_from_turn(
+                    turn,
+                    self.replay.get_render_state(),
+                    scenario_id=self.replay.scenario_id,
+                )
 
     def _go_home(self) -> None:
         if self.replay is not None:
             self.replay.reset()
+            self._effects.clear()
 
     def _go_end(self) -> None:
         if self.replay is not None:
             self.replay.seek(self.replay.turn_count - 1)
+            self._effects.clear()
 
     def _back_to_menu(self) -> None:
         self.replay = None
         self._pick_mode = True
+        self._effects.clear()
         self.app.goto_menu()
+
+    def update(self, dt_ms: int) -> None:
+        self._effects.update(dt_ms)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self._pick_mode:
@@ -236,6 +252,7 @@ class ReplayScreen:
         )
         skin.draw_panel(surface, frame, style="stone")
         draw_map(surface, render_state, origin_y=origin_y)
+        self._effects.draw(surface, origin_x=origin_x, origin_y=origin_y)
 
         banner_y = max(4, frame_top - 48)
         scenario_name = scenario_display_name(self.replay.scenario_id)
