@@ -64,6 +64,7 @@ class App:
         student_bots: list[Bot],
         seed: int,
         opponent_mode: str = "greedy",
+        boss_difficulty: int | None = None,
     ) -> None:
         self.simulation.start(
             scenario_id=scenario_id,
@@ -71,6 +72,7 @@ class App:
             seed=seed,
             results_dir=self.results_dir,
             opponent_mode=opponent_mode,
+            boss_difficulty=boss_difficulty,
         )
         self._current = self.simulation
         self.simulation.on_enter()

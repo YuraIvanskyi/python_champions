@@ -64,6 +64,23 @@ def test_bots_not_on_boss_cell() -> None:
             f"{pid} spawned on boss cell"
 
 
+def test_boss_hp_scales_with_difficulty() -> None:
+    easy = BossFightScenario(seed=1, player_ids=["p0"], difficulty=1)
+    hard = BossFightScenario(seed=1, player_ids=["p0"], difficulty=3)
+    easy.setup()
+    hard.setup()
+    assert easy._boss_max_hp == 30
+    assert easy._boss_damage == 2
+    assert hard._boss_max_hp == 60
+    assert hard._boss_damage == 5
+    assert hard._multi_target is True
+
+
+def test_invalid_difficulty_raises() -> None:
+    with pytest.raises(ValueError, match="difficulty must be"):
+        BossFightScenario(seed=1, player_ids=["p0"], difficulty=9)
+
+
 def test_different_seeds_give_different_layouts() -> None:
     sc1 = _scenario(2, seed=1)
     sc2 = _scenario(2, seed=99)

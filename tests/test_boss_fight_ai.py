@@ -2,22 +2,12 @@
 
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
-
 from engine.core.action import Action
 from scenarios.boss_fight.game import BossFightScenario
 
-_CFG_PATH = Path(__file__).resolve().parents[1] / "scenarios/boss_fight/scenario.toml"
-
 
 def _make_scenario(difficulty: int, player_ids: list[str], seed: int = 0) -> BossFightScenario:
-    sc = BossFightScenario(seed=seed, player_ids=player_ids)
-    sc._difficulty = difficulty
-    with _CFG_PATH.open("rb") as fh:
-        cfg = tomllib.load(fh)
-    sc._boss_damage = int(cfg["boss"]["damage_per_level"][difficulty - 1])
-    sc._multi_target = bool(cfg["boss"]["multi_target_at_level"][difficulty - 1])
+    sc = BossFightScenario(seed=seed, player_ids=player_ids, difficulty=difficulty)
     sc.setup()
     return sc
 

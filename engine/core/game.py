@@ -33,6 +33,7 @@ def run_game(
     write_results: bool = True,
     print_summary: bool = True,
     run_analysis: bool = True,
+    boss_difficulty: int | None = None,
 ) -> RunResult:
     live = LiveGame(
         scenario_id=scenario_id,
@@ -42,6 +43,7 @@ def run_game(
         opponent_mode=opponent_mode,
         ai_turn=ai_turn,
         max_turns=max_turns,
+        boss_difficulty=boss_difficulty,
     )
     try:
         while not live.is_finished():

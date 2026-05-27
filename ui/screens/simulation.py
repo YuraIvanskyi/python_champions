@@ -87,6 +87,7 @@ class SimulationScreen:
         seed: int,
         results_dir: Path,
         opponent_mode: str = "greedy",
+        boss_difficulty: int | None = None,
     ) -> None:
         config = load_config()
         self.live = LiveGame(
@@ -95,6 +96,7 @@ class SimulationScreen:
             seed=seed,
             config=config,
             opponent_mode=opponent_mode,
+            boss_difficulty=boss_difficulty,
         )
         self.auto_mode = False
         self._auto_timer = 0

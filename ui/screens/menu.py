@@ -152,6 +152,20 @@ _BOSS_FIGHT_ALLY_DESC: dict[str, str] = {
     "dumb":   "Wanders — easy warm-up",
 }
 
+_BOSS_DIFFICULTY_LEVELS = (1, 2, 3)
+_BOSS_DIFFICULTY_NAMES: dict[int, str] = {
+    1: "Easy",
+    2: "Medium",
+    3: "Hard",
+}
+_BOSS_DIFFICULTY_DESC: dict[int, str] = {
+    1: "30 HP · 2 dmg · random target",
+    2: "40 HP · 4 dmg · targets weakest",
+    3: "60 HP · 5 dmg · hits 2 bots",
+}
+_DIFF_CARD_H = _OPP_CARD_H
+_DIFF_SECTION_H = 12 + 18 + _DIFF_CARD_H + 10
+
 # ── Text colours for scenario rows ────────────────────────────────────────────
 # Unselected rows use wood background — need warm readable colours.
 _WOOD_NAME   = colors.GOLD_TEXT              # bright torch-gold name
@@ -348,6 +362,7 @@ class MenuScreen:
         self.bot_paths_text = self._default_bot_path(initial_sid)
         self.seed           = 42
         self.opponent_mode  = "dumb"
+        self.boss_difficulty = 1
         self.error          = ""
         self.launch_mode: LaunchMode = "practice"
         self._use_random_seed  = False
@@ -376,10 +391,60 @@ class MenuScreen:
         self._scenario_rows: list[ScenarioRow] = []
         self._opponent_cards: list[tuple[str, pygame.Rect]] = []
         self._opponent_buttons: list[tuple[str, Button]] = []
+        self._difficulty_cards: list[tuple[int, pygame.Rect]] = []
+        self._difficulty_buttons: list[tuple[int, Button]] = []
         self._tiles_y: int = _PRAC_TILES_Y
         self._build_widgets()
 
     # ── Widget construction ───────────────────────────────────────────────────
+
+    def _current_sid(self) -> str:
+        if not self.scenarios:
+            return "resource_wars"
+        return self.scenarios[self.selected].get("id", "resource_wars")
+
+    def _show_boss_difficulty(self) -> bool:
+        return self._current_sid() == "boss_fight"
+
+    def _practice_map_div_y(self) -> int:
+        base = _AFTER_OPP_Y
+        if self._show_boss_difficulty():
+            return base + _DIFF_SECTION_H
+        return base
+
+    def _classroom_map_div_y(self) -> int:
+        base = _CLASS_MAP_DIV_Y
+        if self._show_boss_difficulty():
+            return base + _DIFF_SECTION_H
+        return base
+
+    def _practice_run_div_y(self) -> int:
+        return self._practice_map_div_y() + 12 + 18 + _TILE_ROW_H + 8
+
+    def _classroom_run_div_y(self) -> int:
+        return self._classroom_map_div_y() + 12 + 18 + _TILE_ROW_H + 8
+
+    def _practice_error_y(self) -> int:
+        run_y = self._practice_run_div_y() + 10
+        guide_y = run_y + _PRAC_RUN_H + 8
+        bottom_y = guide_y + _PRAC_GUIDE_H + 8
+        return bottom_y + _PRAC_BOTTOM_H + 6
+
+    def _classroom_error_y(self) -> int:
+        run_y = self._classroom_run_div_y() + 10
+        guide_y = run_y + _CLASS_RUN_H + 8
+        bottom_y = guide_y + _CLASS_GUIDE_H + 8
+        return bottom_y + _CLASS_BOTTOM_H + 6
+
+    def _difficulty_card_y(self) -> int:
+        if self.launch_mode == "practice":
+            return _AFTER_OPP_Y + 12 + 18
+        return _CLASS_COUNT_Y + 22 + 12 + 18
+
+    def _map_tiles_y(self) -> int:
+        if self.launch_mode == "practice":
+            return self._practice_map_div_y() + 12 + 18
+        return self._classroom_map_div_y() + 12 + 18
 
     def _default_bot_path(self, scenario_id: str) -> str:
         return _DEFAULT_BOT.get(
@@ -391,6 +456,8 @@ class MenuScreen:
         self._scenario_rows = []
         self._opponent_cards = []
         self._opponent_buttons = []
+        self._difficulty_cards = []
+        self._difficulty_buttons = []
 
         # ── Left panel: scenarios ─────────────────────────────────────────
         ly = _SC_START_Y
@@ -473,16 +540,33 @@ class MenuScreen:
             self._opponent_cards = []
             self._opponent_buttons = []
 
+        if self._show_boss_difficulty():
+            self._difficulty_cards = []
+            diff_y = self._difficulty_card_y()
+            gap = 8
+            card_w = (_RW - gap * 2) // 3
+            for i, level in enumerate(_BOSS_DIFFICULTY_LEVELS):
+                cx = _RX + i * (card_w + gap)
+                crect = pygame.Rect(cx, diff_y, card_w, _DIFF_CARD_H)
+                self._difficulty_cards.append((level, crect))
+                btn = Button(
+                    crect,
+                    "",
+                    on_click=lambda lvl=level: self._set_boss_difficulty(lvl),
+                )
+                self._difficulty_buttons.append((level, btn))
+                self._widgets.add(btn)
+
         # ── Tile row y (mode-specific) ─────────────────────────────────────
-        self._tiles_y = (
-            _PRAC_TILES_Y if self.launch_mode == "practice" else _CLASS_TILES_Y
-        )
+        self._tiles_y = self._map_tiles_y()
 
         # ── Run Match ─────────────────────────────────────────────────────
-        run_y  = _PRAC_RUN_Y  if self.launch_mode == "practice" else _CLASS_RUN_Y
+        run_y = (
+            self._practice_run_div_y() + 10
+            if self.launch_mode == "practice"
+            else self._classroom_run_div_y() + 10
+        )
         run_h  = _PRAC_RUN_H  if self.launch_mode == "practice" else _CLASS_RUN_H
-        bot_y  = _PRAC_BOTTOM_Y if self.launch_mode == "practice" else _CLASS_BOTTOM_Y
-        bot_h  = _PRAC_BOTTOM_H if self.launch_mode == "practice" else _CLASS_BOTTOM_H
 
         self._run_btn = Button(
             pygame.Rect(_RX, run_y, _RW, run_h),
@@ -492,12 +576,9 @@ class MenuScreen:
         )
         self._widgets.add(self._run_btn)
 
-        guide_y = _PRAC_GUIDE_Y if self.launch_mode == "practice" else _CLASS_GUIDE_Y
+        guide_y = run_y + run_h + 8
         guide_h = _PRAC_GUIDE_H if self.launch_mode == "practice" else _CLASS_GUIDE_H
-        sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
+        sid = self._current_sid()
         guide_label = f"How to write a bot for {scenario_display_name(sid)}"
         self._guide_btn = Button(
             pygame.Rect(_RX, guide_y, _RW, guide_h),
@@ -510,8 +591,10 @@ class MenuScreen:
         self._widgets.add(self._guide_btn)
 
         # ── Bottom row: View Replays + Quit (side by side) ─────────────────
+        bottom_y = guide_y + guide_h + 8
+        bottom_h = _PRAC_BOTTOM_H if self.launch_mode == "practice" else _CLASS_BOTTOM_H
         self._replays_btn = Button(
-            pygame.Rect(_RX, bot_y, _BOTTOM_BTN_W, bot_h),
+            pygame.Rect(_RX, bottom_y, _BOTTOM_BTN_W, bottom_h),
             "View Replays",
             on_click=lambda: self.app.goto_replay(),
             font_size=15,
@@ -519,7 +602,7 @@ class MenuScreen:
             icon_size=18,
         )
         self._quit_btn = Button(
-            pygame.Rect(_RX + _BOTTOM_BTN_W + 6, bot_y, _BOTTOM_BTN_W, bot_h),
+            pygame.Rect(_RX + _BOTTOM_BTN_W + 6, bottom_y, _BOTTOM_BTN_W, bottom_h),
             "Quit",
             on_click=lambda: self.app.quit(),
             font_size=15,
@@ -567,6 +650,9 @@ class MenuScreen:
 
     def _set_opponent(self, mode: str) -> None:
         self.opponent_mode = mode
+
+    def _set_boss_difficulty(self, level: int) -> None:
+        self.boss_difficulty = level
 
     def _open_bot_guide(self) -> None:
         sid = (
@@ -746,6 +832,7 @@ class MenuScreen:
             student_bots=bots,
             seed=run_seed,
             opponent_mode=self.opponent_mode if self.launch_mode == "practice" else None,
+            boss_difficulty=self.boss_difficulty if scenario_id == "boss_fight" else None,
         )
 
     # ── Drawing ───────────────────────────────────────────────────────────────
@@ -796,23 +883,17 @@ class MenuScreen:
                 surface, pygame.Rect(_RX, _OPP_DIV_Y, _RW, 10)
             )
             opp_name = _OPPONENT_NAMES.get(self.opponent_mode, self.opponent_mode)
-            _cur_sid = (
-                self.scenarios[self.selected].get("id", "resource_wars")
-                if self.scenarios else "resource_wars"
-            )
+            _cur_sid = self._current_sid()
             role = "Ally" if _cur_sid == "boss_fight" else "Opponent"
             _draw_label(
                 surface, f"{role}  —  {opp_name}",
                 _RX, _OPP_LABEL_Y, max_w=_RW,
             )
-            map_div_y   = _PRAC_MAP_DIV_Y
-            map_label_y = _PRAC_MAP_LABEL_Y
-            error_y     = _PRAC_ERROR_Y
+            map_div_y = self._practice_map_div_y()
+            map_label_y = map_div_y + 12
+            error_y = self._practice_error_y()
         else:
-            _cur_sid = (
-                self.scenarios[self.selected].get("id", "resource_wars")
-                if self.scenarios else "resource_wars"
-            )
+            _cur_sid = self._current_sid()
             _min_p, _max_p = self._get_scenario_player_limits(_cur_sid)
             _class_hint = f"Add {_min_p}–{_max_p} student .py bots for the match"
             _draw_label(
@@ -821,9 +902,25 @@ class MenuScreen:
                 _RX, _CLASS_COUNT_Y,
                 color=colors.TEXT_MUTED, pt=12, max_w=_RW,
             )
-            map_div_y   = _CLASS_MAP_DIV_Y
-            map_label_y = _CLASS_MAP_LABEL_Y
-            error_y     = _CLASS_ERROR_Y
+            map_div_y = self._classroom_map_div_y()
+            map_label_y = map_div_y + 12
+            error_y = self._classroom_error_y()
+
+        if self._show_boss_difficulty():
+            diff_div_y = _AFTER_OPP_Y if self.launch_mode == "practice" else _CLASS_COUNT_Y + 22
+            skin.draw_ornamental_divider(
+                surface, pygame.Rect(_RX, diff_div_y, _RW, 10)
+            )
+            diff_name = _BOSS_DIFFICULTY_NAMES.get(
+                self.boss_difficulty, str(self.boss_difficulty)
+            )
+            _draw_label(
+                surface,
+                f"Boss difficulty  —  {diff_name}",
+                _RX,
+                diff_div_y + 12,
+                max_w=_RW,
+            )
 
         # Map / seed header
         skin.draw_ornamental_divider(
@@ -843,7 +940,11 @@ class MenuScreen:
         _draw_label(surface, seed_lbl, _RX, map_label_y, max_w=_RW)
 
         # Divider before Run
-        run_div_y = _PRAC_DIV2_Y if self.launch_mode == "practice" else _CLASS_DIV2_Y
+        run_div_y = (
+            self._practice_run_div_y()
+            if self.launch_mode == "practice"
+            else self._classroom_run_div_y()
+        )
         skin.draw_ornamental_divider(
             surface, pygame.Rect(_RX, run_div_y, _RW, 10)
         )
@@ -855,6 +956,9 @@ class MenuScreen:
 
         if self.launch_mode == "practice":
             self._draw_opponent_cards(surface)
+
+        if self._show_boss_difficulty():
+            self._draw_difficulty_cards(surface)
 
         # Tile row (drawn on top of widget hit-areas)
         self._draw_tile_row(surface, self._tiles_y)
@@ -974,6 +1078,40 @@ class MenuScreen:
             dy = card_rect.y + 6 + ns.get_height() + 2
             old = surface.get_clip()
             surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 16))
+            surface.blit(ds, (tx, dy))
+            surface.set_clip(old)
+
+            if is_active:
+                self._draw_selected_badge(surface, card_rect)
+
+    def _difficulty_button(self, level: int) -> Button | None:
+        for diff_level, btn in self._difficulty_buttons:
+            if diff_level == level:
+                return btn
+        return None
+
+    def _draw_difficulty_cards(self, surface: pygame.Surface) -> None:
+        for level, card_rect in self._difficulty_cards:
+            is_active = level == self.boss_difficulty
+            btn = self._difficulty_button(level)
+            is_hovered = bool(btn and btn.hovered and btn.enabled and not is_active)
+
+            self._draw_selectable_card(
+                surface, card_rect, is_active=is_active, is_hovered=is_hovered
+            )
+
+            tx = card_rect.x + 10
+            tc = colors.PARCHMENT_TEXT if is_active else (
+                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
+            )
+            ns = body_font(14).render(_BOSS_DIFFICULTY_NAMES[level], True, tc)
+            surface.blit(ns, (tx, card_rect.y + 8))
+
+            desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
+            ds = body_font(11).render(_BOSS_DIFFICULTY_DESC[level], True, desc_color)
+            dy = card_rect.y + 8 + ns.get_height() + 2
+            old = surface.get_clip()
+            surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 28))
             surface.blit(ds, (tx, dy))
             surface.set_clip(old)
 

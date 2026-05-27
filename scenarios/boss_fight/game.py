@@ -36,6 +36,7 @@ class BossFightScenario(ScenarioBase):
         max_turns: int | None = None,
         *,
         player_ids: list[str] | None = None,
+        difficulty: int | None = None,
     ) -> None:
         self._seed = seed
         self._rng = random.Random(seed)
@@ -52,7 +53,12 @@ class BossFightScenario(ScenarioBase):
         self._max_players = int(cfg["scenario"].get("max_players", 6))
 
         boss_cfg = cfg["boss"]
-        self._difficulty = int(boss_cfg["difficulty"])
+        if difficulty is None:
+            self._difficulty = int(boss_cfg["difficulty"])
+        else:
+            if difficulty not in (1, 2, 3):
+                raise ValueError("Boss Fight difficulty must be 1, 2, or 3")
+            self._difficulty = difficulty
         self._boss_max_hp = int(boss_cfg["hp_per_level"][self._difficulty - 1])
         self._boss_damage = int(boss_cfg["damage_per_level"][self._difficulty - 1])
         self._multi_target = bool(boss_cfg["multi_target_at_level"][self._difficulty - 1])

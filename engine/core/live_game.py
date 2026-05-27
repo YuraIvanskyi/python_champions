@@ -97,6 +97,7 @@ class LiveGame:
         opponent_mode: str | None = None,
         ai_turn: Callable[..., Action] | None = None,
         max_turns: int | None = None,
+        boss_difficulty: int | None = None,
     ) -> None:
         if not student_bots:
             raise ValueError("At least one student bot is required")
@@ -131,11 +132,13 @@ class LiveGame:
             }
             player_ids = ["student", "opponent"]
 
+        self.boss_difficulty = boss_difficulty
         self.scenario = create_scenario(
             scenario_id,
             seed=seed,
             max_turns=effective_max,
             player_ids=player_ids,
+            boss_difficulty=boss_difficulty,
         )
         self.scenario.setup()
 
@@ -172,9 +175,14 @@ class LiveGame:
             if self.multi_student_match
             else f" opponent={self.opponent_mode}"
         )
+        boss_part = ""
+        if scenario_id == "boss_fight":
+            level = getattr(self.scenario, "_difficulty", boss_difficulty or 1)
+            boss_part = f" boss_difficulty={level}"
         self.turn_log: list[TurnResult] = []
         self.text_log: list[str] = [
-            f"scenario={scenario_id} seed={seed} bots={bot_paths_str}{opponent_part}",
+            f"scenario={scenario_id} seed={seed} bots={bot_paths_str}"
+            f"{opponent_part}{boss_part}",
         ]
         self.last_turn: TurnResult | None = None
         self.status_message: str = ""

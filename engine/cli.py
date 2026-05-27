@@ -201,6 +201,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     results_dir = Path(args.results_dir)
 
     opponent = args.opponent or config.game.default_opponent
+    boss_difficulty = args.boss_difficulty
     run_game(
         scenario_id=args.scenario,
         student_bots=student_bots,
@@ -212,6 +213,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         write_results=True,
         print_summary=True,
         run_analysis=not args.no_analysis,
+        boss_difficulty=boss_difficulty,
     )
     return 0
 
@@ -263,6 +265,13 @@ def main(argv: list[str] | None = None) -> int:
         choices=("greedy", "dumb"),
         default=None,
         help="Opponent AI when using --bot only: greedy (smart rival) or dumb (rookie practice)",
+    )
+    run_parser.add_argument(
+        "--boss-difficulty",
+        type=int,
+        choices=(1, 2, 3),
+        default=None,
+        help="Boss Fight only: 1=easy, 2=medium, 3=hard (default: scenario.toml)",
     )
     run_parser.add_argument(
         "--config",
