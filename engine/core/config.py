@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
-
-from engine.paths import default_config_path
 
 
 class EngineConfig(BaseModel):
@@ -55,6 +53,10 @@ class AiConfig(BaseModel):
 
 class GameConfig(BaseModel):
     default_opponent: str = "greedy"
+
+
+class LocaleConfig(BaseModel):
+    language: Literal["en", "uk"] = "en"
 
 
 class UIThemeConfig(BaseModel):
@@ -108,11 +110,11 @@ class AppConfig(BaseModel):
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     ai: AiConfig = Field(default_factory=AiConfig)
     game: GameConfig = Field(default_factory=GameConfig)
+    locale: LocaleConfig = Field(default_factory=LocaleConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
 
 
 def load_config(path: Path | None = None) -> AppConfig:
-    config_path = path or default_config_path()
-    with config_path.open("rb") as handle:
-        data = tomllib.load(handle)
-    return AppConfig.model_validate(data)
+    from engine.core.config_io import load_config_from_disk
+
+    return load_config_from_disk(path)

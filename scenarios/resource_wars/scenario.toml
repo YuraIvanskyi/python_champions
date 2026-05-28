@@ -7,10 +7,8 @@ resource_count = 27
 obstacle_count = 18
 score_threshold = 15
 max_turns = 300
-# Classroom / multi-bot (Phase 2.7): simultaneous agents on one map
 min_players = 2
 max_players = 8
-# Multi-bot matches are students-only (no built-in AI). Single `--bot` still adds one AI opponent.
 student_only_extra_players = true
 
 [scoring]

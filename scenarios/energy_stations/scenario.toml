@@ -1,3 +1,10 @@
+[player]
+starting_energy = 50
+max_energy = 150
+move_cost = 1
+attack_cost = 3
+gather_rate = 5
+
 [scenario]
 id = "energy_stations"
 name = "Mana Pools"
@@ -10,16 +17,9 @@ max_turns = 300
 min_players = 2
 max_players = 8
 
-[player]
-starting_energy = 50
-max_energy = 150
-move_cost = 1
-attack_cost = 3
-gather_rate = 5
-
-[station]
-initial_capacity = 20
-
 [scoring]
 gameplay_weight = 0.7
 code_weight = 0.3
+
+[station]
+initial_capacity = 20

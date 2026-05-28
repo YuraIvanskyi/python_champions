@@ -74,7 +74,7 @@ def draw_menu_icon(
     """Draw a small procedural RPG-style icon into *rect* on *surface*.
 
     Supported names: ``swords``, ``scroll``, ``folder``, ``shield``,
-    ``classroom``, ``door``, ``random``.
+    ``classroom``, ``door``, ``random``, ``flag_en``, ``flag_uk``.
     """
     key: tuple[str, int, tuple[int, int, int]] = (name, rect.width, color)
     if key not in _MENU_ICON_CACHE:
@@ -210,5 +210,25 @@ def _render_menu_icon(
         stem_w = max(1, s // 5)
         pygame.draw.rect(surf, dim,
                          pygame.Rect(mid - stem_w // 2, 0, stem_w, base + 1))
+
+    elif name == "flag_en":
+        # UK / English — simplified Union Jack in a rounded rect
+        r = max(2, s // 8)
+        pygame.draw.rect(surf, (20, 40, 120), pygame.Rect(1, 2, s - 2, s - 4), border_radius=r)
+        pygame.draw.rect(surf, (180, 30, 40), pygame.Rect(1, 2, s - 2, s - 4), 1, border_radius=r)
+        w = max(1, s // 6)
+        mid = s // 2
+        pygame.draw.line(surf, (240, 240, 245), (2, 2), (s - 2, s - 2), w)
+        pygame.draw.line(surf, (240, 240, 245), (s - 2, 2), (2, s - 2), w)
+        pygame.draw.line(surf, (180, 30, 40), (mid, 2), (mid, s - 2), max(1, w - 1))
+        pygame.draw.line(surf, (180, 30, 40), (2, mid), (s - 2, mid), max(1, w - 1))
+
+    elif name == "flag_uk":
+        # Ukrainian flag — blue over yellow
+        r = max(2, s // 8)
+        half = s // 2
+        pygame.draw.rect(surf, (0, 87, 183), pygame.Rect(1, 2, s - 2, half - 1), border_top_left_radius=r, border_top_right_radius=r)
+        pygame.draw.rect(surf, (255, 215, 0), pygame.Rect(1, half, s - 2, half - 2), border_bottom_left_radius=r, border_bottom_right_radius=r)
+        pygame.draw.rect(surf, (40, 40, 40), pygame.Rect(1, 2, s - 2, s - 4), 1, border_radius=r)
 
     return surf

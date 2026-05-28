@@ -265,11 +265,13 @@ class TextField(Widget):
         text: str,
         on_change: Callable[[str], None],
         max_length: int = 80,
+        digits_only: bool = False,
     ) -> None:
         super().__init__(_ensure_min_size(rect))
         self.text = text
         self.on_change = on_change
         self.max_length = max_length
+        self.digits_only = digits_only
         self.focused = False
 
     def handle_event(self, event: pygame.event.Event) -> bool:
@@ -290,7 +292,10 @@ class TextField(Widget):
                 self.on_change(self.text)
                 return True
             if event.unicode and event.unicode.isprintable() and len(self.text) < self.max_length:
-                self.text += event.unicode
+                ch = event.unicode
+                if self.digits_only and not ch.isdigit():
+                    return True
+                self.text += ch
                 self.on_change(self.text)
                 return True
         return False
@@ -302,21 +307,13 @@ class TextField(Widget):
 
         font = code_font(15)
         shown = self.text + ("|" if self.focused else "")
-
-        # Show the tail end of the text so the cursor is always visible
-        inner_w = self.rect.width - FIELD_PAD_X * 2
-        rendered = font.render(shown, True, colors.TEXT_BODY)
-        if rendered.get_width() > inner_w and inner_w > 0:
-            # Trim from the front until it fits
-            trimmed = shown
-            while len(trimmed) > 1:
-                trimmed = trimmed[1:]
-                rendered = font.render("…" + trimmed, True, colors.TEXT_BODY)
-                if rendered.get_width() <= inner_w:
-                    break
-
         inner = self.rect.inflate(-FIELD_PAD_X * 2, -FIELD_PAD_Y * 2)
-        old_clip = surface.get_clip()
-        surface.set_clip(inner)
-        surface.blit(rendered, (inner.x, inner.y + (inner.height - rendered.get_height()) // 2))
-        surface.set_clip(old_clip)
+        skin.draw_text_clipped(
+            surface,
+            shown,
+            inner,
+            font,
+            colors.TEXT_BODY,
+            align="left",
+            pad_y=2,
+        )

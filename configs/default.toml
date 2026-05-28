@@ -1,14 +1,16 @@
-[engine]
-turn_timeout_ms = 200
-max_turns = 50
-
-[game]
-default_opponent = "greedy"
+[ai]
+provider = "ollama"
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:1.5b"
+timeout_seconds = 60.0
+max_tokens = 2048
+health_check_url = "http://localhost:11434/api/tags"
 
 [analysis]
-enable_ai = true            # flip to true once vLLM is running
+enable_ai = true
 enable_static_analysis = true
 ruff_select = ["E", "F", "W"]
+forbidden_imports = ["os", "sys", "subprocess", "socket", "pathlib", "shutil", "eval", "exec"]
 
 [analysis.movement]
 stuck_window_turns = 10
@@ -19,13 +21,15 @@ score_stall_warn = 12
 oscillation_min_cycles = 3
 min_turns_for_analysis = 5
 
-[ai]
-provider         = "ollama"
-base_url         = "http://localhost:11434/v1"
-model            = "qwen2.5:1.5b"
-timeout_seconds  = 60
-max_tokens       = 2048
-health_check_url = "http://localhost:11434/api/tags"
+[engine]
+turn_timeout_ms = 200
+max_turns = 50
+
+[game]
+default_opponent = "greedy"
+
+[locale]
+language = "uk"
 
 [ui]
 tile_size = 40
@@ -43,12 +47,6 @@ center_subtitle_pt = 16
 footer_pt = 15
 menu_hint_pt = 15
 
-[ui.theme]
-asset_manifest = "ui/assets/manifest.toml"
-use_sliced_assets = false
-game_font = "ui/assets/fonts/Skranji-Regular.ttf"
-code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
-
 [ui.coach]
 max_quest_cards = 20
 code_panel_font_pt = 14
@@ -58,6 +56,12 @@ seeds = [7, 23, 42, 58, 91]
 names = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
 
 [ui.map_presets.scenario_names]
-resource_wars   = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
-boss_fight      = ["Open Arena",   "Narrow Pass",  "Classic", "Wide Floor", "Tight Cage"]
+resource_wars = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
+boss_fight = ["Open Arena", "Narrow Pass", "Classic", "Wide Floor", "Tight Cage"]
 energy_stations = ["Moonwell", "Arcane Font", "Classic", "Open Grove", "Twisted Hollow"]
+
+[ui.theme]
+asset_manifest = "ui/assets/manifest.toml"
+use_sliced_assets = false
+game_font = "ui/assets/fonts/Skranji-Regular.ttf"
+code_font = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"

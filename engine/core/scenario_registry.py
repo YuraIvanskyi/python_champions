@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
-
+from engine.core.config_io import load_scenario_toml
 from engine.core.scenario import ScenarioBase
 from engine.paths import resource_path
 
@@ -47,17 +45,18 @@ def list_scenarios() -> list[dict[str, str]]:
     for child in sorted(SCENARIOS_ROOT.iterdir()):
         if not child.is_dir():
             continue
-        toml_path = child / "scenario.toml"
-        if not toml_path.is_file():
+        scenario_id = child.name
+        from engine.core.config_io import scenario_toml_read_path
+
+        if not scenario_toml_read_path(scenario_id).is_file():
             continue
-        with toml_path.open("rb") as handle:
-            data = tomllib.load(handle)
+        data = load_scenario_toml(scenario_id)
         meta = data.get("scenario", {})
-        scenario_id = str(meta.get("id", child.name))
+        sid = str(meta.get("id", scenario_id))
         found.append(
             {
-                "id": scenario_id,
-                "name": str(meta.get("name", scenario_id)),
+                "id": sid,
+                "name": str(meta.get("name", sid)),
                 "description": str(meta.get("description", "")),
             }
         )

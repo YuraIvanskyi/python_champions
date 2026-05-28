@@ -116,8 +116,8 @@ _CLASS_BOTTOM_Y    = _CLASS_GUIDE_Y + _CLASS_GUIDE_H + 8    # 533
 _CLASS_BOTTOM_H    = 38
 _CLASS_ERROR_Y     = _CLASS_BOTTOM_Y + _CLASS_BOTTOM_H + 6  # 577
 
-# ── Bottom row button layout (View Replays + Quit) ────────────────────────────
-_BOTTOM_BTN_W = (_RW - 6) // 2   # 243 each, with 6 px gap
+# ── Bottom row button layout (Settings + View Replays + Quit) ───────────────
+_BOTTOM_BTN_W = (_RW - 12) // 3   # three buttons, 6 px gaps
 
 # ── Scenario text ─────────────────────────────────────────────────────────────
 _SCENARIO_FLAVOR: dict[str, str] = {
@@ -592,11 +592,19 @@ class MenuScreen:
         )
         self._widgets.add(self._guide_btn)
 
-        # ── Bottom row: View Replays + Quit (side by side) ─────────────────
+        # ── Bottom row: Settings + View Replays + Quit ─────────────────────
         bottom_y = guide_y + guide_h + 8
         bottom_h = _PRAC_BOTTOM_H if self.launch_mode == "practice" else _CLASS_BOTTOM_H
-        self._replays_btn = Button(
+        self._settings_btn = Button(
             pygame.Rect(_RX, bottom_y, _BOTTOM_BTN_W, bottom_h),
+            "Settings",
+            on_click=lambda: self.app.goto_settings(),
+            font_size=15,
+            icon="scroll",
+            icon_size=18,
+        )
+        self._replays_btn = Button(
+            pygame.Rect(_RX + _BOTTOM_BTN_W + 6, bottom_y, _BOTTOM_BTN_W, bottom_h),
             "View Replays",
             on_click=lambda: self.app.goto_replay(),
             font_size=15,
@@ -604,13 +612,14 @@ class MenuScreen:
             icon_size=18,
         )
         self._quit_btn = Button(
-            pygame.Rect(_RX + _BOTTOM_BTN_W + 6, bottom_y, _BOTTOM_BTN_W, bottom_h),
+            pygame.Rect(_RX + (_BOTTOM_BTN_W + 6) * 2, bottom_y, _BOTTOM_BTN_W, bottom_h),
             "Quit",
             on_click=lambda: self.app.quit(),
             font_size=15,
             icon="door",
             icon_size=18,
         )
+        self._widgets.add(self._settings_btn)
         self._widgets.add(self._replays_btn)
         self._widgets.add(self._quit_btn)
 

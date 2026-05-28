@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import random
-import tomllib
-from pathlib import Path
 from typing import Any
 
 from engine.core.action import Action
 from engine.core.scenario import ScenarioBase
+from engine.core.scenario_config import load_scenario_section
 from engine.core.turn_result import TurnResult
 from engine.simulation.entity import Entity
 from engine.simulation.map import Map, TileType
 
-SCENARIO_DIR = Path(__file__).resolve().parent
 MOVE_DELTAS = {
     Action.MOVE_UP: (0, -1),
     Action.MOVE_DOWN: (0, 1),
@@ -62,9 +60,7 @@ class ResourceWarsScenario(ScenarioBase):
 
     @staticmethod
     def _load_config() -> dict[str, Any]:
-        with (SCENARIO_DIR / "scenario.toml").open("rb") as handle:
-            data = tomllib.load(handle)
-        return data["scenario"]
+        return load_scenario_section("resource_wars")
 
     @classmethod
     def player_limits(cls) -> tuple[int, int]:

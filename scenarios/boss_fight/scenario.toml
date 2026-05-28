@@ -1,3 +1,14 @@
+[boss]
+difficulty = 1
+hp_per_level = [30, 40, 60]
+damage_per_level = [2, 4, 5]
+multi_target_at_level = [false, false, true]
+
+[player]
+max_hp = 4
+attack_damage = 1
+heal_amount = 2
+
 [scenario]
 id = "boss_fight"
 name = "Boss Fight"
@@ -8,19 +19,6 @@ obstacle_count = 4
 max_turns = 200
 min_players = 1
 max_players = 8
-
-[boss]
-# 1 = easy | 2 = medium | 3 = hard
-difficulty = 1
-hp_per_level = [30, 40, 60]
-damage_per_level = [2, 4, 5]
-# level 3 hits up to 2 adjacent bots per turn
-multi_target_at_level = [false, false, true]
-
-[player]
-max_hp = 4
-attack_damage = 1
-heal_amount = 2
 
 [scoring]
 gameplay_weight = 0.7

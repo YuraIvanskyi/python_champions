@@ -15,6 +15,7 @@ from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
 from ui.screens.replay import ReplayScreen
 from ui.screens.scores import ScoresScreen
+from ui.screens.settings import SettingsScreen
 from ui.screens.simulation import SimulationScreen
 
 
@@ -38,6 +39,7 @@ class App:
         self.scores = ScoresScreen(self)
         self.replay = ReplayScreen(self)
         self.coach = CoachScreen(self)
+        self.settings = SettingsScreen(self)
         self._current = self.menu
 
     def goto_menu(self) -> None:
@@ -86,6 +88,10 @@ class App:
         self.coach.open_session(session_dir, player_id=player_id)
         self._current = self.coach
         self.coach.on_enter()
+
+    def goto_settings(self) -> None:
+        self._current = self.settings
+        self.settings.on_enter()
 
     def quit(self) -> None:
         self.running = False

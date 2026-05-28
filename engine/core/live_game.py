@@ -107,7 +107,7 @@ class LiveGame:
         if len(resolved) != len(set(resolved)):
             raise ValueError("Duplicate bot file paths are not allowed")
 
-        effective_max = max_turns if max_turns is not None else config.engine.max_turns
+        effective_max = max_turns
         self.scenario_id = scenario_id
         self.student_bots: list[Bot] = list(student_bots)
         self.seed = seed

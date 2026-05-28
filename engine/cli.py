@@ -213,7 +213,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         config=config,
         results_dir=results_dir,
         opponent_mode=opponent,
-        max_turns=config.engine.max_turns,
+        max_turns=None,
         write_results=True,
         print_summary=True,
         run_analysis=not args.no_analysis,
