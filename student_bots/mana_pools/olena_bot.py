@@ -39,7 +39,7 @@ def make_turn(state):
         return "GATHER"
 
     # Pick the richest station by capacity (and closest as tiebreaker)
-    stations = state.stations()
+    stations = state.pools()
     if not stations:
         return "WAIT"
 

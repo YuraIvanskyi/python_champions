@@ -2,25 +2,25 @@
 
 from engine.core.action import Action
 from engine.simulation.map import TileType
-from scenarios.energy_stations.game import EnergyStationsScenario
+from scenarios.mana_pools.game import ManaPoolsScenario
 
 
-def _make_clear_scenario() -> EnergyStationsScenario:
-    s = EnergyStationsScenario(seed=7, player_ids=["p1", "p2"])
+def _make_clear_scenario() -> ManaPoolsScenario:
+    s = ManaPoolsScenario(seed=7, player_ids=["p1", "p2"])
     s.setup()
     assert s._map is not None
     return s
 
 
-def _clear_area(s: EnergyStationsScenario, x: int, y: int, radius: int = 3) -> None:
+def _clear_area(s: ManaPoolsScenario, x: int, y: int, radius: int = 3) -> None:
     assert s._map is not None
     for ty in range(max(0, y - radius), min(s._map.height, y + radius + 1)):
         for tx in range(max(0, x - radius), min(s._map.width, x + radius + 1)):
             if s._map.get_tile(tx, ty) is TileType.OBSTACLE:
                 s._map.set_tile(tx, ty, TileType.EMPTY)
-            if s._map.get_tile(tx, ty) is TileType.STATION:
+            if s._map.get_tile(tx, ty) is TileType.POOL:
                 s._map.set_tile(tx, ty, TileType.EMPTY)
-                s._station_capacities.pop((tx, ty), None)
+                s._pool_capacities.pop((tx, ty), None)
 
 
 def test_attack_pushes_target_one_cell():

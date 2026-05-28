@@ -40,7 +40,7 @@ def test_spawn_gather_mana_effect() -> None:
         events=["student_gathered_5"],
     )
     render_state = _render_state(station_capacities={"3,4": 20})
-    effects = spawn_effects_from_turn(turn, render_state, scenario_id="energy_stations")
+    effects = spawn_effects_from_turn(turn, render_state, scenario_id="mana_pools")
     assert len(effects) == 1
     assert effects[0].kind == "gather_mana"
 
@@ -93,5 +93,5 @@ def test_spawn_heal_and_push_effects() -> None:
         scores={"student": 0},
         events=["student_pushed_opponent"],
     )
-    push_effects = spawn_effects_from_turn(push, _render_state(), scenario_id="energy_stations")
+    push_effects = spawn_effects_from_turn(push, _render_state(), scenario_id="mana_pools")
     assert {e.kind for e in push_effects} == {"attack", "hit"}

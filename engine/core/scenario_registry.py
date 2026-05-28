@@ -9,7 +9,14 @@ from engine.paths import resource_path
 SCENARIOS_ROOT = resource_path("scenarios")
 
 # Launcher display order (resource_wars is the default / tutorial scenario).
-_SCENARIO_DISPLAY_ORDER = ("resource_wars", "boss_fight", "energy_stations")
+_SCENARIO_DISPLAY_ORDER = ("resource_wars", "boss_fight", "mana_pools")
+
+
+_LEGACY_SCENARIO_IDS = {"energy_stations": "mana_pools"}
+
+
+def _normalize_scenario_id(scenario_id: str) -> str:
+    return _LEGACY_SCENARIO_IDS.get(scenario_id, scenario_id)
 
 
 def create_scenario(
@@ -20,6 +27,7 @@ def create_scenario(
     player_ids: list[str] | None = None,
     boss_difficulty: int | None = None,
 ) -> ScenarioBase:
+    scenario_id = _normalize_scenario_id(scenario_id)
     if scenario_id == "resource_wars":
         from scenarios.resource_wars import ResourceWarsScenario
         return ResourceWarsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
@@ -31,9 +39,9 @@ def create_scenario(
             player_ids=player_ids,
             difficulty=boss_difficulty,
         )
-    if scenario_id == "energy_stations":
-        from scenarios.energy_stations import EnergyStationsScenario
-        return EnergyStationsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
+    if scenario_id == "mana_pools":
+        from scenarios.mana_pools import ManaPoolsScenario
+        return ManaPoolsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
     from engine.i18n import translate
 
     raise ValueError(translate("error.unknown_scenario", lang="en", id=scenario_id))
@@ -77,4 +85,4 @@ def scenario_display_name(scenario_id: str, lang: str = "en") -> str:
     """Human-readable scenario title (localized when available)."""
     from engine.i18n import scenario_display_name as i18n_name
 
-    return i18n_name(scenario_id, lang)
+    return i18n_name(_normalize_scenario_id(scenario_id), lang)

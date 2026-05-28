@@ -66,7 +66,7 @@ def make_turn(state):
         return "GATHER"
 
     others = state.others_positions()
-    stations = state.stations()
+    stations = state.pools()
     if not stations:
         return "WAIT"
 

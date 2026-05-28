@@ -6,12 +6,12 @@ attack_cost = 3
 gather_rate = 5
 
 [scenario]
-id = "energy_stations"
+id = "mana_pools"
 name = "Mana Pools"
 description = "Competitive PvP — gather mana from pools, push rivals away"
 map_width = 20
 map_height = 10
-station_count = 12
+pool_count = 12
 obstacle_count = 20
 max_turns = 50
 min_players = 2
@@ -20,6 +20,8 @@ max_players = 8
 [scoring]
 gameplay_weight = 0.7
 code_weight = 0.3
+# calculate_score() already returns 0–100 (share of max mana); match boss_fight.
+score_threshold = 100
 
-[station]
+[pool]
 initial_capacity = 20

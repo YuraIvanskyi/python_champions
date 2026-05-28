@@ -117,7 +117,7 @@ def test_metrics_json_unchanged_after_report(tmp_path: Path) -> None:
     assert after["scores"] == metrics["scores"]
 
 
-def test_report_not_written_when_vllm_offline(tmp_path: Path) -> None:
+def test_report_not_written_when_ollama_offline(tmp_path: Path) -> None:
     """When health check fails, ai_report.md must not be written."""
     from ai import health as h
     h.reset_cache()

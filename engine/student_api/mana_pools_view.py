@@ -8,17 +8,17 @@ from typing import Any
 from engine.student_api.view import GameView
 
 
-class EnergyStationsView(GameView):
+class ManaPoolsView(GameView):
     """Readonly state snapshot for one bot in the Mana Pools scenario.
 
     Extends GameView with mana and pool methods.
     """
 
     __slots__ = (
-        "_adjacent_stations",
+        "_adjacent_pools",
         "_max_energy",
         "_my_energy",
-        "_stations",
+        "_pools",
     )
 
     def __init__(self, data: Mapping[str, Any]) -> None:
@@ -26,19 +26,19 @@ class EnergyStationsView(GameView):
         self._my_energy = int(data.get("my_energy", 0))
         self._max_energy = int(data.get("max_energy", 150))
 
-        raw_stations = data.get("stations", [])
-        self._stations: list[tuple[int, int, int]] = []
-        if isinstance(raw_stations, list):
-            for s in raw_stations:
+        raw_pools = data.get("pools") or data.get("stations", [])
+        self._pools: list[tuple[int, int, int]] = []
+        if isinstance(raw_pools, list):
+            for s in raw_pools:
                 if isinstance(s, dict):
-                    self._stations.append((int(s["x"]), int(s["y"]), int(s["capacity"])))
+                    self._pools.append((int(s["x"]), int(s["y"]), int(s["capacity"])))
 
-        raw_adj = data.get("adjacent_stations", [])
-        self._adjacent_stations: list[tuple[int, int, int]] = []
+        raw_adj = data.get("adjacent_pools", [])
+        self._adjacent_pools: list[tuple[int, int, int]] = []
         if isinstance(raw_adj, list):
             for s in raw_adj:
                 if isinstance(s, dict):
-                    self._adjacent_stations.append(
+                    self._adjacent_pools.append(
                         (int(s["x"]), int(s["y"]), int(s["capacity"]))
                     )
 
@@ -54,24 +54,24 @@ class EnergyStationsView(GameView):
 
     # ── Pools ──────────────────────────────────────────────────────────────────
 
-    def stations(self) -> list[tuple[int, int, int]]:
+    def pools(self) -> list[tuple[int, int, int]]:
         """All remaining pools as list of (x, y, capacity)."""
-        return list(self._stations)
+        return list(self._pools)
 
-    def adjacent_stations(self) -> list[tuple[int, int, int]]:
+    def adjacent_pools(self) -> list[tuple[int, int, int]]:
         """Pools the bot can currently gather from: (x, y, capacity)."""
-        return list(self._adjacent_stations)
+        return list(self._adjacent_pools)
 
     def can_gather(self) -> bool:
         """True if any orthogonally adjacent pool has capacity > 0."""
-        return bool(self._adjacent_stations)
+        return bool(self._adjacent_pools)
 
-    def nearest_station(self) -> tuple[int, int] | None:
+    def nearest_pool(self) -> tuple[int, int] | None:
         """(x, y) of the closest pool by Manhattan distance, or None."""
-        if not self._stations:
+        if not self._pools:
             return None
         x, y = self._x, self._y
         return min(
-            ((sx, sy) for sx, sy, _ in self._stations),
+            ((sx, sy) for sx, sy, _ in self._pools),
             key=lambda pos: abs(pos[0] - x) + abs(pos[1] - y),
         )

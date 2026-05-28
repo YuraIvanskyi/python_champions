@@ -21,7 +21,7 @@ from ui.render.code_panel import draw_code_panel
 from ui.render.icons import load_icon
 from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.quest_card import draw_quest_card, draw_score_card, quest_card_height
-from ui.screens.vllm_setup import AiReportPanel, TemplateFeedbackPanel, VllmSetupPanel
+from ui.screens.ollama_setup import AiReportPanel, OllamaSetupPanel, TemplateFeedbackPanel
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
@@ -73,7 +73,7 @@ class CoachScreen:
         self._ai_state = _AI_TAB_CHECKING
         self._ai_report_text: str | None = None
         self._spinner_angle = 0.0
-        self._vllm_panel = VllmSetupPanel(
+        self._ollama_panel = OllamaSetupPanel(
             on_retry=self._retry_ai,
             on_use_templates=self._use_templates,
         )
@@ -122,7 +122,7 @@ class CoachScreen:
     # ── AI tab helpers ────────────────────────────────────────────────────────
 
     def _retry_ai(self) -> None:
-        """Re-probe vLLM health and generate report if reachable."""
+        """Re-probe Ollama health and generate report if reachable."""
         from ai.health import reset_cache
         reset_cache()
         self._ai_state = _AI_TAB_LOADING
@@ -138,7 +138,7 @@ class CoachScreen:
             self._check_ai_and_load()
 
     def _check_ai_and_load(self) -> None:
-        """Check vLLM health (blocking, fast probe) then decide state."""
+        """Check Ollama health (blocking, fast probe) then decide state."""
         if self._ai_report_text is not None:
             self._ai_state = _AI_TAB_REPORT
             return
@@ -147,8 +147,8 @@ class CoachScreen:
         except AttributeError:
             self._ai_state = _AI_TAB_OFFLINE
             return
-        from ai.health import is_vllm_reachable
-        if is_vllm_reachable(config.ai.health_check_url, use_cache=False):
+        from ai.health import is_ollama_reachable
+        if is_ollama_reachable(config.ai.health_check_url, use_cache=False):
             self._ai_state = _AI_TAB_LOADING
             self._spinner_angle = 0.0
             self._generate_ai_report_async()
@@ -338,7 +338,7 @@ class CoachScreen:
         # AI tab gets priority for wheel and panel events
         if self._ai_tab_active and layout:
             if self._ai_state == _AI_TAB_OFFLINE:
-                if self._vllm_panel.handle_event(event):
+                if self._ollama_panel.handle_event(event):
                     return
             elif self._ai_state == _AI_TAB_REPORT:
                 ai_rect = layout.get("ai_panel")
@@ -549,11 +549,11 @@ class CoachScreen:
     ) -> None:
         state = self._ai_state
         if state == _AI_TAB_CHECKING:
-            _draw_status(surface, rect, self.app.t("coach.checking_vllm"), colors.TEXT_MUTED)
+            _draw_status(surface, rect, self.app.t("coach.checking_ollama"), colors.TEXT_MUTED)
         elif state == _AI_TAB_LOADING:
             skin.draw_panel(surface, rect, style="stone")
         elif state == _AI_TAB_OFFLINE:
-            self._vllm_panel.draw(surface, rect, lang=self.app.lang())
+            self._ollama_panel.draw(surface, rect, lang=self.app.lang())
         elif state == _AI_TAB_TEMPLATES:
             feedback = block.get("feedback", [])
             self._template_panel.draw(surface, rect, feedback, lang=self.app.lang())

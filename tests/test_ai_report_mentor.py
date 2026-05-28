@@ -6,7 +6,7 @@ import os
 
 
 def test_extract_advisory_note() -> None:
-    from ui.screens.vllm_setup import _AI_ADVISORY_DEFAULT, _extract_advisory_note
+    from ui.screens.ollama_setup import _AI_ADVISORY_DEFAULT, _extract_advisory_note
 
     report = (
         "> ⚠️ AI-generated summary — advisory only. "
@@ -29,7 +29,7 @@ def test_sticky_header_includes_teacher_trust_note() -> None:
     os.environ["SDL_VIDEODRIVER"] = "dummy"
     import pygame
 
-    from ui.screens.vllm_setup import _AI_TEACHER_TRUST_NOTE, _sticky_note_lines
+    from ui.screens.ollama_setup import _AI_TEACHER_TRUST_NOTE, _sticky_note_lines
     from ui.skin.typography import body_font
 
     pygame.font.init()
@@ -41,7 +41,7 @@ def test_sticky_header_includes_teacher_trust_note() -> None:
 
 
 def test_parse_player_id() -> None:
-    from ui.screens.vllm_setup import _parse_player_id
+    from ui.screens.ollama_setup import _parse_player_id
 
     assert _parse_player_id("Player: p0_daryna_bot") == "p0_daryna_bot"
     assert _parse_player_id("player: student") == "student"
@@ -51,7 +51,7 @@ def test_report_rows_skip_advisory_and_teacher_notes_mentor() -> None:
     os.environ["SDL_VIDEODRIVER"] = "dummy"
     import pygame
 
-    from ui.screens.vllm_setup import (
+    from ui.screens.ollama_setup import (
         _STYLE_ADVISORY,
         _STYLE_BODY,
         _STYLE_HEADING,

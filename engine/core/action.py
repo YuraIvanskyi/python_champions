@@ -12,7 +12,7 @@ class Action(StrEnum):
     MOVE_RIGHT = "MOVE_RIGHT"
     GATHER = "GATHER"
     WAIT = "WAIT"
-    # boss_fight: melee attack on adjacent boss; energy_stations: push adjacent enemy one cell away
+    # boss_fight: melee attack on adjacent boss; mana_pools: push adjacent enemy one cell away
     ATTACK = "ATTACK"
     # boss_fight only: restore heal_amount HP to self
     HEAL_SELF = "HEAL_SELF"

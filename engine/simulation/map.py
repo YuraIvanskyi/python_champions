@@ -9,7 +9,7 @@ class TileType(StrEnum):
     EMPTY = "empty"
     RESOURCE = "resource"
     OBSTACLE = "obstacle"
-    STATION = "station"
+    POOL = "pool"
 
 
 class Map:

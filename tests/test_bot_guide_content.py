@@ -5,7 +5,7 @@ from ui.bot_guide_layout import measure_guide_content
 
 
 def test_guide_blocks_all_scenarios() -> None:
-    for sid in ("resource_wars", "boss_fight", "energy_stations"):
+    for sid in ("resource_wars", "boss_fight", "mana_pools"):
         blocks = guide_blocks_for_scenario(sid)
         assert blocks
         assert any(b.kind == "code" for b in blocks)
@@ -21,7 +21,7 @@ def test_guide_blocks_all_scenarios() -> None:
 
 
 def test_guide_boilerplate_no_working_logic() -> None:
-    for sid in ("resource_wars", "boss_fight", "energy_stations"):
+    for sid in ("resource_wars", "boss_fight", "mana_pools"):
         code_lines = [
             line
             for b in guide_blocks_for_scenario(sid)
@@ -63,7 +63,7 @@ def test_guide_mentor_float_wraps_intro() -> None:
     typography._game_cache.clear()
     typography._code_cache.clear()
     font = pygame.font.SysFont("consolas", 15)
-    for sid in ("resource_wars", "boss_fight", "energy_stations"):
+    for sid in ("resource_wars", "boss_fight", "mana_pools"):
         blocks = guide_blocks_for_scenario(sid)
         float_rect = _mentor_float_rect(blocks, content_width=700, start_y=0)
         assert float_rect is not None

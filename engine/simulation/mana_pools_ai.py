@@ -15,24 +15,24 @@ def _is_walkable(game_state: dict[str, Any], x: int, y: int) -> bool:
         return False
     for tile in game_state["visible_tiles"]:
         if tile["x"] == x and tile["y"] == y:
-            return tile["type"] not in ("obstacle", "station")
+            return tile["type"] not in ("obstacle", "pool", "station")
     return False
 
 
-def _nearest_station(
+def _nearest_pool(
     game_state: dict[str, Any],
 ) -> tuple[int, int] | None:
     position = game_state["position"]
     px, py = position[0], position[1]
-    stations = game_state.get("stations", [])
+    pools = game_state.get("pools") or game_state.get("stations", [])
     best: tuple[int, tuple[int, int]] | None = None
-    for station in stations:
-        if not isinstance(station, dict):
+    for pool in pools:
+        if not isinstance(pool, dict):
             continue
-        cap = int(station.get("capacity", 0))
+        cap = int(pool.get("capacity", 0))
         if cap <= 0:
             continue
-        sx, sy = int(station["x"]), int(station["y"])
+        sx, sy = int(pool["x"]), int(pool["y"])
         dist = abs(sx - px) + abs(sy - py)
         if best is None or dist < best[0]:
             best = (dist, (sx, sy))
@@ -51,11 +51,11 @@ def _move_toward(position: list[int], target: tuple[int, int]) -> Action:
     return Action.MOVE_UP
 
 
-def greedy_energy_turn(game_state: dict[str, Any], rng: random.Random) -> Action:
-    if game_state.get("adjacent_stations"):
+def greedy_mana_turn(game_state: dict[str, Any], rng: random.Random) -> Action:
+    if game_state.get("adjacent_pools") or game_state.get("adjacent_stations"):
         return Action.GATHER
 
-    nearest = _nearest_station(game_state)
+    nearest = _nearest_pool(game_state)
     if nearest is None:
         return Action.WAIT
 
@@ -84,8 +84,8 @@ def greedy_energy_turn(game_state: dict[str, Any], rng: random.Random) -> Action
     return rng.choice(legal) if legal else Action.WAIT
 
 
-def dumb_energy_turn(game_state: dict[str, Any], rng: random.Random) -> Action:
-    if game_state.get("adjacent_stations") and rng.random() < 0.25:
+def dumb_mana_turn(game_state: dict[str, Any], rng: random.Random) -> Action:
+    if (game_state.get("adjacent_pools") or game_state.get("adjacent_stations")) and rng.random() < 0.25:
         return Action.GATHER
 
     if rng.random() < 0.35:

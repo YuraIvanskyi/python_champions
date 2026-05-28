@@ -20,7 +20,7 @@ _GOOD_BOT = """\
 def make_turn(state):
     if state.can_gather():
         return "GATHER"
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if nearest:
         nx, ny = nearest
         if state.is_walkable(nx, state.my_y()):
@@ -37,7 +37,7 @@ def make_turn(state):
 
 _NO_WALKABLE = """\
 def make_turn(state):
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if nearest:
         nx, ny = nearest
         if nx > state.my_x():
@@ -47,7 +47,7 @@ def make_turn(state):
 
 _NO_FALLBACK = """\
 def make_turn(state):
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if nearest:
         nx, ny = nearest
         if nx > state.my_x():

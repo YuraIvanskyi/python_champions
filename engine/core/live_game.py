@@ -22,7 +22,7 @@ from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 def _scenario_needs_external_opponent(scenario_id: str, *, student_count: int) -> bool:
     """Return True when practice mode should add a built-in computer player."""
-    if scenario_id in ("boss_fight", "energy_stations"):
+    if scenario_id in ("boss_fight", "mana_pools"):
         return student_count < 2
     return True
 

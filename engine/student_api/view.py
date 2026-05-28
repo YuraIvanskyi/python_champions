@@ -12,7 +12,7 @@ class TileKind:
     EMPTY = "empty"
     RESOURCE = "resource"
     OBSTACLE = "obstacle"
-    STATION = "station"
+    POOL = "pool"
 
 
 class GameView:
@@ -67,10 +67,10 @@ class GameView:
             from engine.student_api.boss_fight_view import BossFightView
 
             return BossFightView(data)
-        if "stations" in data:
-            from engine.student_api.energy_stations_view import EnergyStationsView
+        if "pools" in data or "stations" in data:
+            from engine.student_api.mana_pools_view import ManaPoolsView
 
-            return EnergyStationsView(data)
+            return ManaPoolsView(data)
         return cls(data)
 
     def turn(self) -> int:

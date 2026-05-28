@@ -43,17 +43,17 @@ def make_turn(state):
         return "GATHER"
 
     # If nearly full, wait near a station (let it refill next gather)
-    adj = state.adjacent_stations()
+    adj = state.adjacent_pools()
     if adj and energy >= max_e - 5:
         return "WAIT"
 
     # Attack a blocking rival only if they are right in our path to a station
     others = state.others_positions()
-    stations = state.stations()
+    stations = state.pools()
     if not stations:
         return "WAIT"
 
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if not nearest:
         return "WAIT"
 

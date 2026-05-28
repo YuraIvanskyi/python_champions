@@ -315,10 +315,13 @@ _GOAL_HELPERS = frozenset(
     [
         "on_resource",
         "can_gather",
+        "nearest_pool",
         "nearest_station",
         "has_resource_at",
         "resource_tiles",
+        "adjacent_pools",
         "adjacent_stations",
+        "pools",
         "stations",
         "is_boss_adjacent",
     ]

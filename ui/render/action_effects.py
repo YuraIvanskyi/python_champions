@@ -59,8 +59,8 @@ def spawn_effects_from_turn(
     """Build tile effects from scenario turn events and post-turn positions."""
     positions = _positions_from_render_state(render_state)
     effects: list[TileEffect] = []
-    is_mana_scenario = scenario_id in ("energy_stations", "mana_pools") or bool(
-        render_state.get("station_capacities")
+    is_mana_scenario = scenario_id in ("mana_pools", "energy_stations") or bool(
+        render_state.get("pool_capacities") or render_state.get("station_capacities")
     )
     salt = 0
 

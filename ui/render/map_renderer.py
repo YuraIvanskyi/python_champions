@@ -65,7 +65,7 @@ def _draw_tile(surface: pygame.Surface, rect: pygame.Rect, tile_type: str) -> No
         crack = _darker(color, 30)
         pygame.draw.line(surface, crack, (cx - m, cy - m), (cx + m, cy + m), 1)
         pygame.draw.line(surface, crack, (cx + m, cy - m), (cx - m, cy + m), 1)
-    elif tile_type == "station":
+    elif tile_type in ("pool", "station"):
         # Mana flask — bulb + narrow neck
         lw = max(4, TILE_SIZE // 5)
         nh = max(3, TILE_SIZE // 8)
@@ -221,12 +221,12 @@ def draw_map(
     if hp_bars:
         _draw_hp_bars(surface, render_state, hp_bars, origin_x, origin_y)
 
-    # Draw pool capacity overlays (mana_pools / energy_stations scenario)
-    station_caps = render_state.get("station_capacities", {})
-    if station_caps:
-        _draw_station_overlays(surface, render_state, station_caps, origin_x, origin_y)
+    # Draw pool capacity overlays (mana_pools scenario)
+    pool_caps = render_state.get("pool_capacities") or render_state.get("station_capacities", {})
+    if pool_caps:
+        _draw_pool_overlays(surface, render_state, pool_caps, origin_x, origin_y)
 
-    # Draw mana bars (mana_pools / energy_stations scenario)
+    # Draw mana bars (mana_pools / mana_pools scenario)
     energy_bars = render_state.get("energy_bars", {})
     if energy_bars:
         _draw_energy_bars(surface, render_state, energy_bars, origin_x, origin_y)
@@ -338,18 +338,21 @@ _POOL_BAR_BG = (24, 16, 36)
 _POOL_BAR_FG = (180, 120, 255)   # lavender — remaining pool capacity
 
 
-def _draw_station_overlays(
+def _draw_pool_overlays(
     surface: pygame.Surface,
     render_state: dict,
-    station_caps: dict,
+    pool_caps: dict,
     origin_x: int,
     origin_y: int,
 ) -> None:
     """Draw lavender capacity bars on mana pool tiles (same placement as HP bars)."""
-    max_cap = int(render_state.get("station_max_capacity", 0))
+    max_cap = int(
+        render_state.get("pool_max_capacity")
+        or render_state.get("station_max_capacity", 0)
+    )
     bar_w = TILE_SIZE - 6
     bar_h = 4
-    for key, cap in station_caps.items():
+    for key, cap in pool_caps.items():
         try:
             sx, sy = (int(v) for v in str(key).split(","))
         except ValueError:

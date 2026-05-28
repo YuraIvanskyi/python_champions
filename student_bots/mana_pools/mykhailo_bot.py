@@ -42,7 +42,7 @@ def make_turn(state):
         return "GATHER"
 
     others = state.others_positions()  # [(player_id, ox, oy), ...]
-    stations = state.stations()
+    stations = state.pools()
 
     if not stations:
         return "WAIT"
@@ -66,7 +66,7 @@ def make_turn(state):
         return _move_toward(x, y, rx, ry, state)
 
     # Fallback: head to nearest station
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if nearest:
         return _move_toward(x, y, nearest[0], nearest[1], state)
     return "WAIT"

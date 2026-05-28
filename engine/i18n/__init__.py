@@ -39,6 +39,8 @@ def t(key: str, *, lang: str = "en", **kwargs: Any) -> str:
 
 
 def scenario_display_name(scenario_id: str, lang: str = "en") -> str:
+    legacy = {"energy_stations": "mana_pools"}
+    scenario_id = legacy.get(scenario_id, scenario_id)
     key = f"scenario.{scenario_id}.name"
     name = translate(key, lang=lang)
     if name != key:

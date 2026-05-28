@@ -58,7 +58,7 @@ names = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
 [ui.map_presets.scenario_names]
 resource_wars = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
 boss_fight = ["Open Arena", "Narrow Pass", "Classic", "Wide Floor", "Tight Cage"]
-energy_stations = ["Moonwell", "Arcane Font", "Classic", "Open Grove", "Twisted Hollow"]
+mana_pools = ["Moonwell", "Arcane Font", "Classic", "Open Grove", "Twisted Hollow"]
 
 [ui.theme]
 asset_manifest = "ui/assets/manifest.toml"

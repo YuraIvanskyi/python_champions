@@ -11,7 +11,7 @@ block_cipher = None
 root = Path(SPECPATH).resolve().parent
 launcher = root / "packaging" / "launcher_gui.py"
 
-scenario_ids = ("resource_wars", "boss_fight", "energy_stations")
+scenario_ids = ("resource_wars", "boss_fight", "mana_pools")
 
 datas = [
     (str(root / "configs"), "configs"),

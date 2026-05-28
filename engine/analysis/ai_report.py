@@ -40,9 +40,9 @@ def generate_report(session_dir: Path, config: "AppConfig") -> Path | None:
 
 
 def _generate(session_dir: Path, config: "AppConfig") -> Path | None:
-    from ai.health import is_vllm_reachable
+    from ai.health import is_ollama_reachable
 
-    if not is_vllm_reachable(config.ai.health_check_url):
+    if not is_ollama_reachable(config.ai.health_check_url):
         log.warning("AI not reachable — skipping AI report")
         return None
 

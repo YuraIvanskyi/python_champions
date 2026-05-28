@@ -123,23 +123,23 @@ _BOTTOM_BTN_W = (_RW - 12) // 3   # three buttons, 6 px gaps
 _SCENARIO_FLAVOR: dict[str, str] = {
     "resource_wars": "Accursed relics litter the ruins — claim them before your rivals do!",
     "boss_fight": "A dread titan stalks the arena — cooperate to bring it down!",
-    "energy_stations": "Arcane pools shimmer across the field — drain them dry before rivals do!",
+    "mana_pools": "Arcane pools shimmer across the field — drain them dry before rivals do!",
 }
 _SCENARIO_TYPE: dict[str, str] = {
     "resource_wars": "Turn-based grid  ·  up to 8 players",
     "boss_fight": "Cooperative PvE  ·  1–6 players vs boss",
-    "energy_stations": "Competitive PvP  ·  2–8 players  ·  push & gather",
+    "mana_pools": "Competitive PvP  ·  2–8 players  ·  push & gather",
 }
 _SCENARIO_HINT: dict[str, str] = {
     "resource_wars": "Gather resources each turn  ·  50 turns  ·  highest score wins",
     "boss_fight": "Attack, heal, and cooperate  ·  200 turns  ·  slay the boss to win",
-    "energy_stations": "GATHER from adjacent pools  ·  ATTACK pushes rivals  ·  300 turns",
+    "mana_pools": "GATHER from adjacent pools  ·  ATTACK pushes rivals  ·  300 turns",
 }
 
 _DEFAULT_BOT: dict[str, str] = {
     "resource_wars": "student_bots/resource_wars/example_bot.py",
     "boss_fight": "student_bots/boss_fight/boss_fight_starter.py",
-    "energy_stations": "student_bots/energy_stations/energy_stations_starter.py",
+    "mana_pools": "student_bots/mana_pools/mana_pools_starter.py",
 }
 
 # ── Opponent display ──────────────────────────────────────────────────────────
@@ -220,9 +220,9 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
         if scenario_id == "boss_fight":
             from scenarios.boss_fight.game import BossFightScenario
             scenario = BossFightScenario(seed=seed, player_ids=["p1"])
-        elif scenario_id == "energy_stations":
-            from scenarios.energy_stations.game import EnergyStationsScenario
-            scenario = EnergyStationsScenario(seed=seed, player_ids=["p1", "p2"])
+        elif scenario_id == "mana_pools":
+            from scenarios.mana_pools.game import ManaPoolsScenario
+            scenario = ManaPoolsScenario(seed=seed, player_ids=["p1", "p2"])
         else:
             from scenarios.resource_wars.game import ResourceWarsScenario
             scenario = ResourceWarsScenario(seed=seed, player_ids=["p1", "p2"])
@@ -236,7 +236,7 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
             TileType.EMPTY:    (62, 72, 94),
             TileType.RESOURCE: (72, 200, 100),
             TileType.OBSTACLE: (118, 86, 52),
-            TileType.STATION:  (120, 70, 180),
+            TileType.POOL:  (120, 70, 180),
         }
         size = 100
         cell = max(1, size // max(m.width, m.height))
@@ -1118,7 +1118,7 @@ class MenuScreen:
 
             desc_key = (
                 f"menu.opponent_desc.{sid}.{mode}"
-                if sid in ("resource_wars", "boss_fight", "energy_stations")
+                if sid in ("resource_wars", "boss_fight", "mana_pools")
                 else f"menu.opponent_desc.resource_wars.{mode}"
             )
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
@@ -1162,11 +1162,19 @@ class MenuScreen:
             surface.blit(ns, (tx, card_rect.y + 8))
 
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
-            ds = body_font(11).render(self.app.t(f"menu.difficulty.{level}.desc"), True, desc_color)
+            desc_font = body_font(11)
+            max_desc_w = card_rect.right - tx - 4
+            desc_lines = _wrap_words(
+                self.app.t(f"menu.difficulty.{level}.desc"), desc_font, max_desc_w
+            )[:2]
             dy = card_rect.y + 8 + ns.get_height() + 2
+            line_step = desc_font.get_height() + 1
+            desc_clip = pygame.Rect(tx, dy, max_desc_w, card_rect.bottom - dy - 4)
             old = surface.get_clip()
-            surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 28))
-            surface.blit(ds, (tx, dy))
+            surface.set_clip(desc_clip)
+            for i, line in enumerate(desc_lines):
+                ds = desc_font.render(line, True, desc_color)
+                surface.blit(ds, (tx, dy + i * line_step))
             surface.set_clip(old)
 
             if is_active:

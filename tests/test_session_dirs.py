@@ -42,13 +42,13 @@ def test_list_session_dirs_legacy_and_prefixed(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    prefixed = tmp_path / "energy_stations_session_20200102T000000000000Z"
+    prefixed = tmp_path / "mana_pools_session_20200102T000000000000Z"
     prefixed.mkdir()
     (prefixed / "replay.json").write_text(
         json.dumps(
             {
                 "seed": 2,
-                "scenario": "energy_stations",
+                "scenario": "mana_pools",
                 "turns": [],
                 "final_scores": {},
             }

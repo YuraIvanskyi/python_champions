@@ -22,7 +22,7 @@ def guide_blocks_for_scenario(scenario_id: str, lang: str = "en") -> list[GuideB
     builders = {
         "resource_wars": _resource_wars_blocks,
         "boss_fight": _boss_fight_blocks,
-        "energy_stations": _energy_stations_blocks,
+        "mana_pools": _mana_pools_blocks,
     }
     fn = builders.get(scenario_id, _resource_wars_blocks)
     return list(fn(code))
@@ -138,12 +138,12 @@ def _boss_fight_blocks(lang: str) -> list[GuideBlock]:
     ]
 
 
-def _energy_stations_blocks(lang: str) -> list[GuideBlock]:
+def _mana_pools_blocks(lang: str) -> list[GuideBlock]:
     return [
-        _h(lang, "guide.es.goal"),
-        _p(lang, "guide.es.goal_body"),
-        _h(lang, "guide.es.file"),
-        _p(lang, "guide.es.file_body"),
+        _h(lang, "guide.mp.goal"),
+        _p(lang, "guide.mp.goal_body"),
+        _h(lang, "guide.mp.file"),
+        _p(lang, "guide.mp.file_body"),
         _c((
             'BOT_DISPLAY_NAME = "Your Bot Name"',
             "",
@@ -151,7 +151,7 @@ def _energy_stations_blocks(lang: str) -> list[GuideBlock]:
             "    # See actions and state functions below",
             "    ...",
         )),
-        _h(lang, "guide.es.actions"),
+        _h(lang, "guide.mp.actions"),
         _c((
             "# Return one of these strings from make_turn:",
             '"MOVE_UP"',
@@ -162,18 +162,18 @@ def _energy_stations_blocks(lang: str) -> list[GuideBlock]:
             '"ATTACK"        # push a nearby rival (costs more mana)',
             '"WAIT"',
         )),
-        _h(lang, "guide.es.state"),
+        _h(lang, "guide.mp.state"),
         _c((
             "state.my_energy()",
             "state.max_energy()",
             "state.can_gather()",
-            "state.adjacent_stations()   # pools next to you",
-            "state.nearest_station()     # (x, y) or None",
-            "state.stations()            # (x, y, capacity)",
+            "state.adjacent_pools()   # pools next to you",
+            "state.nearest_pool()     # (x, y) or None",
+            "state.pools()            # (x, y, capacity)",
             "state.others_positions()    # rival locations",
             "# Also: my_x(), my_y(), is_walkable(x, y), turn(), …",
         )),
-        _h(lang, "guide.es.tips"),
-        _p(lang, "guide.es.tips1"),
-        _p(lang, "guide.es.starter"),
+        _h(lang, "guide.mp.tips"),
+        _p(lang, "guide.mp.tips1"),
+        _p(lang, "guide.mp.starter"),
     ]

@@ -1,4 +1,4 @@
-"""Phase 4: vLLM health probe behaviour."""
+"""Phase 4: Ollama health probe behaviour."""
 
 from __future__ import annotations
 
@@ -18,43 +18,43 @@ def test_reachable_returns_true_on_200() -> None:
     from ai import health as h
     h.reset_cache()
     with patch("urllib.request.urlopen", return_value=_make_resp(200)):
-        assert h.is_vllm_reachable("http://localhost:8000/health", use_cache=False) is True
+        assert h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=False) is True
 
 
 def test_reachable_returns_false_on_connection_refused() -> None:
     from ai import health as h
     h.reset_cache()
     with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError()):
-        assert h.is_vllm_reachable("http://localhost:8000/health", use_cache=False) is False
+        assert h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=False) is False
 
 
 def test_reachable_returns_false_on_timeout() -> None:
     from ai import health as h
     h.reset_cache()
     with patch("urllib.request.urlopen", side_effect=TimeoutError()):
-        assert h.is_vllm_reachable("http://localhost:8000/health", use_cache=False) is False
+        assert h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=False) is False
 
 
 def test_reachable_returns_false_on_http_error() -> None:
     from ai import health as h
     h.reset_cache()
     exc = urllib.error.HTTPError(
-        url="http://localhost:8000/health",
+        url="http://localhost:11434/api/tags",
         code=503,
         msg="Service Unavailable",
         hdrs=None,  # type: ignore[arg-type]
         fp=None,
     )
     with patch("urllib.request.urlopen", side_effect=exc):
-        assert h.is_vllm_reachable("http://localhost:8000/health", use_cache=False) is False
+        assert h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=False) is False
 
 
 def test_reachable_caches_result() -> None:
     from ai import health as h
     h.reset_cache()
     with patch("urllib.request.urlopen", return_value=_make_resp(200)) as mock_open:
-        h.is_vllm_reachable("http://localhost:8000/health", use_cache=True)
-        h.is_vllm_reachable("http://localhost:8000/health", use_cache=True)
+        h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=True)
+        h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=True)
         assert mock_open.call_count == 1  # second call used cache
 
 
@@ -62,9 +62,9 @@ def test_reset_cache_forces_new_probe() -> None:
     from ai import health as h
     h.reset_cache()
     with patch("urllib.request.urlopen", return_value=_make_resp(200)) as mock_open:
-        h.is_vllm_reachable("http://localhost:8000/health", use_cache=True)
+        h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=True)
         h.reset_cache()
-        h.is_vllm_reachable("http://localhost:8000/health", use_cache=True)
+        h.is_ollama_reachable("http://localhost:11434/api/tags", use_cache=True)
         assert mock_open.call_count == 2
 
 

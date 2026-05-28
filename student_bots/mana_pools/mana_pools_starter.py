@@ -2,13 +2,13 @@
 
 Available actions: MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, GATHER, ATTACK, WAIT
 
-state methods (EnergyStationsView):
+state methods (ManaPoolsView):
   my_energy()        — current mana level
   max_energy()       — maximum mana cap
   can_gather()       — True if adjacent to a pool with capacity > 0
-  nearest_station()  — (x, y) of closest pool, or None
-  stations()         — all remaining pools as list of (x, y, capacity)
-  adjacent_stations() — pools you can gather from: (x, y, capacity)
+  nearest_pool()  — (x, y) of closest pool, or None
+  pools()         — all remaining pools as list of (x, y, capacity)
+  adjacent_pools() — pools you can gather from: (x, y, capacity)
   my_x(), my_y()    — your position
   is_walkable(x, y) — True if the tile can be entered
   others_positions() — list of (player_id, x, y) for all other bots
@@ -21,7 +21,7 @@ def make_turn(state):
         return "GATHER"
 
     # Move toward the nearest pool
-    nearest = state.nearest_station()
+    nearest = state.nearest_pool()
     if nearest:
         nx, ny = nearest
         if nx > state.my_x():

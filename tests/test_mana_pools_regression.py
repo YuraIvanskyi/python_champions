@@ -5,12 +5,12 @@ import tempfile
 from pathlib import Path
 
 from engine.core.action import Action
-from scenarios.energy_stations.game import EnergyStationsScenario
+from scenarios.mana_pools.game import ManaPoolsScenario
 
 
 def _run_game(seed: int, turns: int = 30) -> list[dict]:
     """Run a fixed number of turns and return a list of (turn, scores, events) dicts."""
-    s = EnergyStationsScenario(seed=seed, player_ids=["p1", "p2", "p3"])
+    s = ManaPoolsScenario(seed=seed, player_ids=["p1", "p2", "p3"])
     s.setup()
     log = []
     for _ in range(turns):
@@ -21,7 +21,7 @@ def _run_game(seed: int, turns: int = 30) -> list[dict]:
         x3, y3 = s._positions["p3"]
         # Simple deterministic strategy: gather if adjacent, else WAIT
         def pick(pid, px, py):
-            return Action.GATHER if s._adjacent_stations(px, py) else Action.WAIT
+            return Action.GATHER if s._adjacent_pools(px, py) else Action.WAIT
 
         actions = {
             "p1": pick("p1", x1, y1),
@@ -57,7 +57,7 @@ def test_different_seed_produces_different_output():
 def test_replay_json_is_reproducible(tmp_path: Path):
     """Simulate two runs and compare final scores/events written to JSON."""
     def collect_final(seed: int) -> dict:
-        s = EnergyStationsScenario(seed=seed, player_ids=["a", "b"])
+        s = ManaPoolsScenario(seed=seed, player_ids=["a", "b"])
         s.setup()
         turns_log = []
         for _ in range(20):

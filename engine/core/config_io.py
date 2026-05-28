@@ -210,7 +210,7 @@ def validate_scenario_field(
                 )
             )
         return value
-    if field in ("obstacle_count", "resource_count", "station_count"):
+    if field in ("obstacle_count", "resource_count", "pool_count"):
         if value < 0 or value > COUNT_MAX:
             raise SettingsValidationError(
                 translate(
@@ -235,11 +235,11 @@ SCENARIO_SETTINGS_FIELDS: dict[str, list[str]] = {
         "obstacle_count",
         "max_turns",
     ],
-    "energy_stations": [
+    "mana_pools": [
         "map_width",
         "map_height",
         "obstacle_count",
-        "station_count",
+        "pool_count",
         "max_turns",
     ],
 }

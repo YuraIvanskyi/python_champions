@@ -20,7 +20,7 @@ MOVE_DELTAS = {
 ORTHOGONAL_DELTAS = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 
 
-class EnergyStationsScenario(ScenarioBase):
+class ManaPoolsScenario(ScenarioBase):
     """Competitive PvP: gather mana from pools; push rivals away with ATTACK."""
 
     NEEDS_EXTERNAL_OPPONENT = False
@@ -40,7 +40,7 @@ class EnergyStationsScenario(ScenarioBase):
         sc = cfg["scenario"]
         self._map_width = int(sc["map_width"])
         self._map_height = int(sc["map_height"])
-        self._station_count = int(sc["station_count"])
+        self._pool_count = int(sc["pool_count"])
         self._obstacle_count = int(sc["obstacle_count"])
         self._max_turns = max_turns if max_turns is not None else int(sc["max_turns"])
         self._min_players = int(sc.get("min_players", 2))
@@ -53,7 +53,7 @@ class EnergyStationsScenario(ScenarioBase):
         self._attack_cost = int(pc["attack_cost"])
         self._gather_rate = int(pc["gather_rate"])
 
-        self._initial_capacity = int(cfg["station"]["initial_capacity"])
+        self._initial_capacity = int(cfg["pool"]["initial_capacity"])
 
         if player_ids is None:
             self._player_ids: list[str] = ["p1", "p2"]
@@ -73,7 +73,7 @@ class EnergyStationsScenario(ScenarioBase):
         self._positions: dict[str, tuple[int, int]] = {}
         self._energy: dict[str, int] = {}
         # (x, y) -> remaining_capacity
-        self._station_capacities: dict[tuple[int, int], int] = {}
+        self._pool_capacities: dict[tuple[int, int], int] = {}
         self._turn = 0
         self._finished = False
 
@@ -85,7 +85,7 @@ class EnergyStationsScenario(ScenarioBase):
 
     @staticmethod
     def _load_config() -> dict[str, Any]:
-        return load_scenario_toml("energy_stations")
+        return load_scenario_toml("mana_pools")
 
     @classmethod
     def player_limits(cls) -> tuple[int, int]:
@@ -102,10 +102,10 @@ class EnergyStationsScenario(ScenarioBase):
 
     def setup(self) -> None:
         self._map = Map(self._map_width, self._map_height)
-        self._station_capacities = {}
+        self._pool_capacities = {}
 
         self._place_obstacles(self._obstacle_count)
-        self._place_stations(self._station_count)
+        self._place_pools(self._pool_count)
         self._place_players()
 
         self._gathers = {pid: 0 for pid in self._player_ids}
@@ -128,7 +128,7 @@ class EnergyStationsScenario(ScenarioBase):
             self._map.set_tile(x, y, TileType.OBSTACLE)
             placed += 1
 
-    def _place_stations(self, count: int) -> None:
+    def _place_pools(self, count: int) -> None:
         assert self._map is not None
         placed = 0
         attempts = 0
@@ -138,8 +138,8 @@ class EnergyStationsScenario(ScenarioBase):
             y = self._rng.randint(1, self._map.height - 2)
             if self._map.get_tile(x, y) != TileType.EMPTY:
                 continue
-            self._map.set_tile(x, y, TileType.STATION)
-            self._station_capacities[(x, y)] = self._initial_capacity
+            self._map.set_tile(x, y, TileType.POOL)
+            self._pool_capacities[(x, y)] = self._initial_capacity
             placed += 1
 
     def _place_players(self) -> None:
@@ -162,7 +162,7 @@ class EnergyStationsScenario(ScenarioBase):
                     self._positions[pid] = (x, y)
                     break
             else:
-                # Fallback: find any empty non-station cell
+                # Fallback: find any empty non-pool cell
                 for ty in range(self._map.height):
                     for tx in range(self._map.width):
                         if (
@@ -205,9 +205,9 @@ class EnergyStationsScenario(ScenarioBase):
             events.extend(self._apply_player_action(pid, action))
 
         # Check win conditions
-        if not self._station_capacities:
+        if not self._pool_capacities:
             self._finished = True
-            events.append("all_stations_depleted")
+            events.append("all_pools_depleted")
 
         scores = self.calculate_score()
         return TurnResult(
@@ -226,36 +226,36 @@ class EnergyStationsScenario(ScenarioBase):
             dx, dy = MOVE_DELTAS[action]
             nx, ny = x + dx, y + dy
             if self._can_move_to(nx, ny, exclude_pid=pid):
-                # Deduct move cost (floor at 0)
-                self._energy[pid] = max(0, self._energy[pid] - self._move_cost)
                 self._positions[pid] = (nx, ny)
                 self._moves[pid] += 1
                 events.append(f"{pid}_moved")
             else:
                 events.append(f"{pid}_blocked")
+            # Attempting to move always costs energy (even when obstructed)
+            self._energy[pid] = max(0, self._energy[pid] - self._move_cost)
 
         elif action is Action.GATHER:
-            adjacent = self._adjacent_stations(x, y)
+            adjacent = self._adjacent_pools(x, y)
             if adjacent:
                 # Pick station with most remaining capacity (deterministic: sort by coord)
                 sx, sy = max(
                     adjacent,
-                    key=lambda pos: (self._station_capacities.get(pos, 0), pos),
+                    key=lambda pos: (self._pool_capacities.get(pos, 0), pos),
                 )
-                cap = self._station_capacities.get((sx, sy), 0)
+                cap = self._pool_capacities.get((sx, sy), 0)
                 if cap > 0:
                     gained = min(self._gather_rate, cap)
                     # Apply cap
                     gained = min(gained, self._max_energy - self._energy[pid])
                     self._energy[pid] = min(self._max_energy, self._energy[pid] + gained)
-                    self._station_capacities[(sx, sy)] -= gained
+                    self._pool_capacities[(sx, sy)] -= gained
                     self._gathers[pid] += 1
                     events.append(f"{pid}_gathered_{gained}")
                     # Deplete station if empty
-                    if self._station_capacities[(sx, sy)] <= 0:
-                        del self._station_capacities[(sx, sy)]
+                    if self._pool_capacities[(sx, sy)] <= 0:
+                        del self._pool_capacities[(sx, sy)]
                         self._map.set_tile(sx, sy, TileType.EMPTY)
-                        events.append(f"station_{sx}_{sy}_depleted")
+                        events.append(f"pool_{sx}_{sy}_depleted")
                 else:
                     events.append(f"{pid}_gather_failed_no_capacity")
             else:
@@ -311,14 +311,14 @@ class EnergyStationsScenario(ScenarioBase):
         if not self._map.in_bounds(x, y):
             return False
         tile = self._map.get_tile(x, y)
-        if tile is TileType.OBSTACLE or tile is TileType.STATION:
+        if tile is TileType.OBSTACLE or tile is TileType.POOL:
             return False
         for other_pid, (ox, oy) in self._positions.items():
             if other_pid != exclude_pid and ox == x and oy == y:
                 return False
         return True
 
-    def _adjacent_stations(self, x: int, y: int) -> list[tuple[int, int]]:
+    def _adjacent_pools(self, x: int, y: int) -> list[tuple[int, int]]:
         """Stations orthogonally adjacent to (x, y) with remaining capacity."""
         assert self._map is not None
         result = []
@@ -326,8 +326,8 @@ class EnergyStationsScenario(ScenarioBase):
             nx, ny = x + dx, y + dy
             if (
                 self._map.in_bounds(nx, ny)
-                and self._map.get_tile(nx, ny) is TileType.STATION
-                and self._station_capacities.get((nx, ny), 0) > 0
+                and self._map.get_tile(nx, ny) is TileType.POOL
+                and self._pool_capacities.get((nx, ny), 0) > 0
             ):
                 result.append((nx, ny))
         return result
@@ -374,13 +374,13 @@ class EnergyStationsScenario(ScenarioBase):
             for oid in self._player_ids
             if oid != player_id
         }
-        stations_list = [
+        pools_list = [
             {"x": sx, "y": sy, "capacity": cap}
-            for (sx, sy), cap in sorted(self._station_capacities.items())
+            for (sx, sy), cap in sorted(self._pool_capacities.items())
         ]
-        adj_stations = [
-            {"x": sx, "y": sy, "capacity": self._station_capacities[(sx, sy)]}
-            for sx, sy in self._adjacent_stations(x, y)
+        adj_pools = [
+            {"x": sx, "y": sy, "capacity": self._pool_capacities[(sx, sy)]}
+            for sx, sy in self._adjacent_pools(x, y)
         ]
         # opponent_position: nearest other player (or self if alone)
         others_list = [
@@ -405,11 +405,11 @@ class EnergyStationsScenario(ScenarioBase):
             "visible_tiles": visible_tiles,
             "others": others,
             "opponent_position": opp_pos,
-            # energy_stations extras
+            # mana_pools extras
             "my_energy": self._energy[player_id],
             "max_energy": self._max_energy,
-            "stations": stations_list,
-            "adjacent_stations": adj_stations,
+            "pools": pools_list,
+            "adjacent_pools": adj_pools,
         }
 
     # ── Render extras for UI ───────────────────────────────────────────────────
@@ -424,11 +424,11 @@ class EnergyStationsScenario(ScenarioBase):
                 }
                 for pid in self._player_ids
             },
-            "station_capacities": {
+            "pool_capacities": {
                 f"{sx},{sy}": cap
-                for (sx, sy), cap in self._station_capacities.items()
+                for (sx, sy), cap in self._pool_capacities.items()
             },
-            "station_max_capacity": self._initial_capacity,
+            "pool_max_capacity": self._initial_capacity,
         }
 
     # ── Extra metrics for analysis pipeline ───────────────────────────────────

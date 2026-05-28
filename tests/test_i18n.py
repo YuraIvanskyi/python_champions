@@ -38,8 +38,8 @@ def test_scenario_and_map_names() -> None:
     assert map_preset_name("resource_wars", 0, "uk") == "Поляна"
 
 
-def test_opponent_desc_energy_stations() -> None:
-    key = "menu.opponent_desc.energy_stations.greedy"
+def test_opponent_desc_mana_pools() -> None:
+    key = "menu.opponent_desc.mana_pools.greedy"
     assert translate(key, lang="en") != key
     assert translate(key, lang="uk") != key
 

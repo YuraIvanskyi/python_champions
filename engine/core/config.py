@@ -43,12 +43,12 @@ class AnalysisConfig(BaseModel):
 
 
 class AiConfig(BaseModel):
-    provider: str = "vllm"
-    base_url: str = "http://localhost:8000/v1"
-    model: str = "Qwen/Qwen2.5-1.5B-Instruct"
-    timeout_seconds: float = 20.0
-    max_tokens: int = 400
-    health_check_url: str = "http://localhost:8000/health"
+    provider: str = "ollama"
+    base_url: str = "http://localhost:11434/v1"
+    model: str = "qwen2.5:1.5b"
+    timeout_seconds: float = 60.0
+    max_tokens: int = 2048
+    health_check_url: str = "http://localhost:11434/api/tags"
 
 
 class GameConfig(BaseModel):

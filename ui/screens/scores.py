@@ -468,7 +468,7 @@ class ScoresScreen:
                 sub_text = _clip_text(
                     self.app.t(
                         "scores.stats_line",
-                        final=final_v,
+                        overall=final_v,
                         quality=code_q,
                         gameplay=gp_v,
                     )

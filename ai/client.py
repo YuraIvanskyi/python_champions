@@ -1,4 +1,4 @@
-"""Thin OpenAI-compatible HTTP client for vLLM with graceful fallback."""
+"""Thin OpenAI-compatible HTTP client for Ollama with graceful fallback."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
 
-from ai.health import is_vllm_reachable
+from ai.health import is_ollama_reachable
 
 if TYPE_CHECKING:
     from engine.core.config import AppConfig
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # Set OPENAI_API_KEY in environment if targeting a cloud-compatible endpoint.
-# By default vLLM does not require a key, so this is unused.
+# Ollama does not require a key locally, so this is unused by default.
 
 
 def complete(system: str, user: str, config: "AppConfig") -> str | None:
@@ -28,8 +28,8 @@ def complete(system: str, user: str, config: "AppConfig") -> str | None:
         return None
 
     ai_cfg = config.ai
-    if not is_vllm_reachable(ai_cfg.health_check_url):
-        log.warning("vLLM not reachable — skipping AI completion")
+    if not is_ollama_reachable(ai_cfg.health_check_url):
+        log.warning("Ollama not reachable — skipping AI completion")
         return None
 
     payload = {
@@ -54,15 +54,15 @@ def complete(system: str, user: str, config: "AppConfig") -> str | None:
             body = json.loads(resp.read().decode())
             choices = body.get("choices", [])
             if not choices:
-                log.warning("vLLM returned empty choices")
+                log.warning("Ollama returned empty choices")
                 return None
             return str(choices[0]["message"]["content"])
     except TimeoutError:
-        log.warning("vLLM request timed out after %.0fs", ai_cfg.timeout_seconds)
+        log.warning("Ollama request timed out after %.0fs", ai_cfg.timeout_seconds)
         return None
     except urllib.error.HTTPError as exc:
-        log.warning("vLLM HTTP error %s for %s", exc.code, endpoint)
+        log.warning("Ollama HTTP error %s for %s", exc.code, endpoint)
         return None
     except Exception as exc:  # noqa: BLE001
-        log.warning("vLLM request failed: %s", exc)
+        log.warning("Ollama request failed: %s", exc)
         return None

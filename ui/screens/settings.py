@@ -58,7 +58,7 @@ _FIELD_LABELS: dict[str, str] = {
     "map_height": "Height",
     "obstacle_count": "Obstacles",
     "resource_count": "Resources",
-    "station_count": "Stations",
+    "pool_count": "Pools",
     "max_turns": "Max turns",
 }
 

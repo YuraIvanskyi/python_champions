@@ -1,4 +1,4 @@
-"""Synchronous connectivity probe for vLLM / OpenAI-compatible servers."""
+"""Synchronous connectivity probe for Ollama / OpenAI-compatible servers."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ log = logging.getLogger(__name__)
 _cached_reachable: bool | None = None
 
 
-def is_vllm_reachable(
+def is_ollama_reachable(
     health_check_url: str,
     *,
     timeout: float = 3.0,
     use_cache: bool = True,
 ) -> bool:
-    """Return True if the vLLM health endpoint responds with HTTP 200.
+    """Return True if the Ollama health endpoint responds with HTTP 200.
 
     Results are cached for the session lifetime. Pass ``use_cache=False``
     (e.g. from the Retry button) to force a fresh probe.
@@ -62,8 +62,8 @@ def _probe(url: str, timeout: float) -> bool:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
             return resp.status == 200
     except urllib.error.HTTPError as exc:
-        log.debug("vLLM health check HTTP error %s: %s", exc.code, url)
+        log.debug("Ollama health check HTTP error %s: %s", exc.code, url)
         return False
     except Exception as exc:  # noqa: BLE001
-        log.debug("vLLM health check failed: %s", exc)
+        log.debug("Ollama health check failed: %s", exc)
         return False

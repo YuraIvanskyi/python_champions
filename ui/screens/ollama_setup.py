@@ -1,6 +1,6 @@
-"""vLLM setup component — embedded in the Coach screen's AI Summary tab.
+"""Ollama setup component — embedded in the Coach screen's AI Summary tab.
 
-Shown when enable_ai = true but the vLLM health probe returns False.
+Shown when enable_ai = true but the Ollama health probe returns False.
 Provides Retry and Use-Templates-Only buttons.
 """
 
@@ -24,7 +24,7 @@ _SETUP_COMMANDS = [
 ]
 
 
-class VllmSetupPanel:
+class OllamaSetupPanel:
     """Embedded panel drawn inside the Coach screen's AI Summary region.
 
     *on_retry* is called when the user presses "Retry Connection".
@@ -64,19 +64,19 @@ class VllmSetupPanel:
         label_font = body_font(15)
         cmd_font = code_font(14)
 
-        self._retry_btn.label = translate("vllm.retry", lang=lang)
-        self._templates_btn.label = translate("vllm.templates_only", lang=lang)
+        self._retry_btn.label = translate("ollama.retry", lang=lang)
+        self._templates_btn.label = translate("ollama.templates_only", lang=lang)
 
         title_surf = title_font.render(translate("coach.ai_tab", lang=lang), True, colors.GOLD_TEXT)
         surface.blit(title_surf, (x, y))
         y += title_surf.get_height() + 12
 
-        _blit_text(surface, label_font, translate("vllm.not_running", lang=lang), x, y, colors.TEXT_BODY)
+        _blit_text(surface, label_font, translate("ollama.not_running", lang=lang), x, y, colors.TEXT_BODY)
         y += label_font.get_height() + 4
         _blit_text(
             surface,
             label_font,
-            translate("vllm.enable_hint", lang=lang),
+            translate("ollama.enable_hint", lang=lang),
             x,
             y,
             colors.TEXT_MUTED,
@@ -101,16 +101,7 @@ class VllmSetupPanel:
         _blit_text(
             surface,
             label_font,
-            translate("vllm.config_hint", lang=lang),
-            x,
-            y,
-            colors.TEXT_MUTED,
-        )
-        y += label_font.get_height() + 4
-        _blit_text(
-            surface,
-            label_font,
-            translate("vllm.platform_hint", lang=lang),
+            translate("ollama.config_hint", lang=lang),
             x,
             y,
             colors.TEXT_MUTED,
@@ -146,7 +137,7 @@ class TemplateFeedbackPanel:
         item_font = body_font(14)
 
         header = label_font.render(
-            translate("vllm.template_offline", lang=lang), True, colors.PARCHMENT_TEXT,
+            translate("ollama.template_offline", lang=lang), True, colors.PARCHMENT_TEXT,
         )
         surface.blit(header, (x, y))
         y += header.get_height() + 12
@@ -156,7 +147,7 @@ class TemplateFeedbackPanel:
 
         if not feedback:
             none_surf = item_font.render(
-                translate("vllm.no_feedback", lang=lang), True, colors.PARCHMENT_TEXT,
+                translate("ollama.no_feedback", lang=lang), True, colors.PARCHMENT_TEXT,
             )
             surface.blit(none_surf, (x, y))
         else:
@@ -398,7 +389,7 @@ def _draw_sticky_header(
     y = header_rect.y + 6
     skin.draw_text_clipped(
         surface,
-        translate("vllm.wisdom", lang=lang),
+        translate("ollama.wisdom", lang=lang),
         pygame.Rect(text_x, y, text_w, heading_font.get_height() + 2),
         heading_font,
         colors.WOOD_FILL,
