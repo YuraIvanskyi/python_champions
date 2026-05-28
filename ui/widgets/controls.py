@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import pygame
 
+from ui.audio import play_ui_click
 from ui.render.icons import draw_menu_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -125,6 +126,7 @@ class Button(Widget):
                 return True
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if self._pressed and self.contains(event.pos) and self.on_click:
+                play_ui_click()
                 self.on_click()
             self._pressed = False
             return self._pressed or self.contains(event.pos)
@@ -242,6 +244,7 @@ class ListRow(Widget):
             return False
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.contains(event.pos):
             if self.on_click:
+                play_ui_click()
                 self.on_click()
             return True
         return False

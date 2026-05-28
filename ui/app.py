@@ -7,10 +7,11 @@ from pathlib import Path
 import pygame
 
 from engine.core.config import load_config
+from engine.core.player import Bot
 from engine.i18n import translate
 from engine.paths import default_results_dir
-from engine.core.player import Bot
 from ui import theme
+from ui.audio import BackgroundMusic
 from ui.screens.bot_guide import BotGuideScreen
 from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
@@ -26,6 +27,8 @@ class App:
         self.config = cfg
         theme.apply_config(cfg.ui)
         pygame.init()
+        self.music = BackgroundMusic()
+        self.music.start()
         pygame.display.set_caption("code-scenarios")
         self.screen = pygame.display.set_mode((theme.WINDOW_WIDTH, theme.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -44,6 +47,10 @@ class App:
         self._current = self.menu
         self._apply_locale_fonts()
 
+    def _set_screen(self, screen: object) -> None:
+        self._current = screen
+        self.music.sync(screen)
+
     def lang(self) -> str:
         return self.config.locale.language
 
@@ -56,22 +63,23 @@ class App:
         typography.apply_locale(self.config.locale.language)
 
     def goto_menu(self) -> None:
-        self._current = self.menu
+        self._set_screen(self.menu)
         self.menu.on_enter()
 
     def goto_bot_guide(self, scenario_id: str) -> None:
         self.bot_guide.open_scenario(scenario_id)
-        self._current = self.bot_guide
+        self._set_screen(self.bot_guide)
         self.bot_guide.on_enter()
 
     def goto_replay(self) -> None:
         self.replay.replay = None
-        self._current = self.replay
+        self._set_screen(self.replay)
         self.replay.on_enter()
 
     def open_replay(self, path: Path) -> None:
-        self._current = self.replay
+        self._set_screen(self.replay)
         self.replay.open_path(path)
+        self.music.sync(self.replay)
 
     def start_simulation(
         self,
@@ -90,20 +98,20 @@ class App:
             opponent_mode=opponent_mode,
             boss_difficulty=boss_difficulty,
         )
-        self._current = self.simulation
+        self._set_screen(self.simulation)
         self.simulation.on_enter()
 
     def goto_scores(self, *, final_scores: dict[str, int], session_dir: Path | None) -> None:
         self.scores.set_results(final_scores, session_dir)
-        self._current = self.scores
+        self._set_screen(self.scores)
 
     def goto_coach(self, session_dir: Path, *, player_id: str | None = None) -> None:
         self.coach.open_session(session_dir, player_id=player_id)
-        self._current = self.coach
+        self._set_screen(self.coach)
         self.coach.on_enter()
 
     def goto_settings(self) -> None:
-        self._current = self.settings
+        self._set_screen(self.settings)
         self.settings.on_enter()
 
     def quit(self) -> None:
@@ -111,6 +119,7 @@ class App:
 
     def run(self) -> None:
         self.menu.on_enter()
+        self.music.sync(self.menu)
         while self.running:
             dt_ms = self.clock.tick(60)
             for event in pygame.event.get():
@@ -130,6 +139,7 @@ class App:
                 results_dir=self.results_dir,
                 write_results=True,
             )
+        self.music.stop()
         pygame.quit()
 
 

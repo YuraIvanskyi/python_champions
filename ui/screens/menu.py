@@ -12,10 +12,9 @@ import pygame
 from engine.core.config import load_config
 from engine.core.loader import BotLoadError, load_bot, student_player_id_for_path
 from engine.core.opponents import OPPONENT_MODES, builtin_icon_path
-from engine.core.scenario_registry import create_scenario
-from engine.core.scenario_registry import list_scenarios
-from engine.core.scenario_registry import scenario_display_name
+from engine.core.scenario_registry import create_scenario, list_scenarios, scenario_display_name
 from engine.paths import resolve_bot_path, resource_path
+from ui.audio import play_ui_click
 from ui.render.icons import draw_menu_icon, load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -732,6 +731,7 @@ class MenuScreen:
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             for col in range(_TILE_TOTAL):
                 if _tile_rect(col, self._tiles_y).collidepoint(event.pos):
+                    play_ui_click()
                     if col == 0:
                         self._toggle_random()
                     else:

@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import pygame
 
+from ui.audio import play_ui_click
 from ui.render.icons import draw_menu_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -72,6 +73,7 @@ class RadioPicker(Widget):
             hit = self._hit_value(event.pos)
             if self._pressed_value is not None and hit == self._pressed_value:
                 self._selected = hit
+                play_ui_click()
                 self.on_change(self._selected)
             self._pressed_value = None
             return hit is not None
@@ -156,6 +158,7 @@ class LanguagePicker(Widget):
             hit = self._hit_value(event.pos)
             if self._pressed is not None and hit == self._pressed:
                 self._selected = hit
+                play_ui_click()
                 self.on_change(self._selected)
             self._pressed = None
             return hit is not None

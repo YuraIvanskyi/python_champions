@@ -10,6 +10,7 @@ from typing import Any
 
 import pygame
 
+from ui.audio import play_ui_click
 from ui.coach_data import (
     bot_path_for_player,
     coach_player_ids,
@@ -361,6 +362,7 @@ class CoachScreen:
                     card_h = quest_card_height(item, card_w)
                     card_rect = pygame.Rect(inner_q.x, y, card_w, card_h)
                     if card_rect.collidepoint(pos):
+                        play_ui_click()
                         self.selected_quest = index
                         lines = quests[index].get("lines", [])
                         if lines and isinstance(lines[0], int):

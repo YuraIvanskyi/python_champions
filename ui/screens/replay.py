@@ -269,6 +269,7 @@ class ReplayScreen:
             self._pick_mode = False
             self._effects.clear()
             self.app.replay_path = path
+            self.app.music.sync(self)
         except (OSError, ValueError, KeyError) as exc:
             self.error = self.app.t("replay.load_error", error=exc)
             self.replay = None
@@ -363,6 +364,7 @@ class ReplayScreen:
             self.replay = None
             self._pick_mode = True
             self.on_enter()
+            self.app.music.sync(self)
 
     def draw(self, surface: pygame.Surface) -> None:
         skin.draw_background(surface)
