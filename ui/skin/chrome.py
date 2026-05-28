@@ -406,29 +406,23 @@ def draw_primary_button(
             pygame.draw.rect(glow, (*colors.GOLD_TEXT, 35), glow.get_rect(), border_radius=radius)
             surface.blit(glow, rect.topleft)
 
-    # Text — centered, clipped
+    # Text — centered, clipped (respects parent scroll clip)
     shift_y = 1 if pressed else 0
     font = body_font(18)
     text_color = (140, 120, 50) if not enabled else colors.GOLD_TEXT
-    text_surf = font.render(label, True, text_color)
-    pad_x = 10
-    available_w = rect.width - pad_x * 2
-    # Truncate if necessary
-    display = label
-    while display and text_surf.get_width() > available_w:
-        display = display[:-1]
-        text_surf = font.render(display + "…", True, text_color)
-
-    old_clip = surface.get_clip()
-    surface.set_clip(rect.inflate(-2, -2))
-    surface.blit(
-        text_surf,
-        (
-            rect.x + (rect.width - text_surf.get_width()) // 2,
-            rect.y + (rect.height - text_surf.get_height()) // 2 + shift_y,
-        ),
+    text_rect = rect.copy()
+    if shift_y:
+        text_rect.y += shift_y
+    draw_text_clipped(
+        surface,
+        label,
+        text_rect,
+        font,
+        text_color,
+        align="center",
+        pad_x=10,
+        pad_y=4,
     )
-    surface.set_clip(old_clip)
 
 
 def draw_toolbar_strip(surface: pygame.Surface, *, y: int, height: int) -> None:

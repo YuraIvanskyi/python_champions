@@ -25,7 +25,9 @@ def test_identical_replay_for_same_seed(tmp_path: Path) -> None:
     subprocess.run(cmd_base, check=True, capture_output=True, cwd=Path.cwd())
     subprocess.run(cmd_base, check=True, capture_output=True, cwd=Path.cwd())
 
-    sessions = sorted(results.glob("session_*"))
+    from engine.core.replay import list_session_dirs
+
+    sessions = list_session_dirs(results)
     assert len(sessions) == 2
     replay_a = json.loads((sessions[0] / "replay.json").read_text(encoding="utf-8"))
     replay_b = json.loads((sessions[1] / "replay.json").read_text(encoding="utf-8"))

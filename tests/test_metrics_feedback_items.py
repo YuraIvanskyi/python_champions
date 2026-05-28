@@ -28,7 +28,9 @@ def test_run_writes_feedback_items(tmp_path: Path) -> None:
         str(results),
     ]
     subprocess.run(cmd, cwd=repo, check=True, capture_output=True, text=True)
-    sessions = sorted(results.glob("session_*"))
+    from engine.core.replay import list_session_dirs
+
+    sessions = list_session_dirs(results)
     assert sessions
     metrics = json.loads((sessions[0] / "metrics.json").read_text(encoding="utf-8"))
     assert "feedback_items" in metrics

@@ -103,7 +103,9 @@ def test_replay_session_from_cli_run(tmp_path: Path) -> None:
         str(results),
     ]
     subprocess.run(cmd, check=True, capture_output=True, cwd=Path.cwd())
-    replay_path = next(results.glob("session_*/replay.json"))
+    from engine.core.replay import list_session_dirs
+
+    replay_path = list_session_dirs(results)[0] / "replay.json"
     session = ReplaySession.from_path(replay_path)
     assert session.turn_count > 0
     session.seek(session.turn_count - 1)

@@ -32,7 +32,7 @@ def write_session(
     opponent_mode: str | None = None,
 ) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-    session_dir = results_dir / f"session_{timestamp}"
+    session_dir = results_dir / f"{scenario_id}_session_{timestamp}"
     session_dir.mkdir(parents=True, exist_ok=True)
 
     paths = [_posix_bot_path(p) for p in (bot_paths if bot_paths is not None else [bot_path])]

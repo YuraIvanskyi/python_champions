@@ -25,8 +25,11 @@ def test_replay_written_after_run(tmp_path: Path) -> None:
     completed = subprocess.run(cmd, capture_output=True, text=True, check=True, cwd=Path.cwd())
     assert completed.returncode == 0
 
-    sessions = list(results.glob("session_*"))
+    from engine.core.replay import list_session_dirs
+
+    sessions = list_session_dirs(results)
     assert len(sessions) == 1
+    assert sessions[0].name.startswith("resource_wars_session_")
     replay_path = sessions[0] / "replay.json"
     logs_path = sessions[0] / "logs.txt"
     assert replay_path.is_file()

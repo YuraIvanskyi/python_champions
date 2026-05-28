@@ -36,12 +36,13 @@ def _cmd_report(args: argparse.Namespace) -> int:
     if session_id:
         session_dir = results_dir / session_id
     else:
-        candidates = sorted(results_dir.glob("session_*"))
-        if not candidates:
+        from engine.core.replay import latest_session_dir
+
+        session_dir = latest_session_dir(results_dir)
+        if session_dir is None:
             config = load_config(Path(args.config) if args.config else None)
             print(translate("cli.no_sessions", lang=_lang(config)), file=sys.stderr)
             return 1
-        session_dir = candidates[-1]
 
     if not session_dir.is_dir():
         config = load_config(Path(args.config) if args.config else None)

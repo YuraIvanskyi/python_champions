@@ -87,7 +87,9 @@ def test_cli_runs_two_distinct_bots(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         str(out),
     ]
     subprocess.run(cmd, check=True, capture_output=True, cwd=root)
-    replay_path = next(out.glob("session_*/replay.json"))
+    from engine.core.replay import list_session_dirs
+
+    replay_path = list_session_dirs(out)[0] / "replay.json"
     data = json.loads(replay_path.read_text(encoding="utf-8"))
     assert len(data["bots"]) == 2
     assert len(data["player_ids"]) == 2

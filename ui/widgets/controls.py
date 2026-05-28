@@ -168,33 +168,59 @@ class Button(Widget):
             text_color = colors.GOLD_TEXT
 
         shift_y = 1 if self._pressed else 0
-        text_surf = font.render(self.label, True, text_color)
-
         has_text = bool(self.label)
         icon_gap = 6 if (self.icon and has_text) else 0
         icon_total = self._icon_size + icon_gap if self.icon else 0
-        avail_w = self.rect.width - BUTTON_PAD_X * 2 - icon_total
-        display = self.label
-        while display and text_surf.get_width() > avail_w:
-            display = display[:-1]
-            text_surf = font.render(display + "…", True, text_color)
-
-        content_w = text_surf.get_width() + icon_total
-        content_x = self.rect.x + (self.rect.width - content_w) // 2
-        text_y = self.rect.y + (self.rect.height - text_surf.get_height()) // 2 + shift_y
-
-        old_clip = surface.get_clip()
-        surface.set_clip(self.rect.inflate(-2, -2))
+        text_rect = self.rect.copy()
+        if shift_y:
+            text_rect.y += shift_y
 
         if self.icon:
             icon_color = text_color if isinstance(text_color, tuple) else colors.GOLD_TEXT
-            icon_rect = pygame.Rect(content_x, self.rect.y, self._icon_size, self.rect.height)
-            draw_menu_icon(surface, self.icon, icon_rect, icon_color)
-            surface.blit(text_surf, (content_x + icon_total, text_y))
-        else:
-            surface.blit(text_surf, (content_x, text_y))
-
-        surface.set_clip(old_clip)
+            if has_text:
+                avail_w = self.rect.width - BUTTON_PAD_X * 2 - icon_total
+                display = self.label
+                text_surf = font.render(display, True, text_color)
+                while display and text_surf.get_width() > avail_w:
+                    display = display[:-1]
+                    text_surf = font.render(display + "…", True, text_color)
+                content_w = text_surf.get_width() + icon_total
+                content_x = self.rect.x + (self.rect.width - content_w) // 2
+                icon_rect = pygame.Rect(
+                    content_x, self.rect.y, self._icon_size, self.rect.height,
+                )
+                draw_menu_icon(surface, self.icon, icon_rect, icon_color)
+                label_rect = pygame.Rect(
+                    content_x + icon_total,
+                    text_rect.y,
+                    text_surf.get_width(),
+                    text_rect.height,
+                )
+                skin.draw_text_clipped(
+                    surface,
+                    display,
+                    label_rect,
+                    font,
+                    text_color,
+                    align="left",
+                    pad_y=BUTTON_PAD_Y,
+                )
+            else:
+                ix = self.rect.x + (self.rect.width - self._icon_size) // 2
+                iy = self.rect.y + (self.rect.height - self._icon_size) // 2
+                icon_rect = pygame.Rect(ix, iy, self._icon_size, self._icon_size)
+                draw_menu_icon(surface, self.icon, icon_rect, icon_color)
+        elif has_text:
+            skin.draw_text_clipped(
+                surface,
+                self.label,
+                text_rect,
+                font,
+                text_color,
+                align="center",
+                pad_x=BUTTON_PAD_X,
+                pad_y=BUTTON_PAD_Y,
+            )
 
 
 class ListRow(Widget):

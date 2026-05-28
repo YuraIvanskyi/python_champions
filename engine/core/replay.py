@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -50,11 +51,70 @@ def players_from_replay(replay: dict[str, Any]) -> dict[str, Player]:
     }
 
 
+def is_session_dir(path: Path) -> bool:
+    """True when *path* is a results folder containing replay.json."""
+    return path.is_dir() and (path / "replay.json").is_file()
+
+
 def list_session_dirs(results_dir: Path) -> list[Path]:
     if not results_dir.is_dir():
         return []
-    sessions = [p for p in results_dir.iterdir() if p.is_dir() and p.name.startswith("session_")]
+    sessions = [p for p in results_dir.iterdir() if is_session_dir(p)]
     return sorted(sessions, key=lambda p: p.name, reverse=True)
+
+
+def latest_session_dir(results_dir: Path) -> Path | None:
+    """Newest session directory under *results_dir*, or None."""
+    dirs = list_session_dirs(results_dir)
+    return dirs[0] if dirs else None
+
+
+def session_scenario_id(session_dir: Path) -> str:
+    """Scenario id for a session (from replay.json or folder name)."""
+    replay_path = session_dir / "replay.json"
+    if replay_path.is_file():
+        try:
+            data = json.loads(replay_path.read_text(encoding="utf-8"))
+            scenario = data.get("scenario")
+            if scenario:
+                return str(scenario)
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    name = session_dir.name
+    if "_session_" in name:
+        return name.split("_session_", 1)[0]
+    return ""
+
+
+def session_list_label(session_dir: Path, lang: str = "en") -> str:
+    """Short picker label: localized scenario title + timestamp suffix."""
+    from engine.core.scenario_registry import scenario_display_name
+
+    scenario_id = session_scenario_id(session_dir)
+    prefix = scenario_display_name(scenario_id, lang) if scenario_id else "?"
+    folder = session_dir.name
+    if "_session_" in folder:
+        ts = folder.split("_session_", 1)[1]
+    elif folder.startswith("session_"):
+        ts = folder[len("session_") :]
+    else:
+        ts = folder
+    return f"{prefix} · {ts}"
+
+
+def delete_session_dir(session_dir: Path) -> None:
+    """Remove a session folder and all artifacts inside it."""
+    if session_dir.is_dir():
+        shutil.rmtree(session_dir)
+
+
+def delete_all_sessions(results_dir: Path) -> int:
+    """Delete every session under *results_dir*. Returns count removed."""
+    removed = 0
+    for path in list_session_dirs(results_dir):
+        delete_session_dir(path)
+        removed += 1
+    return removed
 
 
 class ReplaySession:

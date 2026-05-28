@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pygame
 
-from engine.core.replay import ReplaySession, list_session_dirs, load_replay
+from engine.core.replay import (
+    ReplaySession,
+    delete_all_sessions,
+    delete_session_dir,
+    list_session_dirs,
+    load_replay,
+    session_list_label,
+)
 from engine.core.scenario_registry import scenario_display_name
 from ui.render.action_effects import ActionEffectManager
 from ui.render.hud import draw_centered_text, draw_hud, draw_toolbar_strip
@@ -28,8 +35,21 @@ from ui.theme import (
     toolbar_top,
 )
 from ui.widgets import Button, ListRow, WidgetGroup
+from ui.widgets.scroll import ScrollState
 
 _MAX_LINE_LEN = 200
+
+_ROW_H = 34
+_ROW_GAP = 4
+_DELETE_BTN_W = 36
+_ROW_INNER_GAP = 4
+_PANEL_TOP = 88
+_SCROLLBAR_W = 8
+_SCROLLBAR_PAD = 4
+_ACTION_BTN_H = 40
+_ACTION_BTN_GAP = 12
+_DELETE_ALL_W = 120
+_PANEL_TITLE_PT = 15
 
 
 class ReplayScreen:
@@ -41,7 +61,14 @@ class ReplayScreen:
         self.error = ""
         self._pick_mode = True
         self._session_rows: list[ListRow] = []
-        self._picker_widgets = WidgetGroup()
+        self._delete_buttons: list[Button] = []
+        self._picker_scroll = ScrollState()
+        self._picker_viewport = pygame.Rect(0, 0, 1, 1)
+        self._picker_panel = pygame.Rect(0, 0, 1, 1)
+        self._picker_list_area = pygame.Rect(0, 0, 1, 1)
+        self._load_btn = Button(pygame.Rect(0, 0, 130, _ACTION_BTN_H), "Load")
+        self._picker_back_btn = Button(pygame.Rect(0, 0, 110, _ACTION_BTN_H), "Back")
+        self._delete_all_btn = Button(pygame.Rect(0, 0, 120, _ACTION_BTN_H), "Delete All")
         self._transport = WidgetGroup()
         self._effects = ActionEffectManager()
         self._build_transport()
@@ -100,36 +127,128 @@ class ReplayScreen:
             self._rebuild_picker()
 
     def _rebuild_picker(self) -> None:
-        self._picker_widgets = WidgetGroup()
+        self._picker_scroll.offset = 0
         self._session_rows = []
-        # Inside the titled panel: content starts at panel_y(88) + header_overhead(45)
-        y = 88 + 45
-        row_w = content_width() - 24  # inner width (panel has 12px pad each side)
-        ix = MARGIN_X + 12            # inner left edge
-        for index, session in enumerate(self.sessions[:12]):
+        self._delete_buttons = []
+        lang = self.app.lang()
+
+        for index, session in enumerate(self.sessions):
+            label = session_list_label(session, lang)
             row = ListRow(
-                pygame.Rect(ix, y, row_w, 30),
-                session.name,
+                pygame.Rect(0, 0, 10, _ROW_H),
+                label,
                 selected=index == self.selected,
                 on_click=lambda i=index: self._select_session(i),
             )
+            delete_btn = Button(
+                pygame.Rect(0, 0, _DELETE_BTN_W, _ROW_H),
+                self.app.t("replay.delete_short"),
+                on_click=lambda i=index: self._delete_session(i),
+                font_size=16,
+            )
+            delete_btn.hint = self.app.t("replay.delete")
             self._session_rows.append(row)
-            self._picker_widgets.add(row)
-            y += 34
+            self._delete_buttons.append(delete_btn)
 
-        load_btn = Button(
-            pygame.Rect(ix, y + 8, 130, 40),
-            self.app.t("replay.load"),
-            on_click=self._load_selected,
-            primary=True,
+        self._load_btn.label = self.app.t("replay.load")
+        self._load_btn.on_click = self._load_selected
+        self._load_btn.primary = True
+        self._picker_back_btn.label = self.app.t("replay.back")
+        self._picker_back_btn.on_click = lambda: self.app.goto_menu()
+        self._delete_all_btn.label = self.app.t("replay.delete_all")
+        self._delete_all_btn.on_click = self._delete_all_sessions
+        self._delete_all_btn.enabled = bool(self.sessions)
+
+        self._picker_list_widgets = WidgetGroup(
+            self._session_rows + self._delete_buttons,
         )
-        back_btn = Button(
-            pygame.Rect(ix + 146, y + 8, 110, 40),
-            self.app.t("replay.back"),
-            on_click=lambda: self.app.goto_menu(),
+        self._picker_action_widgets = WidgetGroup(
+            [self._load_btn, self._picker_back_btn, self._delete_all_btn],
         )
-        self._picker_widgets.add(load_btn)
-        self._picker_widgets.add(back_btn)
+
+    def _layout_picker_panel(self, surface: pygame.Surface) -> None:
+        """Compute panel and scrollable list geometry (matches draw_panel_titled)."""
+        sh = surface.get_height()
+        cw = content_width(surface.get_width())
+        foot_h = body_font(FOOTER_PT).get_height() + 16
+        btn_row_bottom = sh - foot_h - 8
+        panel_bottom = btn_row_bottom - _ACTION_BTN_H - 18
+        panel_h = max(160, panel_bottom - _PANEL_TOP)
+        self._picker_panel = pygame.Rect(MARGIN_X, _PANEL_TOP, cw, panel_h)
+
+        inset = 3
+        div_y = self._picker_panel.y + inset + _PANEL_TITLE_PT + 14 + 1
+        content_top = div_y + 4 + skin.PANEL_PAD_Y
+        list_w = (
+            self._picker_panel.width
+            - skin.PANEL_PAD_X * 2
+            - _SCROLLBAR_W
+            - _SCROLLBAR_PAD
+        )
+        list_h = self._picker_panel.bottom - content_top - skin.PANEL_PAD_Y
+        self._picker_list_area = pygame.Rect(
+            self._picker_panel.x + skin.PANEL_PAD_X,
+            content_top,
+            max(1, list_w),
+            max(1, list_h),
+        )
+
+    def _apply_picker_scroll_layout(self) -> None:
+        area = self._picker_list_area
+        row_w = max(40, area.width - _DELETE_BTN_W - _ROW_INNER_GAP)
+        delete_x = area.right - _DELETE_BTN_W
+        y = area.y - self._picker_scroll.offset
+
+        for row, delete_btn in zip(self._session_rows, self._delete_buttons, strict=True):
+            row.rect = pygame.Rect(area.x, y, row_w, _ROW_H)
+            delete_btn.rect = pygame.Rect(delete_x, y, _DELETE_BTN_W, _ROW_H)
+            y += _ROW_H + _ROW_GAP
+
+        self._picker_scroll.set_content(
+            max(0, len(self._session_rows) * (_ROW_H + _ROW_GAP) - _ROW_GAP),
+            area.height,
+        )
+        self._picker_viewport = area
+
+        btn_y = self._picker_panel.bottom + 10
+        ix = self._picker_panel.x + skin.PANEL_PAD_X
+        self._load_btn.rect = pygame.Rect(ix, btn_y, 130, _ACTION_BTN_H)
+        self._picker_back_btn.rect = pygame.Rect(
+            ix + 130 + _ACTION_BTN_GAP, btn_y, 110, _ACTION_BTN_H,
+        )
+        self._delete_all_btn.rect = pygame.Rect(
+            self._picker_panel.right - skin.PANEL_PAD_X - _DELETE_ALL_W,
+            btn_y,
+            _DELETE_ALL_W,
+            _ACTION_BTN_H,
+        )
+
+    def _refresh_sessions(self) -> None:
+        self.sessions = list_session_dirs(self.app.results_dir)
+        if self.sessions:
+            self.selected = min(self.selected, len(self.sessions) - 1)
+        else:
+            self.selected = 0
+        self._rebuild_picker()
+
+    def _delete_session(self, index: int) -> None:
+        if index < 0 or index >= len(self.sessions):
+            return
+        target = self.sessions[index]
+        replay_path = target / "replay.json"
+        if getattr(self.app, "replay_path", None) == replay_path:
+            self.app.replay_path = None
+            self.replay = None
+        delete_session_dir(target)
+        self._refresh_sessions()
+
+    def _delete_all_sessions(self) -> None:
+        if not self.sessions:
+            return
+        self.app.replay_path = None
+        self.replay = None
+        delete_all_sessions(self.app.results_dir)
+        self._refresh_sessions()
 
     def _select_session(self, index: int) -> None:
         self.selected = index
@@ -189,15 +308,34 @@ class ReplayScreen:
     def update(self, dt_ms: int) -> None:
         self._effects.update(dt_ms)
 
+    def _picker_list_accepts_pointer(self, pos: tuple[int, int]) -> bool:
+        return self._picker_list_area.collidepoint(pos)
+
     def handle_event(self, event: pygame.event.Event) -> None:
         if self._pick_mode:
-            if self._picker_widgets.handle_event(event):
+            self._layout_picker_panel(self.app.screen)
+            self._apply_picker_scroll_layout()
+            if self._picker_action_widgets.handle_event(event):
+                return
+            if self._picker_scroll.handle_wheel(event, rect=self._picker_viewport):
+                return
+            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+                if not self._picker_list_accepts_pointer(event.pos):
+                    if event.type == pygame.MOUSEMOTION:
+                        for w in self._session_rows + self._delete_buttons:
+                            w.hovered = False
+                    return
+            if self._picker_list_widgets.handle_event(event):
                 return
             if event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_UP, pygame.K_w) and self.sessions:
                     self._select_session((self.selected - 1) % len(self.sessions))
                 elif event.key in (pygame.K_DOWN, pygame.K_s) and self.sessions:
                     self._select_session((self.selected + 1) % len(self.sessions))
+                elif event.key == pygame.K_PAGEUP:
+                    self._picker_scroll.scroll(-80)
+                elif event.key == pygame.K_PAGEDOWN:
+                    self._picker_scroll.scroll(80)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._load_selected()
                 elif event.key == pygame.K_ESCAPE:
@@ -316,7 +454,8 @@ class ReplayScreen:
 
     def _draw_picker(self, surface: pygame.Surface) -> None:
         sw = surface.get_width()
-        cw = content_width()
+        sh = surface.get_height()
+        cw = content_width(sw)
 
         skin.draw_banner_title(
             surface,
@@ -326,10 +465,16 @@ class ReplayScreen:
             max_width=cw,
         )
 
-        # Sessions panel with titled header
-        panel_h = max(200, min(len(self.sessions[:12]) * 36 + 80, 540))
-        panel = pygame.Rect(MARGIN_X, 88, cw, panel_h)
-        skin.draw_panel_titled(surface, panel, self.app.t("replay.saved"), style="stone")
+        self._layout_picker_panel(surface)
+        skin.draw_panel_titled(
+            surface,
+            self._picker_panel,
+            self.app.t("replay.saved"),
+            style="stone",
+            title_pt=_PANEL_TITLE_PT,
+        )
+        self._apply_picker_scroll_layout()
+        area = self._picker_list_area
 
         if not self.sessions:
             draw_centered_text(
@@ -338,23 +483,51 @@ class ReplayScreen:
                     self.app.t("replay.empty_dir"),
                     self.app.t("replay.empty_hint"),
                 ],
-                y_start=panel.y + 60,
+                y_start=self._picker_panel.y + 60,
                 color=colors.TEXT_MUTED,
                 size=16,
             )
         else:
-            self._picker_widgets.draw(surface)
+            old_clip = surface.get_clip()
+            surface.set_clip(area)
+            for row, delete_btn in zip(
+                self._session_rows, self._delete_buttons, strict=True,
+            ):
+                row.draw(surface)
+                delete_btn.draw(surface)
+            surface.set_clip(old_clip)
+
+            if self._picker_scroll.max_offset > 0:
+                track = pygame.Rect(
+                    area.right + _SCROLLBAR_PAD,
+                    area.y,
+                    _SCROLLBAR_W,
+                    area.height,
+                )
+                skin.draw_scrollbar(
+                    surface,
+                    track,
+                    content_height=self._picker_scroll.content_height,
+                    viewport_height=self._picker_scroll.viewport_height,
+                    offset=self._picker_scroll.offset,
+                )
+
+        self._load_btn.draw(surface)
+        self._picker_back_btn.draw(surface)
+        self._delete_all_btn.draw(surface)
 
         foot_font = body_font(FOOTER_PT)
         foot_surf = foot_font.render(
             self.app.t("replay.hint"), True, colors.TEXT_MUTED
         )
-        foot_y = surface.get_height() - foot_surf.get_height() - 8
-        old_clip = surface.get_clip()
-        surface.set_clip(pygame.Rect(MARGIN_X, foot_y, cw, FOOTER_PT + 8))
+        foot_y = sh - foot_surf.get_height() - 8
         surface.blit(foot_surf, (MARGIN_X, foot_y))
-        surface.set_clip(old_clip)
 
         if self.error:
-            draw_centered_text(surface, [self.error], y_start=panel.bottom + 16,
-                               color=colors.RED_FAIL, size=16)
+            draw_centered_text(
+                surface,
+                [self.error],
+                y_start=self._picker_panel.bottom + 56,
+                color=colors.RED_FAIL,
+                size=16,
+            )
