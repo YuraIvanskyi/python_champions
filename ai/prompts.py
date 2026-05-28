@@ -1,28 +1,24 @@
-"""Prompt templates for Phase 4 AI feedback.
-
-Guard rails (PLAN.md §7, §23.3):
-- System prompt forbids full solutions and code rewrites.
-- User prompt contains only metrics / scores / feedback templates — never raw
-  engine internals, class internals, or the full student source.
-"""
+"""Prompt templates for Phase 4 AI feedback."""
 
 from __future__ import annotations
 
-SYSTEM_PROMPT = """\
-You are an educational code analysis assistant for a student programming game.
+from engine.i18n import normalize_lang, translate
 
-Rules you must follow:
-1. Do NOT generate full solutions or rewrite the student's code.
-2. You MAY include a tiny code example (1–2 lines maximum) inside a fenced code block \
-(``` … ```) when it concretely illustrates a specific improvement — for example showing \
-the corrected form of a single bad expression. Keep the block self-contained.
-3. Keep your student summary to at most 5 sentences.
-4. Keep your teacher notes to at most 3 bullet points.
-5. Be encouraging and constructive; avoid harsh language.
-6. Base your analysis only on the metrics and feedback provided — including movement \
-patterns — do not invent issues.
-7. When describing the bot's strategy, refer to the action distribution and movement data provided.
-"""
+# Backward-compatible alias for tests that import SYSTEM_PROMPT
+SYSTEM_PROMPT = ""  # filled on first access via system_prompt("en")
+
+
+def system_prompt(language: str = "en") -> str:
+    """System prompt with guard rails (always English; LLM output not locale-forced)."""
+    _ = normalize_lang(language)
+    return translate("ai.system", lang="en")
+
+
+def _legacy_system_prompt() -> str:
+    global SYSTEM_PROMPT
+    if not SYSTEM_PROMPT:
+        SYSTEM_PROMPT = system_prompt("en")
+    return SYSTEM_PROMPT
 
 
 def build_user_prompt(
@@ -47,28 +43,51 @@ def build_user_prompt(
     function_line_count: int,
     movement: dict | None = None,
     static_movement: dict | None = None,
+    language: str = "en",
 ) -> str:
-    """Build the user prompt from session metrics only (no engine internals)."""
+    """Build the user prompt from session metrics only (no engine internals).
+
+    Prompt text is always English so the model is not instructed to translate its reply.
+    *feedback_items* may still reflect the session locale from static/runtime analysis.
+    """
+    _ = normalize_lang(language)
+    lang = "en"
     lines: list[str] = [
-        f"Scenario: {scenario_name}",
-        f"Turns played: {turn_count}  |  Resources gathered: {resources_gathered}"
-        f"  |  Score threshold (win): {score_threshold}",
-        f"Scores — gameplay: {gameplay_score}/100, code quality: {code_quality_score}/100,"
-        f" final (weighted 70/30): {final_score}",
+        translate("ai.prompt.scenario", lang=lang, name=scenario_name),
+        translate(
+            "ai.prompt.turns",
+            lang=lang,
+            turns=turn_count,
+            resources=resources_gathered,
+            threshold=score_threshold,
+        ),
+        translate(
+            "ai.prompt.scores",
+            lang=lang,
+            gameplay=gameplay_score,
+            quality=code_quality_score,
+            final=final_score,
+        ),
         "",
     ]
 
-    # ── Game flow & algorithm ─────────────────────────────────────────────────
     if action_distribution:
         total_actions = sum(action_distribution.values())
-        lines.append("Bot action breakdown (what it did each turn):")
+        lines.append(translate("ai.prompt.action_breakdown", lang=lang))
         for action, count in sorted(action_distribution.items(), key=lambda kv: -kv[1]):
             pct = round(100 * count / total_actions) if total_actions else 0
-            lines.append(f"  - {action}: {count} turns ({pct}%)")
+            lines.append(
+                translate(
+                    "ai.prompt.action_line",
+                    lang=lang,
+                    action=action,
+                    count=count,
+                    pct=pct,
+                )
+            )
         lines.append("")
 
     if score_trajectory:
-        # Summarise when scoring happened: first gather turn, score by mid-game
         turns_with_score = [(t, s) for t, s in score_trajectory if s > 0]
         if turns_with_score:
             first_score_turn, _ = turns_with_score[0]
@@ -76,86 +95,111 @@ def build_user_prompt(
             mid_score = next((s for t, s in score_trajectory if t >= mid), 0)
             final_game_score = score_trajectory[-1][1] if score_trajectory else 0
             lines.append(
-                f"Score progression: first resource gathered on turn {first_score_turn}; "
-                f"score at mid-game (turn {mid}): {mid_score}; "
-                f"final game score: {final_game_score}"
+                translate(
+                    "ai.prompt.score_progress",
+                    lang=lang,
+                    first=first_score_turn,
+                    mid=mid,
+                    mid_score=mid_score,
+                    final_score=final_game_score,
+                )
             )
             lines.append("")
 
     if avg_turn_ms or timeout_count or crash_count or invalid_action_count:
         lines.append(
-            f"Runtime: avg turn {avg_turn_ms:.1f} ms  |  timeouts: {timeout_count}"
-            f"  |  crashes: {crash_count}  |  invalid actions: {invalid_action_count}"
+            translate(
+                "ai.prompt.runtime",
+                lang=lang,
+                avg=avg_turn_ms,
+                timeouts=timeout_count,
+                crashes=crash_count,
+                invalid=invalid_action_count,
+            )
         )
         lines.append("")
 
-    # ── Movement / pathfinding analysis ──────────────────────────────────────
     _movement = movement or {}
     _static_mv = static_movement or {}
     if _movement.get("analyzed"):
         blocked_pct = int(float(_movement.get("blocked_move_ratio", 0)) * 100)
-        wait_pct    = int(float(_movement.get("wait_ratio", 0)) * 100)
-        stuck       = int(_movement.get("stuck_episodes", 0))
-        osc         = int(_movement.get("oscillation_episodes", 0))
-        repeat      = int(_movement.get("max_consecutive_same_action", 0))
-        stall       = int(_movement.get("score_stall_turns", 0))
-        unique_pct  = int(float(_movement.get("unique_positions_ratio", 0)) * 100)
+        wait_pct = int(float(_movement.get("wait_ratio", 0)) * 100)
+        stuck = int(_movement.get("stuck_episodes", 0))
+        osc = int(_movement.get("oscillation_episodes", 0))
+        repeat = int(_movement.get("max_consecutive_same_action", 0))
+        stall = int(_movement.get("score_stall_turns", 0))
+        unique_pct = int(float(_movement.get("unique_positions_ratio", 0)) * 100)
         worst_range: list[int] = _movement.get("worst_stuck_turn_range") or []
 
-        lines.append("Movement / pathfinding analysis:")
-        lines.append(f"  - Blocked move ratio: {blocked_pct}%  |  Wait ratio: {wait_pct}%")
-        lines.append(f"  - Stuck episodes: {stuck}" + (
-            f" (worst: turns {worst_range[0]}–{worst_range[1]})" if len(worst_range) == 2 else ""
-        ))
-        lines.append(f"  - Oscillation (ping-pong) episodes: {osc}")
-        lines.append(f"  - Max consecutive same action: {repeat} turns")
-        lines.append(f"  - Score stall while moving: {stall} turns")
-        lines.append(f"  - Unique positions visited: {unique_pct}% of turns")
+        lines.append(translate("ai.prompt.movement_header", lang=lang))
+        lines.append(
+            translate(
+                "ai.prompt.movement_blocked",
+                lang=lang,
+                blocked=blocked_pct,
+                wait=wait_pct,
+            )
+        )
+        range_suffix = ""
+        if len(worst_range) == 2:
+            range_suffix = translate(
+                "ai.prompt.movement_stuck_range",
+                lang=lang,
+                start=worst_range[0],
+                end=worst_range[1],
+            )
+        lines.append(
+            translate("ai.prompt.movement_stuck", lang=lang, stuck=stuck, range=range_suffix)
+        )
+        lines.append(translate("ai.prompt.movement_osc", lang=lang, osc=osc))
+        lines.append(translate("ai.prompt.movement_repeat", lang=lang, repeat=repeat))
+        lines.append(translate("ai.prompt.movement_stall", lang=lang, stall=stall))
+        lines.append(translate("ai.prompt.movement_unique", lang=lang, unique=unique_pct))
 
         code_flags: list[str] = []
         if _static_mv.get("no_walkable_check"):
-            code_flags.append("no is_walkable() call")
+            code_flags.append(translate("ai.flag.no_walkable", lang=lang))
         if _static_mv.get("constant_action_return"):
-            code_flags.append("constant return (no branching)")
+            code_flags.append(translate("ai.flag.constant_return", lang=lang))
         if _static_mv.get("no_target_logic"):
-            code_flags.append("no goal-seeking helpers used")
+            code_flags.append(translate("ai.flag.no_target", lang=lang))
         if _static_mv.get("missing_fallback"):
-            code_flags.append("no WAIT/fallback in movement helper")
+            code_flags.append(translate("ai.flag.no_fallback", lang=lang))
         if code_flags:
-            lines.append(f"  - Code pattern flags: {', '.join(code_flags)}")
+            lines.append(
+                translate("ai.prompt.code_flags", lang=lang, flags=", ".join(code_flags))
+            )
         lines.append("")
 
-    # ── Code structure ────────────────────────────────────────────────────────
     lines.append(
-        f"Code structure: make_turn complexity rank {complexity_rank}"
-        f"  |  max nesting depth: {max_nesting_depth}"
-        f"  |  function length: {function_line_count} lines"
+        translate(
+            "ai.prompt.code_structure",
+            lang=lang,
+            rank=complexity_rank,
+            depth=max_nesting_depth,
+            lines=function_line_count,
+        )
     )
     lines.append("")
 
-    # ── Static / runtime feedback ─────────────────────────────────────────────
-    lines.append("Feedback from static / runtime analysis:")
+    lines.append(translate("ai.prompt.feedback_header", lang=lang))
     if feedback_items:
         for item in feedback_items:
-            lines.append(f"  - {item}")
+            lines.append(translate("ai.prompt.feedback_item", lang=lang, item=item))
     else:
-        lines.append("  (no issues detected)")
+        lines.append(translate("ai.prompt.no_issues", lang=lang))
 
     if top_ruff_violations:
         lines.append("")
-        lines.append("Top style / lint issues (Ruff rule ID → occurrences):")
+        lines.append(translate("ai.prompt.ruff_header", lang=lang))
         for rule_id, count in top_ruff_violations:
-            lines.append(f"  - {rule_id}: {count}")
+            lines.append(translate("ai.prompt.ruff_line", lang=lang, rule=rule_id, count=count))
 
     lines.append("")
-    lines.append(
-        "Please write:\n"
-        "### Student Summary\n"
-        "A short, friendly explanation referencing what actions the bot took most often "
-        "and how that affected its score. Mention one concrete thing to improve.\n\n"
-        "### Teacher Notes\n"
-        "3 bullet points for the teacher covering: algorithm strategy, code quality "
-        "observations, and one actionable next challenge for the student."
-    )
+    lines.append(translate("ai.prompt.write_instruction", lang=lang))
 
     return "\n".join(lines)
+
+
+# Populate legacy module attribute for imports expecting SYSTEM_PROMPT at load time
+SYSTEM_PROMPT = system_prompt("en")

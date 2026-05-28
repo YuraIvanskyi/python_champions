@@ -48,9 +48,25 @@ def load_metrics_block(metrics: dict[str, Any], player_id: str) -> dict[str, Any
         players = metrics["players"]
         if player_id in players:
             return players[player_id]
-        if players:
-            return next(iter(players.values()))
-    return metrics
+        return {}
+    block_pid = metrics.get("gameplay", {}).get("player_id", "student")
+    if player_id == block_pid:
+        return metrics
+    return {}
+
+
+def coach_player_ids(
+    metrics: dict[str, Any] | None,
+    replay: dict[str, Any] | None,
+) -> list[str]:
+    """Player tabs for Code Coach: students with analysis, not built-in AI opponents."""
+    analyzed = [pid for pid, _ in list_player_metrics(metrics or {})]
+    replay_ids = player_ids_from_replay(replay) if replay else []
+    if analyzed:
+        if replay_ids:
+            return [pid for pid in replay_ids if pid in analyzed]
+        return analyzed
+    return replay_ids or ["student"]
 
 
 def list_player_metrics(metrics: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -60,10 +76,12 @@ def list_player_metrics(metrics: dict[str, Any]) -> list[tuple[str, dict[str, An
     return [(pid, metrics)]
 
 
-def read_bot_source(path: Path | None) -> list[str]:
+def read_bot_source(path: Path | None, *, lang: str = "en") -> list[str]:
+    from engine.i18n import translate
+
     if path is None or not path.is_file():
-        return ["# Bot source file not found"]
+        return [translate("coach.bot_source_missing", lang=lang)]
     try:
         return path.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return ["# Could not read bot file"]
+        return [translate("coach.bot_source_read_error", lang=lang)]

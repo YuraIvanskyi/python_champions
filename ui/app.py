@@ -7,6 +7,7 @@ from pathlib import Path
 import pygame
 
 from engine.core.config import load_config
+from engine.i18n import translate
 from engine.paths import default_results_dir
 from engine.core.player import Bot
 from ui import theme
@@ -41,6 +42,18 @@ class App:
         self.coach = CoachScreen(self)
         self.settings = SettingsScreen(self)
         self._current = self.menu
+        self._apply_locale_fonts()
+
+    def lang(self) -> str:
+        return self.config.locale.language
+
+    def t(self, key: str, **kwargs: object) -> str:
+        return translate(key, lang=self.lang(), **kwargs)
+
+    def _apply_locale_fonts(self) -> None:
+        from ui.skin import typography
+
+        typography.apply_locale(self.config.locale.language)
 
     def goto_menu(self) -> None:
         self._current = self.menu

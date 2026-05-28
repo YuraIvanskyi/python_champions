@@ -62,7 +62,7 @@ class LocaleConfig(BaseModel):
 class UIThemeConfig(BaseModel):
     asset_manifest: str = "ui/assets/manifest.toml"
     use_sliced_assets: bool = False
-    game_font: str = "ui/assets/fonts/Jacquard24-Regular.ttf"
+    game_font: str = "ui/assets/fonts/Skranji-Regular.ttf"
     code_font: str = "ui/assets/fonts/FantasqueSansMNerdFontMono-Regular.ttf"
 
 

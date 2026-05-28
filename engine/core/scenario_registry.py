@@ -34,7 +34,9 @@ def create_scenario(
     if scenario_id == "energy_stations":
         from scenarios.energy_stations import EnergyStationsScenario
         return EnergyStationsScenario(seed=seed, max_turns=max_turns, player_ids=player_ids)
-    raise ValueError(f"Unknown scenario: {scenario_id}")
+    from engine.i18n import translate
+
+    raise ValueError(translate("error.unknown_scenario", lang="en", id=scenario_id))
 
 
 def list_scenarios() -> list[dict[str, str]]:
@@ -71,9 +73,8 @@ def list_scenarios() -> list[dict[str, str]]:
     return found
 
 
-def scenario_display_name(scenario_id: str) -> str:
-    """Human-readable scenario title from registry metadata."""
-    for entry in list_scenarios():
-        if entry["id"] == scenario_id:
-            return entry["name"]
-    return scenario_id.replace("_", " ").title()
+def scenario_display_name(scenario_id: str, lang: str = "en") -> str:
+    """Human-readable scenario title (localized when available)."""
+    from engine.i18n import scenario_display_name as i18n_name
+
+    return i18n_name(scenario_id, lang)

@@ -81,26 +81,30 @@ def _best_feedback_hint(pdata: dict) -> str:
     return _clip_text(str(feedback[0])) if feedback else ""
 
 
-def _movement_summary(mv: dict) -> str:
+def _movement_summary(mv: dict, *, lang: str = "en") -> str:
     """Build a compact one-line movement summary for the analysis panel."""
+    from engine.i18n import translate
+
     if not mv.get("analyzed"):
         return ""
     parts: list[str] = []
     blocked_ratio = float(mv.get("blocked_move_ratio", 0.0))
     if blocked_ratio >= 0.15:
-        parts.append(f"{int(blocked_ratio * 100)}% blocked")
+        parts.append(
+            translate("scores.movement_blocked", lang=lang, pct=int(blocked_ratio * 100))
+        )
     stuck = int(mv.get("stuck_episodes", 0))
     if stuck:
-        parts.append(f"stuck {stuck}\u00d7")
+        parts.append(f"{translate('scores.movement_stuck', lang=lang)} {stuck}\u00d7")
     osc = int(mv.get("oscillation_episodes", 0))
     if osc:
-        parts.append(f"bounced {osc}\u00d7")
+        parts.append(f"{translate('scores.movement_bounced', lang=lang)} {osc}\u00d7")
     max_run = int(mv.get("max_consecutive_same_action", 0))
     if max_run >= 6:
         parts.append(f"{max_run}-turn repeat")
     if not parts:
         return ""
-    return "Movement: " + " \u00b7 ".join(parts)
+    return translate("scores.movement_prefix", lang=lang) + " \u00b7 ".join(parts)
 
 
 class ScoresScreen:
@@ -146,6 +150,10 @@ class ScoresScreen:
         self.metrics = None
         self.replay_meta = None
         self._scroll.offset = 0
+        self._play_again.label = self.app.t("scores.play_again")
+        self._view_replay.label = self.app.t("scores.view_replay")
+        self._coach_btn.label = self.app.t("scores.code_coach")
+        self._open_results.label = self.app.t("scores.open_folder")
         if session_dir is not None:
             metrics_path = session_dir / "metrics.json"
             if metrics_path.is_file():
@@ -229,7 +237,9 @@ class ScoresScreen:
         panel_w = cw - _SCROLLBAR_W - _SCROLLBAR_PAD
 
         # ── Banner (fixed) ────────────────────────────────────────────────────
-        skin.draw_banner_title(surface, "Game Over", center_x=sw // 2, y=22, max_width=cw)
+        skin.draw_banner_title(
+            surface, self.app.t("scores.game_over"), center_x=sw // 2, y=22, max_width=cw,
+        )
 
         # ── Buttons (fixed at bottom) ─────────────────────────────────────────
         btn_y = sh - _BTN_H - _BTN_MARGIN_B
@@ -287,14 +297,18 @@ class ScoresScreen:
 
         # Score panel
         score_panel = pygame.Rect(mx, y, panel_w, score_panel_h)
-        skin.draw_panel_titled(surface, score_panel, "Final Scores", style="wood")
+        skin.draw_panel_titled(
+            surface, score_panel, self.app.t("scores.final_scores"), style="wood",
+        )
         self._draw_score_rows(surface, lines, score_panel, mx, panel_w, has_metrics, row_h)
         y += score_panel_h
 
         # Session ID
         y += 8
         session_text = _clip_text(
-            f"Session: {self.session_dir.name}" if self.session_dir else "Session not saved"
+            self.app.t("scores.session", name=self.session_dir.name)
+            if self.session_dir
+            else self.app.t("scores.session_not_saved")
         )
         sess_surf = body_font(_SESSION_PT).render(session_text, True, colors.TEXT_MUTED)
         surface.blit(sess_surf, (sw // 2 - sess_surf.get_width() // 2, y))
@@ -304,7 +318,7 @@ class ScoresScreen:
         if analysis_sections:
             analysis_panel = pygame.Rect(mx, y, panel_w, analysis_panel_h)
             content_rect = skin.draw_panel_titled(
-                surface, analysis_panel, "Analysis", style="parchment"
+                surface, analysis_panel, self.app.t("scores.analysis"), style="parchment"
             )
             self._draw_analysis_sections(
                 surface, analysis_sections,
@@ -330,18 +344,33 @@ class ScoresScreen:
                     return load_icon(str(icon_path), size=size)
         return None
 
+    def _player_id_for_score_row(self, row_key: str) -> str | None:
+        """Map a final-scores row key (display name or player id) to metrics player id."""
+        if self.replay_meta:
+            players = self.replay_meta.get("players", {})
+            if row_key in players:
+                return row_key
+            for pid, info in players.items():
+                if str(info.get("display_name", "")) == row_key:
+                    return pid
+        if self.metrics:
+            from ui.coach_data import list_player_metrics
+
+            for pid, _ in list_player_metrics(self.metrics):
+                if self._display_name(pid) == row_key:
+                    return pid
+        return None
+
     def _metrics_for_display(self, display_name: str) -> dict:
         """Return the metrics block for the player matching display_name."""
         if not self.metrics:
             return {}
-        players = self.metrics.get("players", {})
-        if display_name in players:
-            return players[display_name]
-        if self.replay_meta:
-            for pid_key, info in self.replay_meta.get("players", {}).items():
-                if str(info.get("display_name", "")) == display_name and pid_key in players:
-                    return players[pid_key]
-        return {}
+        from ui.coach_data import load_metrics_block
+
+        pid = self._player_id_for_score_row(display_name)
+        if pid is None:
+            return {}
+        return load_metrics_block(self.metrics, pid)
 
     # ── Score rows ────────────────────────────────────────────────────────────
 
@@ -377,7 +406,11 @@ class ScoresScreen:
             rank_color = (
                 _RANK_COLORS[rank - 1] if rank <= len(_RANK_COLORS) else colors.TEXT_MUTED
             )
-            badge_label = _RANK_LABELS[rank - 1] if rank <= len(_RANK_LABELS) else f"{rank}TH"
+            badge_label = (
+                self.app.t(f"scores.rank.{rank}")
+                if rank <= 6
+                else f"{rank}TH"
+            )
             row_rect = pygame.Rect(mx + 6, row_y, row_w, row_h)
 
             # Row background
@@ -433,7 +466,12 @@ class ScoresScreen:
                 code_q  = sc_block.get("code_quality", "—")
                 gp_v    = sc_block.get("gameplay", "—")
                 sub_text = _clip_text(
-                    f"Final {final_v}   Quality {code_q}/100   Gameplay {gp_v}/100"
+                    self.app.t(
+                        "scores.stats_line",
+                        final=final_v,
+                        quality=code_q,
+                        gameplay=gp_v,
+                    )
                 )
                 sub_surf = sub_font.render(sub_text, True, colors.TEXT_MUTED)
                 surface.blit(sub_surf, (name_x, name_y + name_surf.get_height() + 3))
@@ -466,21 +504,29 @@ class ScoresScreen:
         line_h = _ANALYSIS_PT + 8
 
         if self.replay_meta:
-            scenario_raw     = self.replay_meta.get("scenario", "")
-            scenario_display = scenario_raw.replace("_", " ").title()
-            seed    = self.replay_meta.get("seed", "?")
+            from engine.core.scenario_registry import scenario_display_name
+
+            scenario_raw = self.replay_meta.get("scenario", "")
+            scenario_display = scenario_display_name(scenario_raw, self.app.lang())
+            seed = self.replay_meta.get("seed", "?")
             n_turns = len(self.replay_meta.get("turns", []))
-            ctx = f"Scenario: {scenario_display}   Seed: {seed}   {n_turns} turns played"
+            ctx = self.app.t(
+                "scores.context",
+                scenario=scenario_display,
+                seed=seed,
+                turns=n_turns,
+            )
         elif self.session_dir:
-            ctx = f"Session: {self.session_dir.name}"
+            ctx = self.app.t("scores.session", name=self.session_dir.name)
         else:
             return sections
 
         sections.append({"type": "context", "text": _clip_text(ctx), "h": line_h + 4})
 
         if self.metrics:
-            players_dict = self.metrics.get("players", {})
-            for i, (pid, pdata) in enumerate(players_dict.items()):
+            from ui.coach_data import list_player_metrics
+
+            for i, (pid, pdata) in enumerate(list_player_metrics(self.metrics)):
                 display  = self._display_name(pid)
                 sc_block = pdata.get("scores", {})
                 final_v  = sc_block.get("final", "—")
@@ -492,21 +538,27 @@ class ScoresScreen:
                 avg_ms   = runtime.get("avg_turn_time_ms", None)
 
                 stats_parts = [
-                    f"Final: {final_v} pts",
-                    f"Quality: {code_q}/100",
-                    f"Gameplay: {gp_v}/100",
+                    self.app.t("scores.final_pts", v=final_v),
+                    self.app.t("scores.quality_pts", v=code_q),
+                    self.app.t("scores.gameplay_pts", v=gp_v),
                 ]
                 if avg_ms is not None:
-                    stats_parts.append(f"Avg turn: {avg_ms:.2f} ms")
+                    stats_parts.append(self.app.t("scores.avg_turn", ms=avg_ms))
                 if crashes or timeouts:
-                    stats_parts.append(f"Crashes: {crashes}  Timeouts: {timeouts}")
+                    stats_parts.append(
+                        self.app.t("scores.crashes", n=crashes)
+                        + "  "
+                        + self.app.t("scores.timeouts", n=timeouts)
+                    )
                 stats_line = "   ".join(stats_parts)
 
                 # Prefer a movement/logic feedback item over generic praise
                 hint = _best_feedback_hint(pdata)
 
                 # Compact movement summary line
-                mv_line = _movement_summary(pdata.get("movement", {}))
+                mv_line = _movement_summary(
+                    pdata.get("movement", {}), lang=self.app.lang(),
+                )
 
                 if i > 0:
                     sections.append({"type": "divider", "h": 10})

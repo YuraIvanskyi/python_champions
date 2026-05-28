@@ -80,11 +80,13 @@ def build_metrics(
     if extra_gameplay:
         gameplay_detail.update(extra_gameplay)
 
+    lang = config.locale.language
     items = generate_feedback_items(
         static=static_dict,
         runtime=runtime_dict,
         movement=movement_dict,
         movement_cfg=move_cfg,
+        language=lang,
     )
     feedback = [item.message for item in items]
 
@@ -101,6 +103,7 @@ def build_metrics(
         scores_block["crash_quality_cap"] = True
 
     return {
+        "locale": lang,
         "gameplay": gameplay_detail,
         "static": static_dict,
         "runtime": runtime_dict,
@@ -153,7 +156,7 @@ def run_analysis_for_session(
         extra_gameplay=extra_gameplay,
         session_dir=session_dir,
     )
-    payload = _session_metrics_payload(per_player)
+    payload = _session_metrics_payload(per_player, config.locale.language)
     write_metrics(session_dir, payload)
     return per_player[player_id]
 
@@ -171,32 +174,50 @@ def _load_or_init_session_metrics(session_dir: Path) -> dict[str, dict[str, Any]
     return {}
 
 
-def _session_metrics_payload(per_player: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def _session_metrics_payload(
+    per_player: dict[str, dict[str, Any]],
+    locale: str,
+) -> dict[str, Any]:
     if len(per_player) == 1:
-        return next(iter(per_player.values()))
-    return {"players": per_player}
+        block = next(iter(per_player.values()))
+        block.setdefault("locale", locale)
+        return block
+    return {"players": per_player, "locale": locale}
 
 
-def print_analysis_summary(metrics: dict[str, Any]) -> None:
+def print_analysis_summary(metrics: dict[str, Any], *, lang: str | None = None) -> None:
     """Print top feedback items and final score for CLI beginners."""
+    from engine.i18n import normalize_lang, translate
+
+    code = normalize_lang(lang or metrics.get("locale"))
     if "players" in metrics:
         for pid, block in metrics["players"].items():
-            print(f"--- {pid} ---")
-            _print_single_summary(block)
+            print(translate("pipeline.player_sep", lang=code, pid=pid))
+            _print_single_summary(block, lang=code)
         return
-    _print_single_summary(metrics)
+    _print_single_summary(metrics, lang=code)
 
 
-def _print_single_summary(metrics: dict[str, Any]) -> None:
+def _print_single_summary(metrics: dict[str, Any], *, lang: str) -> None:
+    from engine.i18n import translate
+
     scores = metrics.get("scores", {})
     final = scores.get("final", 0)
     gameplay = scores.get("gameplay", 0)
     code_quality = scores.get("code_quality", 0)
-    print(f"Final score: {final} (gameplay {gameplay}, code quality {code_quality})")
+    print(
+        translate(
+            "pipeline.final_score",
+            lang=lang,
+            final=final,
+            gp=gameplay,
+            cq=code_quality,
+        )
+    )
 
     feedback: list[str] = metrics.get("feedback", [])
     if not feedback:
         return
-    print("Feedback:")
+    print(translate("pipeline.feedback", lang=lang))
     for item in feedback[:3]:
         print(f"  • {item}")

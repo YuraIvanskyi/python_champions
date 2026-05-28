@@ -12,10 +12,9 @@ import pygame
 
 from ui.coach_data import (
     bot_path_for_player,
-    list_player_metrics,
+    coach_player_ids,
     load_metrics_block,
     load_replay,
-    player_ids_from_replay,
     read_bot_source,
 )
 from ui.render.code_panel import draw_code_panel
@@ -91,16 +90,14 @@ class CoachScreen:
         metrics_path = session_dir / "metrics.json"
         if metrics_path.is_file():
             self.metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-        self.player_ids = player_ids_from_replay(self.replay) if self.replay else []
-        if not self.player_ids and self.metrics:
-            self.player_ids = [pid for pid, _ in list_player_metrics(self.metrics)]
-        if not self.player_ids:
-            self.player_ids = ["student"]
+        self.player_ids = coach_player_ids(self.metrics, self.replay)
         if player_id and player_id in self.player_ids:
             self.selected_player = self.player_ids.index(player_id)
         else:
             self.selected_player = 0
         self.selected_quest = 0
+        self._back_btn.label = self.app.t("coach.back")
+        self._menu_btn.label = self.app.t("coach.menu")
 
         # AI tab: enabled only when enable_ai = true in config
         try:
@@ -212,7 +209,7 @@ class CoachScreen:
                 x += btn_w + 8
 
         if self._show_ai_tab:
-            ai_label = "⚗ AI Summary"
+            ai_label = self.app.t("coach.ai_tab")
             ai_w = tab_font.size(ai_label)[0] + 28
             self._ai_tab_btn = Button(
                 pygame.Rect(x, y, ai_w, _TAB_H),
@@ -397,7 +394,7 @@ class CoachScreen:
         cw = content_width()
 
         skin.draw_banner_title(
-            surface, "Code Coach",
+            surface, self.app.t("scores.code_coach"),
             center_x=sw // 2, y=14, max_width=cw,
         )
 
@@ -409,7 +406,7 @@ class CoachScreen:
             skin.draw_panel(surface, panel, style="parchment")
             skin.draw_text_clipped(
                 surface,
-                "No analysis for this session. Run a match without --no-analysis.",
+                self.app.t("coach.no_analysis"),
                 panel.inflate(-16, -16),
                 body_font(15),
                 colors.PARCHMENT_TEXT,
@@ -421,7 +418,7 @@ class CoachScreen:
         pid      = self.player_ids[self.selected_player]
         block    = self._current_block()
         bot_path = bot_path_for_player(self.replay, pid) if self.replay else None
-        source_lines = read_bot_source(bot_path)
+        source_lines = read_bot_source(bot_path, lang=self.app.lang())
 
         # Display name (used for label and score card)
         name = self._display_name(pid)
@@ -437,7 +434,7 @@ class CoachScreen:
             label_x = MARGIN_X
         skin.draw_text_clipped(
             surface,
-            f"Bot:  {name}",
+            self.app.t("coach.bot_label", name=name),
             pygame.Rect(label_x, 54, cw - (label_x - MARGIN_X), _LABEL_PT + 8),
             label_font,
             colors.GOLD_TEXT,
@@ -483,6 +480,7 @@ class CoachScreen:
             gameplay_score=scores.get("gameplay", "—"),
             code_score=scores.get("code_quality", "—"),
             final_score=scores.get("final", "—"),
+            lang=self.app.lang(),
         )
 
         # Scrollable quest list
@@ -506,6 +504,7 @@ class CoachScreen:
                 draw_quest_card(
                     surface, card_rect, item,
                     selected=index == self.selected_quest,
+                    lang=self.app.lang(),
                 )
             y += card_h + _CARD_GAP
         surface.set_clip(old_clip)
@@ -550,26 +549,33 @@ class CoachScreen:
     ) -> None:
         state = self._ai_state
         if state == _AI_TAB_CHECKING:
-            _draw_status(surface, rect, "Checking vLLM connection…", colors.TEXT_MUTED)
+            _draw_status(surface, rect, self.app.t("coach.checking_vllm"), colors.TEXT_MUTED)
         elif state == _AI_TAB_LOADING:
             skin.draw_panel(surface, rect, style="stone")
         elif state == _AI_TAB_OFFLINE:
-            self._vllm_panel.draw(surface, rect)
+            self._vllm_panel.draw(surface, rect, lang=self.app.lang())
         elif state == _AI_TAB_TEMPLATES:
             feedback = block.get("feedback", [])
-            self._template_panel.draw(surface, rect, feedback)
+            self._template_panel.draw(surface, rect, feedback, lang=self.app.lang())
         elif state == _AI_TAB_REPORT:
             text = self._ai_report_text or ""
-            self._report_panel.draw(surface, rect, text, players=self._player_info_for_report())
+            self._report_panel.draw(
+                surface,
+                rect,
+                text,
+                players=self._player_info_for_report(),
+                lang=self.app.lang(),
+            )
 
     def _draw_ai_loading_overlay_if_needed(self, surface: pygame.Surface) -> None:
         if not self._ai_tab_active or self._ai_state != _AI_TAB_LOADING:
             return
         draw_loading_overlay(
             surface,
-            message="Generating AI summary…",
-            subtitle="Consulting the arcane advisor…",
+            message=self.app.t("coach.generating"),
+            subtitle=self.app.t("coach.arcane"),
             spinner_angle=self._spinner_angle,
+            lang=self.app.lang(),
         )
 
 

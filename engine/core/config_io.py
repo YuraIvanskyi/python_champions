@@ -76,10 +76,14 @@ def save_app_config(cfg: AppConfig) -> None:
 def reload_app_config(app: object) -> AppConfig:
     """Reload config after save and apply UI theme."""
     from ui import theme
+    from ui.skin import typography
 
     cfg = load_config_from_disk()
     app.config = cfg  # type: ignore[attr-defined]
     theme.apply_config(cfg.ui)
+    typography.apply_locale(cfg.locale.language)
+    if hasattr(app, "_apply_locale_fonts"):
+        app._apply_locale_fonts()  # type: ignore[attr-defined]
     return cfg
 
 
@@ -164,30 +168,54 @@ class SettingsValidationError(Exception):
         super().__init__(message)
 
 
-def validate_scenario_field(scenario_id: str, field: str, raw: str) -> int:
+def validate_scenario_field(
+    scenario_id: str,
+    field: str,
+    raw: str,
+    *,
+    lang: str = "en",
+) -> int:
     """Parse and validate a numeric scenario setting field."""
+    from engine.i18n import normalize_lang, translate
+
     del scenario_id
+    code = normalize_lang(lang)
+    label = translate(f"settings.field.{field}", lang=code)
+    if label == f"settings.field.{field}":
+        label = field
     try:
         value = int(raw.strip())
     except ValueError as exc:
-        raise SettingsValidationError(f"{field}: must be an integer") from exc
+        raise SettingsValidationError(
+            translate("error.field_integer", lang=code, field=label)
+        ) from exc
 
     if field in ("map_width", "map_height"):
         if value < MAP_MIN or value > MAP_MAX:
             raise SettingsValidationError(
-                f"{field}: must be between {MAP_MIN} and {MAP_MAX}"
+                translate(
+                    "error.field_range", lang=code, field=label, lo=MAP_MIN, hi=MAP_MAX,
+                )
             )
         return value
     if field == "max_turns":
         if value < MAX_TURNS_MIN or value > MAX_TURNS_MAX:
             raise SettingsValidationError(
-                f"max_turns: must be between {MAX_TURNS_MIN} and {MAX_TURNS_MAX}"
+                translate(
+                    "error.field_range",
+                    lang=code,
+                    field=label,
+                    lo=MAX_TURNS_MIN,
+                    hi=MAX_TURNS_MAX,
+                )
             )
         return value
     if field in ("obstacle_count", "resource_count", "station_count"):
         if value < 0 or value > COUNT_MAX:
             raise SettingsValidationError(
-                f"{field}: must be between 0 and {COUNT_MAX}"
+                translate(
+                    "error.field_range", lang=code, field=label, lo=0, hi=COUNT_MAX,
+                )
             )
         return value
     raise SettingsValidationError(f"Unknown field: {field}")

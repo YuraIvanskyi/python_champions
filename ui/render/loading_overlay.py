@@ -11,18 +11,21 @@ from ui.skin import colors
 from ui.skin.typography import body_font
 from ui.skin.typography import title_font as title_font_fn
 
-_DEFAULT_MESSAGE = "Preparing results..."
-_DEFAULT_SUBTITLE = "Analyzing bots & saving replay..."
-
-
 def draw_loading_overlay(
     surface: pygame.Surface,
     *,
-    message: str = _DEFAULT_MESSAGE,
-    subtitle: str = _DEFAULT_SUBTITLE,
+    message: str | None = None,
+    subtitle: str | None = None,
     spinner_angle: float = 0.0,
+    lang: str = "en",
 ) -> None:
     """Dim the screen and draw a centered stone panel with a rotating rune ring."""
+    from engine.i18n import translate
+
+    if message is None:
+        message = translate("loading.preparing", lang=lang)
+    if subtitle is None:
+        subtitle = translate("loading.analyzing", lang=lang)
     w, h = surface.get_size()
 
     dim = pygame.Surface((w, h), pygame.SRCALPHA)

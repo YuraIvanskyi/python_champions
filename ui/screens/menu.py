@@ -78,7 +78,7 @@ _CLASS_FOLDER_X  = _CLASS_BROWSE_X + _ICON_BTN_W + 6  # 924
 _OPP_DIV_Y   = _AFTER_BOT_Y               # 249
 _OPP_LABEL_Y = _OPP_DIV_Y + 12           # 261
 _OPP_CARD_Y  = _OPP_LABEL_Y + 18         # 279
-_OPP_CARD_H  = 56
+_OPP_CARD_H  = 66
 _OPP_CARD_W  = (_RW - 8) // 2            # 242
 _AFTER_OPP_Y = _OPP_CARD_Y + _OPP_CARD_H + 10   # 345
 
@@ -281,15 +281,17 @@ class ScenarioRow(ListRow):
         self,
         rect: pygame.Rect,
         scenario: dict,
+        app: object,
         *,
         selected: bool = False,
         on_click=None,
     ) -> None:
-        super().__init__(rect, scenario["name"], selected=selected, on_click=on_click)
-        sid          = scenario.get("id", "")
-        self._type   = _SCENARIO_TYPE.get(sid, "")
-        self._flavor = _SCENARIO_FLAVOR.get(sid, "")
-        self._hint   = _SCENARIO_HINT.get(sid, scenario.get("description", ""))
+        sid = scenario.get("id", "")
+        name = scenario_display_name(sid, app.lang())  # type: ignore[attr-defined]
+        super().__init__(rect, name, selected=selected, on_click=on_click)
+        self._type = app.t(f"menu.type.{sid}")  # type: ignore[attr-defined]
+        self._flavor = app.t(f"menu.flavor.{sid}")  # type: ignore[attr-defined]
+        self._hint = app.t(f"menu.hint.{sid}")  # type: ignore[attr-defined]
 
     def draw(self, surface: pygame.Surface) -> None:
         style = "parchment" if self.selected else "wood"
@@ -467,6 +469,7 @@ class MenuScreen:
             row = ScenarioRow(
                 pygame.Rect(_LX, ly, _LW, _SC_ROW_H),
                 sc,
+                self.app,
                 selected=index == self.selected,
                 on_click=lambda i=index: self._select_scenario(i),
             )
@@ -572,7 +575,7 @@ class MenuScreen:
 
         self._run_btn = Button(
             pygame.Rect(_RX, run_y, _RW, run_h),
-            "Run Match",
+            self.app.t("menu.run_match"),
             on_click=self._start_run,
             primary=True,
         )
@@ -581,7 +584,10 @@ class MenuScreen:
         guide_y = run_y + run_h + 8
         guide_h = _PRAC_GUIDE_H if self.launch_mode == "practice" else _CLASS_GUIDE_H
         sid = self._current_sid()
-        guide_label = f"How to write a bot for {scenario_display_name(sid)}"
+        guide_label = self.app.t(
+            "menu.guide_label",
+            name=scenario_display_name(sid, self.app.lang()),
+        )
         self._guide_btn = Button(
             pygame.Rect(_RX, guide_y, _RW, guide_h),
             guide_label,
@@ -597,7 +603,7 @@ class MenuScreen:
         bottom_h = _PRAC_BOTTOM_H if self.launch_mode == "practice" else _CLASS_BOTTOM_H
         self._settings_btn = Button(
             pygame.Rect(_RX, bottom_y, _BOTTOM_BTN_W, bottom_h),
-            "Settings",
+            self.app.t("menu.settings"),
             on_click=lambda: self.app.goto_settings(),
             font_size=15,
             icon="scroll",
@@ -605,7 +611,7 @@ class MenuScreen:
         )
         self._replays_btn = Button(
             pygame.Rect(_RX + _BOTTOM_BTN_W + 6, bottom_y, _BOTTOM_BTN_W, bottom_h),
-            "View Replays",
+            self.app.t("menu.view_replays"),
             on_click=lambda: self.app.goto_replay(),
             font_size=15,
             icon="scroll",
@@ -613,7 +619,7 @@ class MenuScreen:
         )
         self._quit_btn = Button(
             pygame.Rect(_RX + (_BOTTOM_BTN_W + 6) * 2, bottom_y, _BOTTOM_BTN_W, bottom_h),
-            "Quit",
+            self.app.t("menu.quit"),
             on_click=lambda: self.app.quit(),
             font_size=15,
             icon="door",
@@ -687,9 +693,26 @@ class MenuScreen:
         for i, row in enumerate(self._scenario_rows):
             row.selected = i == self.selected
 
+    def _refresh_scenarios(self) -> None:
+        raw = list_scenarios() or [
+            {"id": "resource_wars", "name": "Resource Wars", "description": ""}
+        ]
+        lang = self.app.lang()
+        self.scenarios = [
+            {
+                "id": entry["id"],
+                "name": scenario_display_name(entry["id"], lang),
+                "description": entry.get("description", ""),
+            }
+            for entry in raw
+        ]
+
     def on_enter(self) -> None:
         self.error = ""
-        self._bot_field.text = self.bot_paths_text
+        self._refresh_scenarios()
+        self._build_widgets()
+        if hasattr(self, "_bot_field"):
+            self._bot_field.text = self.bot_paths_text
         self._sync_scenario_selection()
 
     # ── Event handling ────────────────────────────────────────────────────────
@@ -744,8 +767,8 @@ class MenuScreen:
             root.withdraw()
             root.attributes("-topmost", True)
             chosen = filedialog.askopenfilenames(
-                title="Select student bot(s)",
-                filetypes=[("Python", "*.py")],
+                title=self.app.t("menu.file_dialog_title"),
+                filetypes=[(self.app.t("menu.file_dialog_filter"), "*.py")],
                 initialdir=str(resource_path("student_bots")),
             )
             root.destroy()
@@ -756,7 +779,7 @@ class MenuScreen:
                 )
                 self._bot_field.text = self.bot_paths_text
         except Exception:
-            self.error = "File browser unavailable — edit the path field manually."
+            self.error = self.app.t("menu.file_browser_unavailable")
 
     def _browse_folder(self) -> None:
         try:
@@ -777,7 +800,7 @@ class MenuScreen:
                 self.bot_paths_text = ", ".join(str(p) for p in py_files)
                 self._bot_field.text = self.bot_paths_text
         except Exception:
-            self.error = "Folder browser unavailable — paste paths into the field."
+            self.error = self.app.t("menu.folder_browser_unavailable")
 
     def _get_scenario_player_limits(self, scenario_id: str) -> tuple[int, int]:
         try:
@@ -798,32 +821,37 @@ class MenuScreen:
 
         paths = [resolve_bot_path(p) for p in _parse_bot_path_lines(self.bot_paths_text)]
         if not paths:
-            self.error = "Enter at least one bot .py path."
+            self.error = self.app.t("menu.error_no_paths")
             return
 
         for path in paths:
             if not path.is_file():
-                self.error = f"Bot file not found: {path}"
+                self.error = self.app.t("menu.error_not_found", path=path)
                 return
 
         resolved = [p.resolve() for p in paths]
         if len(set(resolved)) != len(resolved):
-            self.error = "Duplicate bot paths are not allowed."
+            self.error = self.app.t("menu.error_duplicate")
             return
 
         scenario_id = self.scenarios[self.selected].get("id", "resource_wars")
         min_p, max_p = self._get_scenario_player_limits(scenario_id)
 
         if self.launch_mode == "practice" and len(paths) != 1:
-            self.error = "Practice mode requires exactly one bot file."
+            self.error = self.app.t("menu.error_practice_one")
             return
 
         if self.launch_mode == "classroom" and len(paths) < 2:
-            self.error = "Classroom match requires at least 2 bot files."
+            self.error = self.app.t("menu.error_classroom_min")
             return
 
         if len(paths) > max_p:
-            self.error = f"At most {max_p} bots for {scenario_id} (got {len(paths)})."
+            self.error = self.app.t(
+                "menu.error_max_bots",
+                max_p=max_p,
+                scenario_id=scenario_id,
+                count=len(paths),
+            )
             return
 
         try:
@@ -853,37 +881,36 @@ class MenuScreen:
         sw = surface.get_width()
 
         skin.draw_banner_title(
-            surface, "Code Scenarios",
+            surface, self.app.t("menu.title"),
             center_x=sw // 2, y=18, max_width=content_width(),
         )
 
-        # ── Left panel ────────────────────────────────────────────────────
         skin.draw_panel_titled(
             surface, pygame.Rect(_LPANEL_X, _PANEL_Y, _LPANEL_W, _PANEL_H),
-            "Scenarios", style="wood",
+            self.app.t("menu.scenarios"), style="wood",
         )
 
-        # ── Right panel ───────────────────────────────────────────────────
         skin.draw_panel_titled(
             surface, pygame.Rect(_RPANEL_X, _PANEL_Y, _RPANEL_W, _PANEL_H),
-            "Configuration", style="stone",
+            self.app.t("menu.configuration"), style="stone",
         )
 
-        # Bot path label
         paths = _parse_bot_path_lines(self._bot_field.text)
         if self.launch_mode == "practice":
-            bot_lbl = "Bot path  (single .py file)"
+            bot_lbl = self.app.t("menu.bot_path_single")
         else:
             cnt = len(paths)
-            bot_lbl = f"Bot paths  —  {cnt} bot{'s' if cnt != 1 else ''} loaded"
+            plural = self.app.t("menu.bot_plural.s") if cnt != 1 else self.app.t("menu.bot_plural.empty")
+            bot_lbl = self.app.t("menu.bot_paths_multi", count=cnt, plural=plural)
         _draw_label(surface, bot_lbl, _RX, _BOT_LABEL_Y, max_w=_RW)
 
         # Tiny "Browse" / "Folder" captions above icon buttons
         cap_font = body_font(11)
         browse_x = _PRAC_BROWSE_X if self.launch_mode == "practice" else _CLASS_BROWSE_X
-        for cap, cx in ([("Browse", browse_x)]
-                        + ([("Folder", _CLASS_FOLDER_X)]
-                           if self.launch_mode == "classroom" else [])):
+        caps = [(self.app.t("menu.browse"), browse_x)]
+        if self.launch_mode == "classroom":
+            caps.append((self.app.t("menu.folder"), _CLASS_FOLDER_X))
+        for cap, cx in caps:
             cs = cap_font.render(cap, True, colors.TEXT_MUTED)
             surface.blit(cs, (cx + (_ICON_BTN_W - cs.get_width()) // 2,
                                _BOT_FIELD_Y - 14))
@@ -893,9 +920,13 @@ class MenuScreen:
             skin.draw_ornamental_divider(
                 surface, pygame.Rect(_RX, _OPP_DIV_Y, _RW, 10)
             )
-            opp_name = _OPPONENT_NAMES.get(self.opponent_mode, self.opponent_mode)
             _cur_sid = self._current_sid()
-            role = "Ally" if _cur_sid == "boss_fight" else "Opponent"
+            opp_name = self.app.t(f"menu.opponent.{self.opponent_mode}")
+            role = (
+                self.app.t("menu.ally")
+                if _cur_sid == "boss_fight"
+                else self.app.t("menu.opponent")
+            )
             _draw_label(
                 surface, f"{role}  —  {opp_name}",
                 _RX, _OPP_LABEL_Y, max_w=_RW,
@@ -906,7 +937,9 @@ class MenuScreen:
         else:
             _cur_sid = self._current_sid()
             _min_p, _max_p = self._get_scenario_player_limits(_cur_sid)
-            _class_hint = f"Add {_min_p}–{_max_p} student .py bots for the match"
+            _class_hint = self.app.t(
+                "menu.classroom_hint", min_p=_min_p, max_p=_max_p,
+            )
             _draw_label(
                 surface,
                 _class_hint,
@@ -922,12 +955,10 @@ class MenuScreen:
             skin.draw_ornamental_divider(
                 surface, pygame.Rect(_RX, diff_div_y, _RW, 10)
             )
-            diff_name = _BOSS_DIFFICULTY_NAMES.get(
-                self.boss_difficulty, str(self.boss_difficulty)
-            )
+            diff_name = self.app.t(f"menu.difficulty.{self.boss_difficulty}")
             _draw_label(
                 surface,
-                f"Boss difficulty  —  {diff_name}",
+                self.app.t("menu.boss_difficulty", name=diff_name),
                 _RX,
                 diff_div_y + 12,
                 max_w=_RW,
@@ -939,15 +970,16 @@ class MenuScreen:
         )
         _cur_preset_names = self._current_preset_names()
         if self._use_random_seed:
-            seed_lbl = "Map / Seed  —  random pick at launch"
+            seed_lbl = self.app.t("menu.seed_random")
         elif (self._selected_preset is not None
               and self._selected_preset < len(_cur_preset_names)):
-            seed_lbl = (
-                f"Map / Seed  —  "
-                f"{_cur_preset_names[self._selected_preset]} (seed {self.seed})"
+            seed_lbl = self.app.t(
+                "menu.seed_named",
+                name=_cur_preset_names[self._selected_preset],
+                seed=self.seed,
             )
         else:
-            seed_lbl = f"Map / Seed  —  seed {self.seed}"
+            seed_lbl = self.app.t("menu.seed_number", seed=self.seed)
         _draw_label(surface, seed_lbl, _RX, map_label_y, max_w=_RW)
 
         # Divider before Run
@@ -1014,13 +1046,13 @@ class MenuScreen:
         rect: pygame.Rect,
     ) -> None:
         badge_font = body_font(10)
-        badge = badge_font.render("SELECTED", True, colors.TEAL_ACCENT)
+        badge = badge_font.render(self.app.t("menu.selected"), True, colors.TEAL_ACCENT)
         surface.blit(badge, (rect.right - badge.get_width() - 8, rect.y + 6))
 
     def _draw_mode_tabs(self, surface: pygame.Surface) -> None:
         tabs: list[tuple[LaunchMode, Button, str, str]] = [
-            ("practice", self._prac_tab, "Practice (vs AI)", "shield"),
-            ("classroom", self._class_tab, "Classroom Match", "classroom"),
+            ("practice", self._prac_tab, self.app.t("menu.practice_tab"), "shield"),
+            ("classroom", self._class_tab, self.app.t("menu.classroom_tab"), "classroom"),
         ]
         icon_size = 18
         font = body_font(15)
@@ -1060,7 +1092,6 @@ class MenuScreen:
             self.scenarios[self.selected].get("id", "resource_wars")
             if self.scenarios else "resource_wars"
         )
-        desc_map = _BOSS_FIGHT_ALLY_DESC if sid == "boss_fight" else _OPPONENT_SHORT_DESC
         for mode, card_rect in self._opponent_cards:
             is_active = mode == self.opponent_mode
             btn = self._opponent_button(mode)
@@ -1081,15 +1112,27 @@ class MenuScreen:
             tc = colors.PARCHMENT_TEXT if is_active else (
                 colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
             )
-            ns = body_font(15).render(_OPPONENT_NAMES[mode], True, tc)
+            name = self.app.t(f"menu.opponent.{mode}")
+            ns = body_font(15).render(name, True, tc)
             surface.blit(ns, (tx, card_rect.y + 6))
 
+            desc_key = (
+                f"menu.opponent_desc.{sid}.{mode}"
+                if sid in ("resource_wars", "boss_fight", "energy_stations")
+                else f"menu.opponent_desc.resource_wars.{mode}"
+            )
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
-            ds = body_font(12).render(desc_map[mode], True, desc_color)
+            desc_font = body_font(12)
+            max_desc_w = card_rect.right - tx - 4
+            desc_lines = _wrap_words(self.app.t(desc_key), desc_font, max_desc_w)[:2]
             dy = card_rect.y + 6 + ns.get_height() + 2
+            line_step = desc_font.get_height() + 1
+            desc_clip = pygame.Rect(tx, dy, max_desc_w, card_rect.bottom - dy - 4)
             old = surface.get_clip()
-            surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 16))
-            surface.blit(ds, (tx, dy))
+            surface.set_clip(desc_clip)
+            for i, line in enumerate(desc_lines):
+                ds = desc_font.render(line, True, desc_color)
+                surface.blit(ds, (tx, dy + i * line_step))
             surface.set_clip(old)
 
             if is_active:
@@ -1115,11 +1158,11 @@ class MenuScreen:
             tc = colors.PARCHMENT_TEXT if is_active else (
                 colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
             )
-            ns = body_font(14).render(_BOSS_DIFFICULTY_NAMES[level], True, tc)
+            ns = body_font(14).render(self.app.t(f"menu.difficulty.{level}"), True, tc)
             surface.blit(ns, (tx, card_rect.y + 8))
 
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
-            ds = body_font(11).render(_BOSS_DIFFICULTY_DESC[level], True, desc_color)
+            ds = body_font(11).render(self.app.t(f"menu.difficulty.{level}.desc"), True, desc_color)
             dy = card_rect.y + 8 + ns.get_height() + 2
             old = surface.get_clip()
             surface.set_clip(pygame.Rect(tx, dy, card_rect.right - tx - 4, 28))
@@ -1130,12 +1173,16 @@ class MenuScreen:
                 self._draw_selected_badge(surface, card_rect)
 
     def _current_preset_names(self) -> list[str]:
-        """Return the preset names for the currently selected scenario."""
+        """Return localized preset names for the currently selected scenario."""
+        from engine.i18n import map_preset_name
+
         sid = (
             self.scenarios[self.selected].get("id", "resource_wars")
             if self.scenarios else "resource_wars"
         )
-        return self._scenario_preset_names.get(sid, self._preset_names)
+        lang = self.app.lang()
+        count = len(self._scenario_preset_names.get(sid, self._preset_names))
+        return [map_preset_name(sid, i, lang) for i in range(count)]
 
     def _draw_tile_row(self, surface: pygame.Surface, row_y: int) -> None:
         """Draw the 6 tiles: col 0 = Random die, cols 1-5 = map presets."""
@@ -1169,7 +1216,7 @@ class MenuScreen:
                     die_size, die_size,
                 )
                 draw_menu_icon(surface, "random", die_rect, ic)
-                label = "Random"
+                label = self.app.t("menu.random")
             else:
                 if preset_i < len(self._minimap_surfs) and self._minimap_surfs[preset_i]:
                     inner  = rect.inflate(-4, -4)

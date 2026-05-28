@@ -6,8 +6,15 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from engine.i18n import normalize_lang, translate
+from engine.i18n.feedback_strings import RUFF_PREFIXES
+
 if TYPE_CHECKING:
     from engine.analysis.movement import MovementConfig
+
+
+def _fb(lang: str, key: str, **kwargs: Any) -> str:
+    return translate(key, lang=normalize_lang(lang), **kwargs)
 
 
 @dataclass
@@ -49,60 +56,25 @@ def _item(
 
 _RUFF_INLINE_THRESHOLD = 10  # show individual cards up to this many issues
 
-# Maps ruff code *prefixes* → short kid-friendly card title
-_RUFF_TITLE_MAP: list[tuple[str, str]] = [
-    ("E1", "Indentation issue"),
-    ("E2", "Whitespace issue"),
-    ("E3", "Blank line issue"),
-    ("E4", "Import order"),
-    ("E5", "Line too long"),
-    ("E7", "Statement issue"),
-    ("E9", "Runtime error"),
-    ("W2", "Trailing whitespace"),
-    ("W3", "Blank line warning"),
-    ("W5", "Line-break warning"),
-    ("W6", "Deprecated syntax"),
-    ("F4", "Unused import"),
-    ("F8", "Unused name"),
-    ("F9", "Undefined name"),
-    ("N",  "Naming convention"),
-    ("B",  "Possible bug"),
-    ("C9", "High complexity"),
-    ("E",  "Style issue"),
-    ("W",  "Style warning"),
-    ("F",  "Code problem"),
-]
 
-
-def _ruff_title(code: str) -> str:
-    for prefix, title in _RUFF_TITLE_MAP:
+def _ruff_title(code: str, lang: str) -> str:
+    for prefix in RUFF_PREFIXES:
         if code.startswith(prefix):
-            return title
-    return "Style check"
+            key = f"feedback.ruff.{prefix}.title"
+            val = _fb(lang, key)
+            if val != key:
+                return val
+    return _fb(lang, "feedback.ruff.default_title")
 
 
-def _ruff_fix_hint(code: str) -> str:
-    if code.startswith("F4") or code.startswith("E4"):
-        return "Remove or sort the import at the top of the file."
-    if code.startswith("F8"):
-        return "Delete the name if you don't use it, or use it in your logic."
-    if code.startswith("F9"):
-        return "Check the spelling — the name must be defined before you use it."
-    if code.startswith("E1"):
-        return "Fix the indentation — use 4 spaces per level."
-    if code.startswith("E2") or code.startswith("W2"):
-        return "Remove extra spaces or add a missing one around the operator."
-    if code.startswith("E3") or code.startswith("W3"):
-        return "Add or remove the blank line as the message describes."
-    if code.startswith("E5"):
-        return "Break the long line into two shorter ones."
-    if code.startswith("E7"):
-        return "Rewrite the statement as shown in the message."
-    if code.startswith("B"):
-        return "Read the message carefully — this pattern can hide a bug."
-    if code.startswith("N"):
-        return "Rename the variable/function to follow the naming rule shown."
-    return "Read the message and fix the highlighted line."
+def _ruff_fix_hint(code: str, lang: str) -> str:
+    for prefix in RUFF_PREFIXES:
+        if code.startswith(prefix):
+            key = f"feedback.ruff.{prefix}.fix_hint"
+            val = _fb(lang, key)
+            if val != key:
+                return val
+    return _fb(lang, "feedback.ruff.default_hint")
 
 
 def _ruff_lines(static: dict[str, Any]) -> list[int]:
@@ -131,9 +103,12 @@ def generate_feedback_items(
     runtime: dict[str, Any],
     movement: dict[str, Any] | None = None,
     movement_cfg: "MovementConfig | None" = None,
+    language: str = "en",
 ) -> list[FeedbackItem]:
     """Return structured hints ordered by priority (most important first)."""
     from engine.analysis.movement import MovementConfig as _MovementConfig
+
+    lang = normalize_lang(language)
     _mcfg = movement_cfg or _MovementConfig()
     _mv = movement or {}
 
@@ -144,12 +119,9 @@ def generate_feedback_items(
             _item(
                 category="runtime",
                 severity="critical",
-                title="Turn timeout",
-                message=(
-                    "Your bot timed out on one or more turns. "
-                    "Try simpler logic or fewer loops so each turn finishes faster."
-                ),
-                fix_hint="Shorten loops and avoid heavy work inside make_turn.",
+                title=_fb(lang, "feedback.turn_timeout.title"),
+                message=_fb(lang, "feedback.turn_timeout.message"),
+                fix_hint=_fb(lang, "feedback.turn_timeout.fix_hint"),
                 panel="parchment",
             )
         )
@@ -159,26 +131,19 @@ def generate_feedback_items(
             _item(
                 category="runtime",
                 severity="critical",
-                title="Bot crashed",
-                message=(
-                    "Your bot crashed during the game. "
-                    "Check for typos, missing keys in game_state, or bad return values."
-                ),
-                fix_hint="Run the bot locally and fix the first error Python reports.",
+                title=_fb(lang, "feedback.crash.title"),
+                message=_fb(lang, "feedback.crash.message"),
+                fix_hint=_fb(lang, "feedback.crash.fix_hint"),
                 panel="parchment",
             )
         )
-        # Inform students that crashes cap the code quality score
         items.append(
             _item(
                 category="runtime",
                 severity="warn",
-                title="Code quality capped at 50",
-                message=(
-                    "Because your bot crashed, the maximum code quality score is capped at 50/100. "
-                    "A bot that crashes cannot earn full quality points even with clean style."
-                ),
-                fix_hint="Fix the crash first — once the bot runs without errors, the cap is lifted.",
+                title=_fb(lang, "feedback.crash_cap.title"),
+                message=_fb(lang, "feedback.crash_cap.message"),
+                fix_hint=_fb(lang, "feedback.crash_cap.fix_hint"),
                 panel="stone",
             )
         )
@@ -188,18 +153,14 @@ def generate_feedback_items(
             _item(
                 category="logic",
                 severity="warn",
-                title="Invalid actions",
-                message=(
-                    "Some turns used invalid actions (for example GATHER when not on a resource). "
-                    "Read the allowed actions in the bot template comments."
-                ),
-                fix_hint="Use GameView helpers (on_resource, is_walkable) before returning an action.",
+                title=_fb(lang, "feedback.invalid_actions.title"),
+                message=_fb(lang, "feedback.invalid_actions.message"),
+                fix_hint=_fb(lang, "feedback.invalid_actions.fix_hint"),
                 panel="wood",
             )
         )
 
-    # ── Movement / pathfinding feedback ──────────────────────────────────────
-    _movement_items(items, _mv, _mcfg, static)
+    _movement_items(items, _mv, _mcfg, static, lang)
 
     max_complexity = static.get("max_complexity", 0)
     if max_complexity >= 10:
@@ -207,12 +168,9 @@ def generate_feedback_items(
             _item(
                 category="efficiency",
                 severity="warn",
-                title="High complexity",
-                message=(
-                    "Your code has high cyclomatic complexity. "
-                    "Try splitting logic into smaller functions with clear names."
-                ),
-                fix_hint="Extract one helper per decision (movement, gathering, targeting).",
+                title=_fb(lang, "feedback.high_complexity.title"),
+                message=_fb(lang, "feedback.high_complexity.message"),
+                fix_hint=_fb(lang, "feedback.high_complexity.fix_hint"),
                 panel="wood",
             )
         )
@@ -221,12 +179,9 @@ def generate_feedback_items(
             _item(
                 category="efficiency",
                 severity="info",
-                title="Growing complexity",
-                message=(
-                    "Some functions are getting complex. "
-                    "Extract helper functions for repeated conditions."
-                ),
-                fix_hint="Name helpers after what they check, e.g. should_gather(state).",
+                title=_fb(lang, "feedback.growing_complexity.title"),
+                message=_fb(lang, "feedback.growing_complexity.message"),
+                fix_hint=_fb(lang, "feedback.growing_complexity.fix_hint"),
                 panel="wood",
             )
         )
@@ -237,12 +192,9 @@ def generate_feedback_items(
             _item(
                 category="efficiency",
                 severity="warn",
-                title="Deep nesting",
-                message=(
-                    "Deeply nested if/for blocks make code hard to follow. "
-                    "Use early returns or helper functions to flatten structure."
-                ),
-                fix_hint="Return early when a condition fails instead of wrapping more code.",
+                title=_fb(lang, "feedback.deep_nesting.title"),
+                message=_fb(lang, "feedback.deep_nesting.message"),
+                fix_hint=_fb(lang, "feedback.deep_nesting.fix_hint"),
                 panel="wood",
             )
         )
@@ -253,12 +205,9 @@ def generate_feedback_items(
             _item(
                 category="efficiency",
                 severity="warn",
-                title="Long function",
-                message=(
-                    "One of your functions is very long. "
-                    "Break it into smaller steps — each function should do one clear job."
-                ),
-                fix_hint="Split make_turn into decide_action + small helpers.",
+                title=_fb(lang, "feedback.long_function.title"),
+                message=_fb(lang, "feedback.long_function.message"),
+                fix_hint=_fb(lang, "feedback.long_function.fix_hint"),
                 panel="wood",
             )
         )
@@ -275,26 +224,22 @@ def generate_feedback_items(
                     _item(
                         category="style",
                         severity="warn",
-                        title=_ruff_title(code),
+                        title=_ruff_title(code, lang),
                         message=message,
-                        fix_hint=_ruff_fix_hint(code),
+                        fix_hint=_ruff_fix_hint(code, lang),
                         panel="stone",
                         lines=[line] if isinstance(line, int) else [],
                     )
                 )
         else:
-            # Too many to list individually — show a summary card
             ruff_lines = _ruff_lines(static)
             items.append(
                 _item(
                     category="style",
                     severity="warn",
-                    title=f"Style check  ({len(ruff)} issues)",
-                    message=(
-                        f"Found {len(ruff)} style issues in your code. "
-                        "Fix the highlighted lines — clean code is easier to read and debug."
-                    ),
-                    fix_hint="Work through the highlighted lines one by one.",
+                    title=_fb(lang, "feedback.style_many.title", count=len(ruff)),
+                    message=_fb(lang, "feedback.style_many.message", count=len(ruff)),
+                    fix_hint=_fb(lang, "feedback.style_many.fix_hint"),
                     panel="stone",
                     lines=ruff_lines,
                 )
@@ -307,12 +252,9 @@ def generate_feedback_items(
             _item(
                 category="logic",
                 severity="critical",
-                title="Forbidden imports",
-                message=(
-                    "Your bot uses imports or calls that are not allowed in the sandbox "
-                    "(for example os or subprocess). Stick to the student API only."
-                ),
-                fix_hint="Remove blocked imports; use only GameView and allowed actions.",
+                title=_fb(lang, "feedback.forbidden.title"),
+                message=_fb(lang, "feedback.forbidden.message"),
+                fix_hint=_fb(lang, "feedback.forbidden.fix_hint"),
                 panel="stone",
                 lines=forbidden_lines,
             )
@@ -324,12 +266,9 @@ def generate_feedback_items(
             _item(
                 category="style",
                 severity="info",
-                title="Unused variables",
-                message=(
-                    "You have variables that are assigned but never used. "
-                    "Remove dead code or use those variables in your logic."
-                ),
-                fix_hint="Delete assignments you do not need, or wire them into decisions.",
+                title=_fb(lang, "feedback.unused_vars.title"),
+                message=_fb(lang, "feedback.unused_vars.message"),
+                fix_hint=_fb(lang, "feedback.unused_vars.fix_hint"),
                 panel="parchment",
             )
         )
@@ -337,17 +276,15 @@ def generate_feedback_items(
     for fn in static.get("functions", []):
         mi = fn.get("maintainability_index")
         if mi is not None and mi < 20:
+            fn_name = fn.get("name", "?")
             fn_lines = [fn["line"]] if isinstance(fn.get("line"), int) else []
             items.append(
                 _item(
                     category="efficiency",
                     severity="warn",
-                    title=f"Low maintainability: {fn.get('name', '?')}",
-                    message=(
-                        f"Function '{fn.get('name', '?')}' has low maintainability. "
-                        "Simplify conditions and shorten the function."
-                    ),
-                    fix_hint="Break this function into two smaller ones.",
+                    title=_fb(lang, "feedback.low_maint.title", name=fn_name),
+                    message=_fb(lang, "feedback.low_maint.message", name=fn_name),
+                    fix_hint=_fb(lang, "feedback.low_maint.fix_hint"),
                     panel="wood",
                     lines=fn_lines,
                 )
@@ -360,12 +297,9 @@ def generate_feedback_items(
             _item(
                 category="runtime",
                 severity="info",
-                title="Slow turns",
-                message=(
-                    "Turns are taking a long time on average. "
-                    "Avoid scanning the whole map every turn if you can cache simpler rules."
-                ),
-                fix_hint="Cache last direction or nearest resource instead of full-map scans.",
+                title=_fb(lang, "feedback.slow_turns.title"),
+                message=_fb(lang, "feedback.slow_turns.message"),
+                fix_hint=_fb(lang, "feedback.slow_turns.fix_hint"),
                 panel="parchment",
             )
         )
@@ -375,12 +309,9 @@ def generate_feedback_items(
             _item(
                 category="logic",
                 severity="critical",
-                title="Syntax error",
-                message=(
-                    "Your bot file has a Python syntax error. "
-                    "The game cannot analyze code quality until the file parses correctly."
-                ),
-                fix_hint="Fix the syntax error shown when you run the file in Python.",
+                title=_fb(lang, "feedback.syntax.title"),
+                message=_fb(lang, "feedback.syntax.message"),
+                fix_hint=_fb(lang, "feedback.syntax.fix_hint"),
                 panel="stone",
             )
         )
@@ -390,12 +321,9 @@ def generate_feedback_items(
             _item(
                 category="praise",
                 severity="info",
-                title="Looking good",
-                message=(
-                    "Nice work — no major issues flagged. "
-                    "Keep refactoring as you add features."
-                ),
-                fix_hint="Try a harder opponent or add smarter gathering logic.",
+                title=_fb(lang, "feedback.praise.title"),
+                message=_fb(lang, "feedback.praise.message"),
+                fix_hint=_fb(lang, "feedback.praise.fix_hint"),
                 panel="parchment",
             )
         )
@@ -408,11 +336,11 @@ def _movement_items(
     mv: dict[str, Any],
     cfg: "MovementConfig",
     static: dict[str, Any],
+    lang: str,
 ) -> None:
     """Append movement-quality feedback cards to *items* (mutates in place)."""
     if not mv.get("analyzed", False):
-        # No replay data — fall back to pure static signals only
-        _movement_static_items(items, static)
+        _movement_static_items(items, static, lang)
         return
 
     static_mv: dict[str, Any] = static.get("movement", {})
@@ -423,125 +351,107 @@ def _movement_items(
     stuck = int(mv.get("stuck_episodes", 0))
     if stuck >= 1:
         stuck_range: list[int] = mv.get("worst_stuck_turn_range") or []
-        range_str = f" (around turns {stuck_range[0]}–{stuck_range[1]})" if len(stuck_range) == 2 else ""
+        range_str = ""
+        if len(stuck_range) == 2:
+            range_str = _fb(
+                lang, "feedback.stuck.range", start=stuck_range[0], end=stuck_range[1],
+            )
+        plural = _fb(lang, "feedback.plural.s") if stuck > 1 else _fb(lang, "feedback.plural.empty")
         items.append(
             _item(
                 category="logic",
                 severity="warn",
-                title="Stuck between obstacles",
-                message=(
-                    f"Your bot got stuck {stuck} time{'s' if stuck > 1 else ''}{range_str} — "
-                    "it kept revisiting the same cell without gaining any score."
+                title=_fb(lang, "feedback.stuck.title"),
+                message=_fb(
+                    lang, "feedback.stuck.message",
+                    count=stuck, plural=plural, range=range_str,
                 ),
-                fix_hint="When a move is blocked, try a different direction or WAIT, then pick a new target.",
+                fix_hint=_fb(lang, "feedback.stuck.fix_hint"),
                 panel="wood",
                 lines=hint_lines,
             )
         )
 
-    # Oscillation (A → B → A ping-pong)
     osc = int(mv.get("oscillation_episodes", 0))
     if osc >= 1:
+        plural = _fb(lang, "feedback.plural.s") if osc > 1 else _fb(lang, "feedback.plural.empty")
         items.append(
             _item(
                 category="logic",
                 severity="warn",
-                title="Bouncing between two tiles",
-                message=(
-                    f"Your bot ping-ponged between the same two tiles {osc} time{'s' if osc > 1 else ''}. "
-                    "This wastes turns and prevents progress."
-                ),
-                fix_hint="Break the loop: pick a different target tile or wait one turn before re-trying.",
+                title=_fb(lang, "feedback.oscillation.title"),
+                message=_fb(lang, "feedback.oscillation.message", count=osc, plural=plural),
+                fix_hint=_fb(lang, "feedback.oscillation.fix_hint"),
                 panel="wood",
                 lines=hint_lines,
             )
         )
 
-    # Repetitive single action
     max_run = int(mv.get("max_consecutive_same_action", 0))
     if max_run >= cfg.consecutive_action_warn:
         items.append(
             _item(
                 category="logic",
                 severity="warn",
-                title="Repeating the same move",
-                message=(
-                    f"Your bot returned the same action {max_run} turns in a row. "
-                    "A stuck bot wastes turns that could be spent gathering resources."
-                ),
-                fix_hint="Track whether the last move succeeded; if blocked, choose a different direction.",
+                title=_fb(lang, "feedback.repeat_action.title"),
+                message=_fb(lang, "feedback.repeat_action.message", count=max_run),
+                fix_hint=_fb(lang, "feedback.repeat_action.fix_hint"),
                 panel="wood",
                 lines=hint_lines,
             )
         )
 
-    # High blocked-move ratio (combined with static: no walkable check)
     blocked_ratio = float(mv.get("blocked_move_ratio", 0.0))
     no_walkable = static_mv.get("no_walkable_check", False)
     if blocked_ratio >= cfg.blocked_ratio_warn:
         pct = int(blocked_ratio * 100)
-        extra = " The code does not check is_walkable() before moving." if no_walkable else ""
+        extra = _fb(lang, "feedback.blocked_moves.extra_no_walkable") if no_walkable else ""
         items.append(
             _item(
                 category="logic",
                 severity="warn",
-                title="Many blocked moves",
-                message=(
-                    f"Your bot tried to move into obstacles {pct}% of the time.{extra} "
-                    "Checking for walls before moving will save turns."
-                ),
-                fix_hint="Call is_walkable(x, y) before returning MOVE_* to avoid walking into walls.",
+                title=_fb(lang, "feedback.blocked_moves.title"),
+                message=_fb(lang, "feedback.blocked_moves.message", pct=pct, extra=extra),
+                fix_hint=_fb(lang, "feedback.blocked_moves.fix_hint"),
                 panel="wood",
                 lines=hint_lines if no_walkable else [],
             )
         )
     elif no_walkable and blocked_ratio > 0:
-        # Moderate blocking + missing walkable check — info card
         items.append(
             _item(
                 category="logic",
                 severity="info",
-                title="No obstacle check in code",
-                message=(
-                    "Your bot never calls is_walkable() or is_obstacle(). "
-                    "Adding obstacle checks lets the bot pick safer paths."
-                ),
-                fix_hint="Add: if state.is_walkable(nx, ny): before each MOVE_ return.",
+                title=_fb(lang, "feedback.no_walkable.title"),
+                message=_fb(lang, "feedback.no_walkable.message"),
+                fix_hint=_fb(lang, "feedback.no_walkable.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
         )
 
-    # Score stall while moving
     stall = int(mv.get("score_stall_turns", 0))
     if stall >= cfg.score_stall_warn:
         items.append(
             _item(
                 category="logic",
                 severity="info",
-                title="Moving without scoring",
-                message=(
-                    f"Your bot moved for {stall} turns in a row without increasing its score. "
-                    "It may be heading in the wrong direction or targeting empty tiles."
-                ),
-                fix_hint="Head toward resources/stations; use nearest_station() or resource_tiles() to find active targets.",
+                title=_fb(lang, "feedback.score_stall.title"),
+                message=_fb(lang, "feedback.score_stall.message", stall=stall),
+                fix_hint=_fb(lang, "feedback.score_stall.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
         )
 
-    # Static-only signals when replay is available (confirmation bias guard)
     if static_mv.get("constant_action_return", False):
         items.append(
             _item(
                 category="logic",
                 severity="warn",
-                title="No decision logic in make_turn",
-                message=(
-                    "make_turn always returns the same fixed action with no branching. "
-                    "The bot cannot react to the map or game state."
-                ),
-                fix_hint="Add if/elif branches to choose different actions based on state.on_resource(), state.nearest_station(), etc.",
+                title=_fb(lang, "feedback.no_branch.title"),
+                message=_fb(lang, "feedback.no_branch.message"),
+                fix_hint=_fb(lang, "feedback.no_branch.fix_hint"),
                 panel="stone",
                 lines=hint_lines,
             )
@@ -552,12 +462,9 @@ def _movement_items(
             _item(
                 category="logic",
                 severity="info",
-                title="No goal-seeking in code",
-                message=(
-                    "Your bot never uses helpers like on_resource(), nearest_station(), or can_gather(). "
-                    "Without goal logic it moves randomly and misses easy score opportunities."
-                ),
-                fix_hint="Use state.nearest_station() or state.resource_tiles() to pick a target each turn.",
+                title=_fb(lang, "feedback.no_target.title"),
+                message=_fb(lang, "feedback.no_target.message"),
+                fix_hint=_fb(lang, "feedback.no_target.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -568,19 +475,16 @@ def _movement_items(
             _item(
                 category="logic",
                 severity="info",
-                title="No fallback when path is blocked",
-                message=(
-                    "Your movement helper has no WAIT or alternate direction when the direct path is blocked. "
-                    "Adding a fallback prevents the bot from freezing."
-                ),
-                fix_hint="Return 'WAIT' or a perpendicular direction when is_walkable() returns False.",
+                title=_fb(lang, "feedback.no_fallback.title"),
+                message=_fb(lang, "feedback.no_fallback.message"),
+                fix_hint=_fb(lang, "feedback.no_fallback.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
         )
 
 
-def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any]) -> None:
+def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any], lang: str) -> None:
     """Emit static-only movement cards when no replay data is available."""
     static_mv: dict[str, Any] = static.get("movement", {})
     make_turn_line: int | None = static_mv.get("make_turn_line")
@@ -591,12 +495,9 @@ def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any]) ->
             _item(
                 category="logic",
                 severity="warn",
-                title="No decision logic in make_turn",
-                message=(
-                    "make_turn always returns the same fixed action with no branching. "
-                    "The bot cannot react to the map or game state."
-                ),
-                fix_hint="Add if/elif branches based on state.on_resource(), state.nearest_station(), etc.",
+                title=_fb(lang, "feedback.no_branch.title"),
+                message=_fb(lang, "feedback.no_branch.message"),
+                fix_hint=_fb(lang, "feedback.no_branch.fix_hint_static"),
                 panel="stone",
                 lines=hint_lines,
             )
@@ -607,12 +508,9 @@ def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any]) ->
             _item(
                 category="logic",
                 severity="info",
-                title="No obstacle check in code",
-                message=(
-                    "Your bot never calls is_walkable() or is_obstacle(). "
-                    "Without obstacle checks the bot will walk into walls."
-                ),
-                fix_hint="Add: if state.is_walkable(nx, ny): before each MOVE_ return.",
+                title=_fb(lang, "feedback.no_walkable.title"),
+                message=_fb(lang, "feedback.no_walkable.message_static"),
+                fix_hint=_fb(lang, "feedback.no_walkable.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -623,12 +521,9 @@ def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any]) ->
             _item(
                 category="logic",
                 severity="info",
-                title="No goal-seeking in code",
-                message=(
-                    "Your bot never uses helpers like on_resource() or nearest_station(). "
-                    "Goal-seeking logic turns random walking into effective play."
-                ),
-                fix_hint="Use state.nearest_station() or state.resource_tiles() to pick a target each turn.",
+                title=_fb(lang, "feedback.no_target.title"),
+                message=_fb(lang, "feedback.no_target.message_static"),
+                fix_hint=_fb(lang, "feedback.no_target.fix_hint"),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -641,6 +536,7 @@ def generate_feedback(
     runtime: dict[str, Any],
     movement: dict[str, Any] | None = None,
     movement_cfg: "MovementConfig | None" = None,
+    language: str = "en",
 ) -> list[str]:
     """Return plain-language hints ordered by priority (CLI / legacy JSON)."""
     return [
@@ -650,5 +546,6 @@ def generate_feedback(
             runtime=runtime,
             movement=movement,
             movement_cfg=movement_cfg,
+            language=language,
         )
     ]

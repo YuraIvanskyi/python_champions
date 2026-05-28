@@ -16,7 +16,7 @@ description = "Cooperative PvE — all bots fight the boss together"
 map_width = 10
 map_height = 10
 obstacle_count = 4
-max_turns = 200
+max_turns = 50
 min_players = 1
 max_players = 8
 

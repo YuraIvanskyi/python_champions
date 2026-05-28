@@ -151,7 +151,13 @@ def _draw_single_hp_bar(
     pygame.draw.rect(surface, (80, 90, 110), bg_rect, 1, border_radius=2)
 
 
-def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) -> pygame.Rect:
+def draw_map(
+    surface: pygame.Surface,
+    render_state: dict,
+    *,
+    origin_y: int = 0,
+    lang: str = "en",
+) -> pygame.Rect:
     """Draw grid and entities; return the map bounding rect."""
     map_w = int(render_state["map_width"])
     map_h = int(render_state["map_height"])
@@ -208,7 +214,7 @@ def draw_map(surface: pygame.Surface, render_state: dict, *, origin_y: int = 0) 
     # Draw boss entity (boss_fight scenario)
     boss_entity = render_state.get("boss_entity")
     if boss_entity:
-        _draw_boss(surface, boss_entity, origin_x, origin_y, name_font)
+        _draw_boss(surface, boss_entity, origin_x, origin_y, name_font, lang=lang)
 
     # Draw HP bars (boss_fight scenario)
     hp_bars = render_state.get("hp_bars", {})
@@ -246,6 +252,8 @@ def _draw_boss(
     origin_x: int,
     origin_y: int,
     font: pygame.font.Font,
+    *,
+    lang: str = "en",
 ) -> None:
     px, py = boss["position"]
     cx = origin_x + int(px) * TILE_SIZE + TILE_SIZE // 2
@@ -270,7 +278,12 @@ def _draw_boss(
         surface.blit(ltr, ltr.get_rect(center=(cx, cy)))
 
     # Nameplate (no HP numbers — shown on the bar above)
-    display_name = str(boss.get("display_name", "Boss"))
+    from engine.i18n import translate
+
+    default_boss = translate("render.boss", lang=lang)
+    display_name = str(boss.get("display_name", default_boss))
+    if display_name == "Boss" and lang != "en":
+        display_name = default_boss
     label = display_name if len(display_name) <= 12 else display_name[:11] + "…"
     name_top = cy + radius + 3
     _draw_nameplate(surface, font, label, cx, name_top)

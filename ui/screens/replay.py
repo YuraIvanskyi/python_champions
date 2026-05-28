@@ -83,7 +83,15 @@ class ReplayScreen:
 
         self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w, btn_y, w, btn_h)
 
+    def _localize_toolbar(self) -> None:
+        self._back_btn.label = self.app.t("replay.back")
+        self._fwd_btn.label = self.app.t("replay.next")
+        self._home_btn.label = self.app.t("replay.start")
+        self._end_btn.label = self.app.t("replay.end")
+        self._menu_btn.label = self.app.t("replay.menu")
+
     def on_enter(self) -> None:
+        self._localize_toolbar()
         self._pick_mode = self.replay is None
         if self._pick_mode:
             self.sessions = list_session_dirs(self.app.results_dir)
@@ -111,13 +119,13 @@ class ReplayScreen:
 
         load_btn = Button(
             pygame.Rect(ix, y + 8, 130, 40),
-            "Load Session",
+            self.app.t("replay.load"),
             on_click=self._load_selected,
             primary=True,
         )
         back_btn = Button(
             pygame.Rect(ix + 146, y + 8, 110, 40),
-            "Back",
+            self.app.t("replay.back"),
             on_click=lambda: self.app.goto_menu(),
         )
         self._picker_widgets.add(load_btn)
@@ -143,7 +151,7 @@ class ReplayScreen:
             self._effects.clear()
             self.app.replay_path = path
         except (OSError, ValueError, KeyError) as exc:
-            self.error = f"Could not load replay: {exc}"
+            self.error = self.app.t("replay.load_error", error=exc)
             self.replay = None
             self._pick_mode = True
 
@@ -251,7 +259,7 @@ class ReplayScreen:
             pixel_w + _FRAME_PAD * 2, frame_h,
         )
         skin.draw_panel(surface, frame, style="stone")
-        draw_map(surface, render_state, origin_y=origin_y)
+        draw_map(surface, render_state, origin_y=origin_y, lang=self.app.lang())
         self._effects.draw(surface, origin_x=origin_x, origin_y=origin_y)
 
         banner_y = max(4, frame_top - 48)
@@ -273,7 +281,7 @@ class ReplayScreen:
             for pid in sorted(last.actions.keys()):
                 label = names.get(pid, pid)
                 parts.append(f"{label}={last.actions[pid].value}")
-            action_line = "Last: " + " ".join(parts)
+            action_line = self.app.t("sim.last", actions=" ".join(parts))
             if len(action_line) > _MAX_LINE_LEN:
                 action_line = action_line[:_MAX_LINE_LEN - 1] + "…"
 
@@ -291,11 +299,13 @@ class ReplayScreen:
         draw_hud(
             surface,
             title=scenario_name,
-            subtitle=f"Seed {self.replay.seed}",
+            subtitle=self.app.t("sim.seed", seed=self.replay.seed),
             lines=[
-                f"Turn {idx + 1} / {total}  ·  {score_str}",
+                self.app.t(
+                    "replay.turn_line", current=idx + 1, total=total, scores=score_str,
+                ),
                 action_line,
-                f"Final: {final_str}",
+                self.app.t("replay.final_line", scores=final_str),
             ],
             y_offset=hud_text_top(),
         )
@@ -310,7 +320,7 @@ class ReplayScreen:
 
         skin.draw_banner_title(
             surface,
-            "Replay Sessions",
+            self.app.t("replay.title"),
             center_x=sw // 2,
             y=24,
             max_width=cw,
@@ -319,12 +329,15 @@ class ReplayScreen:
         # Sessions panel with titled header
         panel_h = max(200, min(len(self.sessions[:12]) * 36 + 80, 540))
         panel = pygame.Rect(MARGIN_X, 88, cw, panel_h)
-        skin.draw_panel_titled(surface, panel, "Saved Sessions", style="stone")
+        skin.draw_panel_titled(surface, panel, self.app.t("replay.saved"), style="stone")
 
         if not self.sessions:
             draw_centered_text(
                 surface,
-                ["No sessions in results/", "Run a game first (Run Match on menu)"],
+                [
+                    self.app.t("replay.empty_dir"),
+                    self.app.t("replay.empty_hint"),
+                ],
                 y_start=panel.y + 60,
                 color=colors.TEXT_MUTED,
                 size=16,
@@ -334,7 +347,7 @@ class ReplayScreen:
 
         foot_font = body_font(FOOTER_PT)
         foot_surf = foot_font.render(
-            "↑↓ select  ·  Enter load  ·  Esc menu", True, colors.TEXT_MUTED
+            self.app.t("replay.hint"), True, colors.TEXT_MUTED
         )
         foot_y = surface.get_height() - foot_surf.get_height() - 8
         old_clip = surface.get_clip()

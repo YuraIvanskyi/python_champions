@@ -11,6 +11,7 @@ from typing import Callable
 
 import pygame
 
+from engine.i18n import translate
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, code_font
@@ -53,7 +54,7 @@ class VllmSetupPanel:
     def handle_event(self, event: pygame.event.Event) -> bool:
         return bool(self._widgets.handle_event(event))
 
-    def draw(self, surface: pygame.Surface, rect: pygame.Rect) -> None:
+    def draw(self, surface: pygame.Surface, rect: pygame.Rect, *, lang: str = "en") -> None:
         skin.draw_panel(surface, rect, style="stone")
 
         x = rect.x + 24
@@ -63,18 +64,19 @@ class VllmSetupPanel:
         label_font = body_font(15)
         cmd_font = code_font(14)
 
-        # Title
-        title_surf = title_font.render("⚗ AI Summary", True, colors.GOLD_TEXT)
+        self._retry_btn.label = translate("vllm.retry", lang=lang)
+        self._templates_btn.label = translate("vllm.templates_only", lang=lang)
+
+        title_surf = title_font.render(translate("coach.ai_tab", lang=lang), True, colors.GOLD_TEXT)
         surface.blit(title_surf, (x, y))
         y += title_surf.get_height() + 12
 
-        # Status message
-        _blit_text(surface, label_font, "vLLM is not running.", x, y, colors.TEXT_BODY)
+        _blit_text(surface, label_font, translate("vllm.not_running", lang=lang), x, y, colors.TEXT_BODY)
         y += label_font.get_height() + 4
         _blit_text(
             surface,
             label_font,
-            "Enable AI feedback by starting the server:",
+            translate("vllm.enable_hint", lang=lang),
             x,
             y,
             colors.TEXT_MUTED,
@@ -99,7 +101,7 @@ class VllmSetupPanel:
         _blit_text(
             surface,
             label_font,
-            "Then set  enable_ai = true  in configs/default.toml",
+            translate("vllm.config_hint", lang=lang),
             x,
             y,
             colors.TEXT_MUTED,
@@ -108,7 +110,7 @@ class VllmSetupPanel:
         _blit_text(
             surface,
             label_font,
-            "and rerun the simulation.  (vLLM is Linux-only; use Ollama on Windows)",
+            translate("vllm.platform_hint", lang=lang),
             x,
             y,
             colors.TEXT_MUTED,
@@ -132,6 +134,8 @@ class TemplateFeedbackPanel:
         surface: pygame.Surface,
         rect: pygame.Rect,
         feedback: list[str],
+        *,
+        lang: str = "en",
     ) -> None:
         skin.draw_panel(surface, rect, style="parchment")
 
@@ -141,7 +145,9 @@ class TemplateFeedbackPanel:
         label_font = body_font(15)
         item_font = body_font(14)
 
-        header = label_font.render("Template feedback (AI offline)", True, colors.PARCHMENT_TEXT)
+        header = label_font.render(
+            translate("vllm.template_offline", lang=lang), True, colors.PARCHMENT_TEXT,
+        )
         surface.blit(header, (x, y))
         y += header.get_height() + 12
 
@@ -149,7 +155,9 @@ class TemplateFeedbackPanel:
         surface.set_clip(rect.inflate(-8, -8))
 
         if not feedback:
-            none_surf = item_font.render("No feedback items.", True, colors.PARCHMENT_TEXT)
+            none_surf = item_font.render(
+                translate("vllm.no_feedback", lang=lang), True, colors.PARCHMENT_TEXT,
+            )
             surface.blit(none_surf, (x, y))
         else:
             max_w = rect.width - 40
@@ -273,7 +281,6 @@ _MENTOR4_PAD_LEFT = 4
 _MENTOR4_STICKY_H = 88
 _MENTOR4_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_4.png"
 _MENTOR4_CACHE: dict[int, pygame.Surface | None] = {}
-_AI_STICKY_HEADING = "Words of wisdom"
 _AI_ADVISORY_DEFAULT = (
     "AI-generated summary — advisory only. "
     "Numeric scores come from static analysis."
@@ -377,6 +384,7 @@ def _draw_sticky_header(
     advisory: str,
     heading_font: pygame.font.Font,
     body_font_obj: pygame.font.Font,
+    lang: str = "en",
 ) -> None:
     mentor = _mentor4_surface(_MENTOR4_STICKY_H)
     mentor_x = pad_x + _MENTOR4_PAD_LEFT
@@ -390,7 +398,7 @@ def _draw_sticky_header(
     y = header_rect.y + 6
     skin.draw_text_clipped(
         surface,
-        _AI_STICKY_HEADING,
+        translate("vllm.wisdom", lang=lang),
         pygame.Rect(text_x, y, text_w, heading_font.get_height() + 2),
         heading_font,
         colors.WOOD_FILL,
@@ -552,6 +560,7 @@ class AiReportPanel:
         report_text: str,
         *,
         players: dict[str, dict[str, object]] | None = None,
+        lang: str = "en",
     ) -> None:
         from ui.skin.typography import code_font as _code_font
 
@@ -616,6 +625,7 @@ class AiReportPanel:
             advisory=advisory,
             heading_font=f_sticky,
             body_font_obj=f_small,
+            lang=lang,
         )
 
         content_inner = pygame.Rect(inner.x, inner.y + sticky_h + 2, inner.width, inner.height - sticky_h - 2)

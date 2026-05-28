@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ui.coach_data import bot_path_for_player, load_metrics_block, player_ids_from_replay
+from ui.coach_data import (
+    bot_path_for_player,
+    coach_player_ids,
+    load_metrics_block,
+    player_ids_from_replay,
+)
 
 
 def test_bot_files_mapping(tmp_path: Path) -> None:
@@ -26,6 +31,31 @@ def test_metrics_block_per_player() -> None:
     }
     block = load_metrics_block(metrics, "p2")
     assert block["scores"]["final"] == 20
+
+
+def test_metrics_block_single_player_practice() -> None:
+    metrics = {
+        "gameplay": {"player_id": "student", "raw_scores": {"student": 3, "opponent": 1}},
+        "scores": {"final": 42.0, "gameplay": 60, "code_quality": 80},
+    }
+    assert load_metrics_block(metrics, "student")["scores"]["final"] == 42.0
+    assert load_metrics_block(metrics, "opponent") == {}
+
+
+def test_coach_player_ids_practice_excludes_opponent() -> None:
+    metrics = {
+        "gameplay": {"player_id": "student"},
+        "scores": {"final": 1},
+    }
+    replay = {
+        "player_ids": ["student", "opponent"],
+        "players": {
+            "student": {"display_name": "You", "is_student": True},
+            "opponent": {"display_name": "Greedy", "is_student": False},
+        },
+        "bot_files": {"student": "student_bots/a.py"},
+    }
+    assert coach_player_ids(metrics, replay) == ["student"]
 
 
 def test_replay_bot_files_written(tmp_path: Path) -> None:

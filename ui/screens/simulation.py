@@ -109,6 +109,8 @@ class SimulationScreen:
         self.auto_mode = False
         self._auto_timer = 0
         self._reset_finish_state()
+        self._step_btn.label = self.app.t("sim.step")
+        self._menu_btn.label = self.app.t("sim.menu")
         self._sync_play_label()
 
     def _reset_finish_state(self) -> None:
@@ -119,7 +121,9 @@ class SimulationScreen:
         self._finish_result = None
 
     def _sync_play_label(self) -> None:
-        self._play_btn.label = "Pause" if self.auto_mode else "Play"
+        self._play_btn.label = (
+            self.app.t("sim.pause") if self.auto_mode else self.app.t("sim.play")
+        )
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self._finishing or self.live is None:
@@ -269,7 +273,7 @@ class SimulationScreen:
             pixel_h + self._FRAME_PAD * 2,
         )
         skin.draw_panel(surface, frame, style="stone")
-        draw_map(surface, render_state, origin_y=origin_y)
+        draw_map(surface, render_state, origin_y=origin_y, lang=self.app.lang())
         self._effects.draw(surface, origin_x=origin_x, origin_y=origin_y)
 
         # Decorative banner title above the stone frame
@@ -290,7 +294,7 @@ class SimulationScreen:
             for pid in sorted(last.actions.keys()):
                 label = names.get(pid, pid)
                 parts.append(f"{label}={last.actions[pid].value}")
-            action_line = "Last: " + " ".join(parts)
+            action_line = self.app.t("sim.last", actions=" ".join(parts))
             if len(action_line) > _MAX_ACTION_LEN:
                 action_line = action_line[:_MAX_ACTION_LEN - 1] + "…"
 
@@ -303,7 +307,7 @@ class SimulationScreen:
             score_str = score_str[:57] + "…"
 
         hud_lines = [
-            f"Turn {render_state['turn']}  ·  {score_str}",
+            self.app.t("sim.turn", turn=render_state["turn"], scores=score_str),
             action_line,
             status,
         ]
@@ -312,7 +316,7 @@ class SimulationScreen:
         draw_hud(
             surface,
             title=scenario_name,
-            subtitle=f"Seed {self.live.seed}",
+            subtitle=self.app.t("sim.seed", seed=self.live.seed),
             lines=hud_lines,
             y_offset=hud_y,
         )
@@ -321,19 +325,23 @@ class SimulationScreen:
         self._toolbar.draw(surface)
 
         if self._finishing:
-            draw_loading_overlay(surface, spinner_angle=self._spinner_angle)
+            draw_loading_overlay(
+                surface,
+                spinner_angle=self._spinner_angle,
+                lang=self.app.lang(),
+            )
 
     def _build_status_message(self) -> str:
         if self.live is None or not self.live.is_finished():
-            return "Running"
+            return self.app.t("sim.running")
         # Boss-fight end conditions
         if self.live.last_turn is not None:
             events = self.live.last_turn.events
             if "boss_defeated" in events:
-                return "BOSS DEFEATED — Party wins!"
+                return self.app.t("sim.boss_win")
             if "party_wiped" in events:
-                return "PARTY WIPED — Boss wins!"
-        return "Finished"
+                return self.app.t("sim.boss_lose")
+        return self.app.t("sim.finished")
 
     def get_final_scores(self) -> dict[str, int]:
         if self.live is None:

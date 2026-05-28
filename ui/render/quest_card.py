@@ -110,6 +110,8 @@ def draw_score_card(
     gameplay_score: object,
     code_score: object,
     final_score: object,
+    *,
+    lang: str = "en",
 ) -> None:
     """Draw the score summary at the top of the quest column."""
     skin.draw_panel(surface, rect, style="parchment")
@@ -124,7 +126,9 @@ def draw_score_card(
         mentor_y = rect.y + pad_y + (inner_h - mentor.get_height()) // 2
         surface.blit(mentor, (mentor_x, mentor_y))
 
-    greeting = f"Lets see your results, {bot_name}!"
+    from engine.i18n import translate
+
+    greeting = translate("quest.greeting", lang=lang, name=bot_name)
     greeting_font = body_font(14)
     greeting_lines = _wrap_text(greeting, greeting_font, text_w)[:2]
     y = rect.y + pad_y
@@ -148,9 +152,9 @@ def draw_score_card(
     lbl_font = body_font(11)
 
     entries: list[tuple[str, str, tuple[int, int, int]]] = [
-        ("Gameplay", str(gameplay_score), colors.PARCHMENT_TEXT),
-        ("Code", str(code_score), colors.PARCHMENT_TEXT),
-        ("Final", str(final_score), (165, 88, 18)),
+        (translate("quest.gameplay", lang=lang), str(gameplay_score), colors.PARCHMENT_TEXT),
+        (translate("quest.code", lang=lang), str(code_score), colors.PARCHMENT_TEXT),
+        (translate("quest.final", lang=lang), str(final_score), (165, 88, 18)),
     ]
 
     for i, (label, val, color) in enumerate(entries):
@@ -201,6 +205,7 @@ def draw_quest_card(
     item: dict[str, Any],
     *,
     selected: bool = False,
+    lang: str = "en",
 ) -> None:
     panel       = str(item.get("panel", "parchment"))
     is_parchment = panel == "parchment"
@@ -209,7 +214,10 @@ def draw_quest_card(
     if selected:
         pygame.draw.rect(surface, colors.TEAL_ACCENT, rect, 2, border_radius=6)
 
+    from engine.i18n import category_label, translate
+
     category = str(item.get("category", "style"))
+    category_text = category_label(category, lang)
 
     # ── Category ribbon ───────────────────────────────────────────────────────
     ribbon = pygame.Rect(
@@ -229,7 +237,7 @@ def draw_quest_card(
         cat_color = (255, 240, 200)
     cat_font = body_font(_BODY_PT - 1)
     skin.draw_text_clipped(
-        surface, category.upper(), ribbon, cat_font, cat_color,
+        surface, category_text, ribbon, cat_font, cat_color,
         align="center", pad_x=6,
     )
 
@@ -237,7 +245,7 @@ def draw_quest_card(
     title_x         = ribbon.right + 8
     title_avail_w   = rect.right - _CARD_PAD_X - title_x
     title_font_obj  = title_font(_TITLE_PT)
-    title_text      = str(item.get("title", "Tip"))
+    title_text      = str(item.get("title", translate("quest.tip", lang=lang)))
     # Use dark ink on parchment; gold on dark (stone/wood) panels
     title_color = colors.PARCHMENT_TEXT if is_parchment else colors.GOLD_TEXT
 
@@ -284,7 +292,7 @@ def draw_quest_card(
         else:
             fix_color = colors.GOLD_TEXT if selected else colors.TEXT_MUTED
         _draw_wrapped(
-            surface, f"Quest: {fix}",
+            surface, translate("quest.quest_prefix", lang=lang, hint=fix),
             body_font_obj, fix_color, msg_x, fix_y, msg_w, max_lines=_MAX_HINT_LINES,
         )
 

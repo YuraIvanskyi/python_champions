@@ -1,9 +1,10 @@
 """Font loading for the RPG UI skin.
 
 Fonts are resolved from configured paths (set via apply_config in ui/theme.py):
-  - game_font_path  → Jacquard24 (titles, labels, HUD, all non-code text)
+  - game_font_path  → Skranji (en) or Pangolin (uk; Latin + Cyrillic)
   - code_font_path  → FantasqueSansMNerdFontMono (code panel, text fields)
 
+apply_locale() picks the game face from [locale].language after theme loads TOML paths.
 Each font is cached per (path, size) so repeated calls are cheap.
 """
 
@@ -13,10 +14,14 @@ from pathlib import Path
 
 import pygame
 
+from engine.i18n import normalize_lang
 from engine.paths import resource_path
 
-# Default font paths (relative to project root)
-_DEFAULT_GAME_FONT = resource_path("ui", "assets", "fonts", "Jacquard24-Regular.ttf")
+_SKRANJI_FONT = resource_path("ui", "assets", "fonts", "Skranji-Regular.ttf")
+_PANGOLIN_FONT = resource_path("ui", "assets", "fonts", "Pangolin-Regular.ttf")
+
+# Default game font (English); Ukrainian uses Pangolin via apply_locale
+_DEFAULT_GAME_FONT = _SKRANJI_FONT
 _DEFAULT_CODE_FONT = resource_path(
     "ui", "assets", "fonts", "FantasqueSansMNerdFontMono-Regular.ttf"
 )
@@ -43,13 +48,19 @@ def set_code_font_path(path: Path | None) -> None:
     _code_cache.clear()
 
 
+def apply_locale(language: str) -> None:
+    """Set game font from locale: Skranji for English, Pangolin for Ukrainian."""
+    lang = normalize_lang(language)
+    path = _PANGOLIN_FONT if lang == "uk" else _SKRANJI_FONT
+    set_game_font_path(path)
+
+
 def _load_font(path: Path, size: int, cache: dict[tuple[str, int], pygame.font.Font]) -> pygame.font.Font:
     key = (str(path), size)
     if key not in cache:
         if path.is_file():
             cache[key] = pygame.font.Font(str(path), size)
         else:
-            # Graceful fallback if the file is missing at runtime
             cache[key] = pygame.font.SysFont("segoe ui,arial,sans-serif", size)
     return cache[key]
 

@@ -111,6 +111,8 @@ class SettingsScreen:
         self._scroll.offset = 0
         self._error_message = ""
         self._saved_until_ms = 0
+        self._back_btn.label = self.app.t("settings.back")
+        self._save_btn.label = self.app.t("settings.save")
         self._load_from_config(self.app.config)
 
     def _load_from_config(self, cfg: AppConfig) -> None:
@@ -291,7 +293,9 @@ class SettingsScreen:
                 sid = block.scenario_id
                 updates: dict[str, int] = {}
                 for key, input_field in block.inputs.items():
-                    updates[key] = validate_scenario_field(sid, key, input_field.text)
+                    updates[key] = validate_scenario_field(
+                        sid, key, input_field.text, lang=self.app.lang(),
+                    )
                 save_scenario_settings(sid, updates)
             save_app_config(cfg)
             reload_app_config(self.app)
@@ -317,7 +321,7 @@ class SettingsScreen:
 
         skin.draw_banner_title(
             surface,
-            "Settings",
+            self.app.t("settings.title"),
             center_x=sw // 2,
             y=18,
             max_width=content_width(),
@@ -343,7 +347,7 @@ class SettingsScreen:
 
         self._draw_section_title(
             surface,
-            text="Language",
+            text=self.app.t("settings.language"),
             x=content.x,
             y=int(base_y + self._lang_title_y),
         )
@@ -352,7 +356,7 @@ class SettingsScreen:
 
         self._draw_section_title(
             surface,
-            text="AI Summary model",
+            text=self.app.t("settings.ai_model"),
             x=content.x,
             y=int(base_y + self._model_title_y),
         )
@@ -361,7 +365,7 @@ class SettingsScreen:
 
         self._draw_section_title(
             surface,
-            text="Scenarios",
+            text=self.app.t("settings.scenarios"),
             x=content.x,
             y=int(base_y + self._scenarios_title_y),
         )
@@ -371,14 +375,16 @@ class SettingsScreen:
 
         for block in self._scenario_fields:
             block_title_y = int(base_y + self._block_title_y[block.scenario_id])
-            name = scenario_display_name(block.scenario_id)
+            name = scenario_display_name(block.scenario_id, self.app.lang())
             name_surf = heading_font.render(name, True, colors.TEXT_BODY)
             surface.blit(name_surf, (content.x, block_title_y))
 
             for row_keys in block.rows:
                 for col, key in enumerate(row_keys):
                     input_field = block.inputs[key]
-                    label = _FIELD_LABELS.get(key, key)
+                    label = self.app.t(f"settings.field.{key}")
+                    if label == f"settings.field.{key}":
+                        label = key
                     cell_w = self._cell_width(content)
                     cell_x = content.x + col * (cell_w + _FIELD_COL_GAP)
                     label_rect = pygame.Rect(
@@ -426,5 +432,5 @@ class SettingsScreen:
 
         if pygame.time.get_ticks() < self._saved_until_ms:
             ok_font = body_font(14)
-            ok_surf = ok_font.render("Settings saved", True, colors.TEAL_ACCENT)
+            ok_surf = ok_font.render(self.app.t("settings.saved"), True, colors.TEAL_ACCENT)
             surface.blit(ok_surf, (sw // 2 - ok_surf.get_width() // 2, footer_y - 28))

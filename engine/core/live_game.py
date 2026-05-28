@@ -16,6 +16,7 @@ from engine.core.scenario_registry import create_scenario
 from engine.core.session import write_session
 from engine.core.turn_result import TurnResult
 from engine.analysis.runtime import RuntimeCollector
+from engine.i18n import normalize_lang, translate
 from engine.sandbox.runner import SandboxedBot, run_turn_sandboxed
 
 
@@ -99,13 +100,14 @@ class LiveGame:
         max_turns: int | None = None,
         boss_difficulty: int | None = None,
     ) -> None:
+        self._locale_lang = normalize_lang(config.locale.language)
         if not student_bots:
-            raise ValueError("At least one student bot is required")
+            raise ValueError(translate("live.need_bot", lang=self._locale_lang))
 
         paths = [b.source_path for b in student_bots if b.source_path]
         resolved = [str(Path(p).resolve()) for p in paths]
         if len(resolved) != len(set(resolved)):
-            raise ValueError("Duplicate bot file paths are not allowed")
+            raise ValueError(translate("live.duplicate_paths", lang=self._locale_lang))
 
         effective_max = max_turns
         self.scenario_id = scenario_id
@@ -221,10 +223,14 @@ class LiveGame:
                     events_extra.extend(sandbox_events)
                     if "sandbox_timeout" in sandbox_events:
                         label = bot.player.display_name
-                        self.status_message = f"{label} timed out — turn forfeited (WAIT)."
+                        self.status_message = translate(
+                            "live.timeout", lang=self._locale_lang, label=label,
+                        )
                     elif any(e.startswith("bot_error:") for e in sandbox_events):
                         label = bot.player.display_name
-                        self.status_message = f"{label} error — turn forfeited (WAIT)."
+                        self.status_message = translate(
+                            "live.error", lang=self._locale_lang, label=label,
+                        )
                 else:
                     action = bot.make_turn(state)
             else:

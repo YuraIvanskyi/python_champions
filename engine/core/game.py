@@ -68,19 +68,25 @@ def run_game(
 
         ai_path = generate_report(session_dir, config)
         if print_summary:
+            from engine.i18n import normalize_lang, translate
+
+            _lang = normalize_lang(config.locale.language)
             if ai_path is not None:
-                print(f"AI report: {ai_path}")
+                print(translate("game.ai_report", lang=_lang, path=ai_path))
             else:
-                print("AI report skipped (vLLM not reachable or disabled)")
+                print(translate("game.ai_skipped", lang=_lang))
 
     if print_summary:
-        print(f"Final scores: {final_scores}")
+        from engine.i18n import normalize_lang, translate
+
+        _lang = normalize_lang(config.locale.language)
+        print(translate("game.final_scores", lang=_lang, scores=final_scores))
         if session_dir is not None:
-            print(f"Wrote session to {session_dir}")
+            print(translate("game.session_written", lang=_lang, path=session_dir))
         if run_analysis and metrics is not None:
             from engine.analysis.pipeline import print_analysis_summary
 
-            print_analysis_summary(metrics)
+            print_analysis_summary(metrics, lang=_lang)
 
     return RunResult(
         turn_log=live.turn_log,

@@ -26,18 +26,20 @@ class BotGuideScreen:
         self._blocks: list = []
         self._back_btn = Button(
             pygame.Rect(MARGIN_X, 0, 140, 40),
-            "Back to Menu",
+            "",  # set in on_enter
             on_click=lambda: self.app.goto_menu(),
         )
         self._widgets = WidgetGroup([self._back_btn])
 
     def open_scenario(self, scenario_id: str) -> None:
         self.scenario_id = scenario_id
-        self._blocks = guide_blocks_for_scenario(scenario_id)
+        self._blocks = guide_blocks_for_scenario(scenario_id, self.app.lang())
         self._scroll.offset = 0
 
     def on_enter(self) -> None:
         self._scroll.offset = 0
+        self._back_btn.label = self.app.t("bot_guide.back")
+        self._blocks = guide_blocks_for_scenario(self.scenario_id, self.app.lang())
 
     def _content_rect(self, *, window_height: int | None = None) -> pygame.Rect:
         sh = window_height if window_height is not None else WINDOW_HEIGHT
@@ -67,8 +69,8 @@ class BotGuideScreen:
     def draw(self, surface: pygame.Surface) -> None:
         skin.draw_background(surface)
         sw, sh = surface.get_width(), surface.get_height()
-        name = scenario_display_name(self.scenario_id)
-        title = f"How to write a bot for {name}"
+        name = scenario_display_name(self.scenario_id, self.app.lang())
+        title = self.app.t("bot_guide.title", name=name)
 
         skin.draw_banner_title(
             surface,

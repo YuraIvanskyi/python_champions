@@ -29,7 +29,7 @@ max_turns = 50
 default_opponent = "greedy"
 
 [locale]
-language = "uk"
+language = "en"
 
 [ui]
 tile_size = 40

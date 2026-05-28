@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai.prompts import SYSTEM_PROMPT, build_user_prompt
+from ai.prompts import SYSTEM_PROMPT, build_user_prompt, system_prompt
 
 
 def _sample_prompt(*, include_movement: bool = False) -> str:
@@ -140,3 +140,31 @@ def test_user_prompt_no_movement_section_when_omitted() -> None:
 
 def test_system_prompt_includes_movement_instruction() -> None:
     assert "movement" in SYSTEM_PROMPT.lower()
+
+
+def test_ai_prompts_ignore_locale_use_english() -> None:
+    assert system_prompt("uk") == system_prompt("en")
+    uk_prompt = build_user_prompt(
+        scenario_name="resource_wars",
+        turn_count=10,
+        gameplay_score=50.0,
+        code_quality_score=50.0,
+        final_score=50.0,
+        resources_gathered=1,
+        score_threshold=5,
+        feedback_items=[],
+        top_ruff_violations=[],
+        action_distribution={},
+        score_trajectory=[],
+        avg_turn_ms=0.0,
+        timeout_count=0,
+        crash_count=0,
+        invalid_action_count=0,
+        complexity_rank="A",
+        max_nesting_depth=1,
+        function_line_count=10,
+        language="uk",
+    )
+    assert "Scenario:" in uk_prompt
+    assert "### Student Summary" in uk_prompt
+    assert "Сценарій:" not in uk_prompt
