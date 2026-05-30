@@ -9,9 +9,9 @@ import pygame
 from engine.core.config import load_config
 from engine.core.player import Bot
 from engine.i18n import translate
-from engine.paths import default_results_dir
+from engine.paths import default_results_dir, resource_path
 from ui import theme
-from ui.audio import BackgroundMusic
+from ui.audio import BackgroundMusic, set_sound_enabled
 from ui.screens.bot_guide import BotGuideScreen
 from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
@@ -27,9 +27,11 @@ class App:
         self.config = cfg
         theme.apply_config(cfg.ui)
         pygame.init()
+        set_sound_enabled(cfg.ui.sound_enabled)
         self.music = BackgroundMusic()
         self.music.start()
-        pygame.display.set_caption("code-scenarios")
+        pygame.display.set_caption("Code Scenarios")
+        self._set_window_icon()
         self.screen = pygame.display.set_mode((theme.WINDOW_WIDTH, theme.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
@@ -61,6 +63,14 @@ class App:
         from ui.skin import typography
 
         typography.apply_locale(self.config.locale.language)
+
+    def _set_window_icon(self) -> None:
+        icon_path = resource_path("ui", "assets", "icons", "char_001.png")
+        try:
+            icon = pygame.image.load(str(icon_path))
+            pygame.display.set_icon(icon)
+        except (pygame.error, FileNotFoundError, OSError):
+            pass
 
     def goto_menu(self) -> None:
         self._set_screen(self.menu)

@@ -32,6 +32,7 @@ default_opponent = "greedy"
 language = "en"
 
 [ui]
+sound_enabled = true
 tile_size = 40
 map_padding = 24
 map_top = 16

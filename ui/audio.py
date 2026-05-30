@@ -22,14 +22,32 @@ class BgmTrack(Enum):
 
 
 _TRACK_FILES: dict[BgmTrack, str] = {
-    BgmTrack.MENUS: "game_menus.wav",
-    BgmTrack.ACTION: "action_phase.wav",
-    BgmTrack.RESULTS: "results.wav",
+    BgmTrack.MENUS: "folk-round-kevin-macleod-main-version-18634-03-03.mp3",
+    BgmTrack.ACTION: "truth-in-the-stones-kevin-macleod-main-version-06-13-10879.mp3",
+    BgmTrack.RESULTS: "deliberate-thought-kevin-macleod-main-version-7995-02-57.mp3",
 }
 
 _DEFAULT_VOLUME = 0.45
 _CLICK_FILE = "click.wav"
 _DEFAULT_CLICK_VOLUME = 0.55
+
+_sound_enabled = True
+
+
+def sound_enabled() -> bool:
+    return _sound_enabled
+
+
+def set_sound_enabled(enabled: bool) -> None:
+    """Enable or disable all UI music and click sounds."""
+    global _sound_enabled
+    _sound_enabled = enabled
+    if not enabled:
+        try:
+            if pygame.mixer.get_init():
+                pygame.mixer.music.stop()
+        except pygame.error:
+            pass
 
 
 def _ensure_mixer() -> bool:
@@ -64,7 +82,7 @@ def track_for_screen(screen: object) -> BgmTrack:
 
 
 class BackgroundMusic:
-    """Play and switch looped WAV tracks via pygame.mixer.music."""
+    """Play and switch looped background tracks via pygame.mixer.music."""
 
     def __init__(self, *, volume: float = _DEFAULT_VOLUME) -> None:
         self._volume = max(0.0, min(1.0, volume))
@@ -77,6 +95,8 @@ class BackgroundMusic:
 
     def start(self) -> None:
         """Initialize the mixer; safe to call once after pygame.init()."""
+        if not _sound_enabled:
+            return
         if self._enabled:
             return
         if not _ensure_mixer():
@@ -90,7 +110,7 @@ class BackgroundMusic:
 
     def sync(self, screen: object) -> None:
         """Start or switch music to match the given screen."""
-        if not self._enabled:
+        if not _sound_enabled or not self._enabled:
             return
         track = track_for_screen(screen)
         if track == self._current and pygame.mixer.music.get_busy():
@@ -145,6 +165,8 @@ def preload_ui_click() -> None:
 
 def play_ui_click() -> None:
     """Play the shared button-click sample."""
+    if not _sound_enabled:
+        return
     global _click_sound
     if _click_sound is None:
         preload_ui_click()

@@ -23,5 +23,4 @@ max_players = 8
 [scoring]
 gameplay_weight = 0.7
 code_weight = 0.3
-# calculate_score() returns 0–100 (share of max mana gathered); match boss_fight.
 score_threshold = 100

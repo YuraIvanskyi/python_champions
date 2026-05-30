@@ -86,6 +86,7 @@ class UIMapPresetsConfig(BaseModel):
 
 
 class UIConfig(BaseModel):
+    sound_enabled: bool = True
     tile_size: int = 40
     map_padding: int = 24
     map_top: int = 16

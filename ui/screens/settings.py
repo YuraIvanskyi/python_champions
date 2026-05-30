@@ -39,6 +39,13 @@ _SCENARIO_COLS = 2
 _SECTION_TITLE_H = 20
 _LANG_CARD_H = 44
 _MODEL_ROW_H = 28
+_SOUND_ROW_H = 28
+_SOUND_OPTIONS_COUNT = 2
+_CREDITS_DIVIDER_H = 10
+_CREDITS_SECTION_GAP = 16
+_CREDITS_LINE_H = 17
+_CREDITS_LINE_GAP = 2
+_CREDITS_PARA_GAP = 6
 
 LANGUAGE_OPTIONS: list[tuple[str, str, str]] = [
     ("en", "English", "flag_en"),
@@ -84,14 +91,19 @@ class SettingsScreen:
         self._scroll = ScrollState()
         self._content_widgets: list[Widget] = []
         self._language: LanguagePicker | None = None
+        self._sound: RadioPicker | None = None
         self._ai_model: RadioPicker | None = None
         self._scenario_fields: list[_ScenarioFields] = []
         self._error_message = ""
         self._saved_until_ms = 0
         self._content_height = 0
         self._lang_title_y = 0
+        self._sound_title_y = 0
         self._model_title_y = 0
         self._scenarios_title_y = 0
+        self._credits_divider_y = 0
+        self._credits_title_y = 0
+        self._credits_draw_lines: list[tuple[str, str]] = []
         self._block_title_y: dict[str, int] = {}
 
         self._back_btn = Button(
@@ -128,6 +140,17 @@ class SettingsScreen:
             value=cfg.locale.language,
             on_change=lambda _v: None,
         )
+        sound_h = _SOUND_OPTIONS_COUNT * _SOUND_ROW_H
+        self._sound = RadioPicker(
+            pygame.Rect(0, 0, content_w, sound_h),
+            options=[
+                ("on", self.app.t("settings.sound.on")),
+                ("off", self.app.t("settings.sound.off")),
+            ],
+            value="on" if cfg.ui.sound_enabled else "off",
+            on_change=lambda _v: None,
+            row_height=_SOUND_ROW_H,
+        )
         model_h = len(AI_MODEL_OPTIONS) * _MODEL_ROW_H
         self._ai_model = RadioPicker(
             pygame.Rect(0, 0, content_w, model_h),
@@ -136,7 +159,7 @@ class SettingsScreen:
             on_change=lambda _v: None,
             row_height=_MODEL_ROW_H,
         )
-        self._content_widgets.extend([self._language, self._ai_model])
+        self._content_widgets.extend([self._language, self._sound, self._ai_model])
 
         for entry in list_scenarios():
             sid = entry["id"]
@@ -164,6 +187,9 @@ class SettingsScreen:
         self._lang_title_y = y
         y += _SECTION_TITLE_H + _LANG_CARD_H + _SECTION_GAP
 
+        self._sound_title_y = y
+        y += _SECTION_TITLE_H + _SOUND_OPTIONS_COUNT * _SOUND_ROW_H + _SECTION_GAP
+
         self._model_title_y = y
         y += _SECTION_TITLE_H + len(AI_MODEL_OPTIONS) * _MODEL_ROW_H + _SECTION_GAP
 
@@ -176,7 +202,46 @@ class SettingsScreen:
             y += len(block.rows) * (_ROW_H + _ROW_GAP)
             y += _SECTION_GAP
 
+        content_w = content_width() - 2 * _INSET - _SCROLLBAR_W - 4
+        self._credits_divider_y = y
+        y += _CREDITS_DIVIDER_H + _CREDITS_SECTION_GAP
+
+        self._credits_title_y = y
+        y += _SECTION_TITLE_H
+
+        self._credits_draw_lines = self._build_credits_lines(content_w)
+        for text, _style in self._credits_draw_lines:
+            if not text:
+                y += _CREDITS_PARA_GAP
+            else:
+                y += _CREDITS_LINE_H + _CREDITS_LINE_GAP
+
         self._content_height = y + 12
+
+    def _build_credits_lines(self, max_w: int) -> list[tuple[str, str]]:
+        """Return (text, style) rows for the credits block; style is body | link."""
+        t = self.app.t
+        entries: list[tuple[str, str]] = [
+            (t("settings.credits.author"), "body"),
+            (t("settings.credits.assistant"), "body"),
+            (t("settings.credits.stack"), "body"),
+            ("", "spacer"),
+            (t("settings.credits.music_header"), "body"),
+            (t("settings.credits.music_deliberate"), "link"),
+            (t("settings.credits.music_truth"), "link"),
+            (t("settings.credits.music_folk"), "link"),
+        ]
+        body_font_obj = body_font(13)
+        link_font_obj = body_font(12)
+        lines: list[tuple[str, str]] = []
+        for text, style in entries:
+            if not text:
+                lines.append(("", "spacer"))
+                continue
+            font = link_font_obj if style == "link" else body_font_obj
+            for wrapped in _wrap_text(text, font, max_w):
+                lines.append((wrapped, style))
+        return lines
 
     def _content_rect(self, *, window_height: int | None = None) -> pygame.Rect:
         sh = window_height if window_height is not None else WINDOW_HEIGHT
@@ -216,6 +281,12 @@ class SettingsScreen:
         if self._language is not None:
             self._language.rect = pygame.Rect(content.x, y, content.width, _LANG_CARD_H)
             y += _LANG_CARD_H + _SECTION_GAP
+
+        y += _SECTION_TITLE_H
+        if self._sound is not None:
+            sound_h = _SOUND_OPTIONS_COUNT * _SOUND_ROW_H
+            self._sound.rect = pygame.Rect(content.x, y, content.width, sound_h)
+            y += sound_h + _SECTION_GAP
 
         y += _SECTION_TITLE_H
         if self._ai_model is not None:
@@ -283,9 +354,10 @@ class SettingsScreen:
     def _save(self) -> None:
         self._error_message = ""
         cfg = self.app.config.model_copy(deep=True)
-        assert self._language is not None and self._ai_model is not None
+        assert self._language is not None and self._sound is not None and self._ai_model is not None
 
         cfg.locale.language = self._language.value  # type: ignore[assignment]
+        cfg.ui.sound_enabled = self._sound.value == "on"
         cfg.ai.model = self._ai_model.value
 
         try:
@@ -356,6 +428,15 @@ class SettingsScreen:
 
         self._draw_section_title(
             surface,
+            text=self.app.t("settings.sound"),
+            x=content.x,
+            y=int(base_y + self._sound_title_y),
+        )
+        if self._sound is not None:
+            self._sound.draw(surface)
+
+        self._draw_section_title(
+            surface,
             text=self.app.t("settings.ai_model"),
             x=content.x,
             y=int(base_y + self._model_title_y),
@@ -404,6 +485,39 @@ class SettingsScreen:
                     )
                     input_field.draw(surface)
 
+        credits_divider_y = int(base_y + self._credits_divider_y)
+        skin.draw_ornamental_divider(
+            surface,
+            pygame.Rect(content.x, credits_divider_y, content.width, _CREDITS_DIVIDER_H),
+        )
+
+        self._draw_section_title(
+            surface,
+            text=self.app.t("settings.credits.title"),
+            x=content.x,
+            y=int(base_y + self._credits_title_y),
+        )
+
+        credits_y = int(base_y + self._credits_title_y) + _SECTION_TITLE_H
+        body = body_font(13)
+        link = body_font(12)
+        for text, style in self._credits_draw_lines:
+            if style == "spacer":
+                credits_y += _CREDITS_PARA_GAP
+                continue
+            font = link if style == "link" else body
+            color = colors.TEAL_ACCENT if style == "link" else colors.TEXT_MUTED
+            skin.draw_text_clipped(
+                surface,
+                text,
+                pygame.Rect(content.x, credits_y, content.width, _CREDITS_LINE_H),
+                font,
+                color,
+                align="left",
+                pad_y=2,
+            )
+            credits_y += _CREDITS_LINE_H + _CREDITS_LINE_GAP
+
         surface.set_clip(old_clip)
 
         track = pygame.Rect(
@@ -434,3 +548,23 @@ class SettingsScreen:
             ok_font = body_font(14)
             ok_surf = ok_font.render(self.app.t("settings.saved"), True, colors.TEAL_ACCENT)
             surface.blit(ok_surf, (sw // 2 - ok_surf.get_width() // 2, footer_y - 28))
+
+
+def _wrap_text(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
+    """Word-wrap *text* so each line fits within *max_w* pixels."""
+    if font.size(text)[0] <= max_w:
+        return [text]
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        test = f"{current} {word}".strip()
+        if font.size(test)[0] <= max_w:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines or [text]
