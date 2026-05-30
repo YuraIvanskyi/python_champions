@@ -1,6 +1,6 @@
 [boss]
 difficulty = 1
-hp_per_level = [30, 40, 60]
+hp_per_level = [20, 40, 60]
 damage_per_level = [2, 4, 5]
 multi_target_at_level = [false, false, true]
 
