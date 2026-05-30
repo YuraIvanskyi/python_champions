@@ -87,7 +87,10 @@ def _ui_en() -> dict[str, str]:
         "sim.menu": "Menu",
         "sim.last": "Last: {actions}",
         "sim.turn": "Turn {turn}  ·  {scores}",
+        "sim.turn_only": "Turn {turn}",
         "sim.seed": "Seed {seed}",
+        "sim.bot_score": "Score: {score}",
+        "sim.bot_no_action": "—",
         "sim.running": "Running",
         "sim.finished": "Finished",
         "sim.boss_win": "BOSS DEFEATED — Party wins!",
@@ -102,6 +105,7 @@ def _ui_en() -> dict[str, str]:
         "replay.load": "Load Session",
         "replay.end": "End",
         "replay.turn_line": "Turn {current} / {total}  ·  {scores}",
+        "replay.turn_progress": "Turn {current} / {total}",
         "replay.final_line": "Final: {scores}",
         "replay.empty": "No saved sessions yet. Run a match first.",
         "replay.empty_dir": "No sessions in results/",
@@ -295,8 +299,8 @@ def _ui_en() -> dict[str, str]:
         "guide.mp.goal": "Goal",
         "guide.mp.goal_body": (
             "Competitive PvP on a 20×10 map. Gather mana from glowing pools (pools). "
-            "Highest total mana when turns end wins. Moving and attacking spend mana; "
-            "gathering refills it up to max_energy."
+            "Highest total mana gathered wins — not what you still hold at the end. "
+            "Moving and attacking spend mana; gathering refills it up to max_energy."
         ),
         "guide.mp.file": "File structure",
         "guide.mp.file_body": "One .py file per bot. Each turn you get a state object with mana and pool info.",
@@ -393,7 +397,10 @@ def _ui_uk() -> dict[str, str]:
         "sim.menu": "Меню",
         "sim.last": "Останнє: {actions}",
         "sim.turn": "Хід {turn}  ·  {scores}",
+        "sim.turn_only": "Хід {turn}",
         "sim.seed": "Seed {seed}",
+        "sim.bot_score": "Рахунок: {score}",
+        "sim.bot_no_action": "—",
         "sim.running": "Йде гра",
         "sim.finished": "Завершено",
         "sim.boss_win": "БОСА ПЕРЕМОЖЕНО — команда перемогла!",
@@ -408,6 +415,7 @@ def _ui_uk() -> dict[str, str]:
         "replay.load": "Завантажити сесію",
         "replay.end": "Кінець",
         "replay.turn_line": "Хід {current} / {total}  ·  {scores}",
+        "replay.turn_progress": "Хід {current} / {total}",
         "replay.final_line": "Підсумок: {scores}",
         "replay.empty": "Ще немає збережених сесій. Спочатку зіграй матч.",
         "replay.empty_dir": "Немає сесій у results/",
@@ -590,8 +598,8 @@ def _ui_uk() -> dict[str, str]:
         "guide.mp.goal": "Мета",
         "guide.mp.goal_body": (
             "PvP на карті 20×10. Збирай ману з басейнів (станцій). "
-            "Перемагає найбільша мана до кінця ходів. Рух і атака витрачають ману; "
-            "GATHER поповнює до max_energy."
+            "Перемагає, хто зібрав найбільше мани — не скільки лишилось на кінець. "
+            "Рух і атака витрачають ману; GATHER поповнює до max_energy."
         ),
         "guide.mp.file": "Структура файлу",
         "guide.mp.file_body": "Один .py на бота. Кожен хід — state з маною та басейнами.",

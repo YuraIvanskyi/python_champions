@@ -13,7 +13,12 @@ from engine.core.live_game import LiveGame
 from engine.core.player import Bot
 from engine.core.scenario_registry import scenario_display_name
 from ui.render.action_effects import ActionEffectManager
-from ui.render.hud import draw_hud, draw_toolbar_strip
+from ui.render.hud import (
+    build_hud_bot_entries,
+    draw_hud,
+    draw_toolbar_strip,
+    hud_header_line,
+)
 from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
@@ -30,8 +35,7 @@ from ui.theme import (
     toolbar_top,
 )
 from ui.widgets import Button, WidgetGroup
-
-_MAX_ACTION_LEN = 80
+from ui.widgets.scroll import ScrollState
 
 
 class SimulationScreen:
@@ -49,6 +53,8 @@ class SimulationScreen:
         self._finish_result: tuple[dict[str, int], Path | None, bool] | None = None
         self._toolbar = WidgetGroup()
         self._effects = ActionEffectManager()
+        self._hud_scroll = ScrollState()
+        self._hud_cards_rect = pygame.Rect(0, 0, 0, 0)
         self._build_toolbar()
 
     def _build_toolbar(self) -> None:
@@ -129,6 +135,8 @@ class SimulationScreen:
         if self._finishing or self.live is None:
             return
         if self._toolbar.handle_event(event):
+            return
+        if self._hud_scroll.handle_wheel_horizontal(event, rect=self._hud_cards_rect):
             return
         if event.type != pygame.KEYDOWN:
             return
@@ -286,38 +294,23 @@ class SimulationScreen:
             max_width=content_width(sw),
         )
 
-        names = render_state.get("display_names", {})
-        last = self.live.last_turn
-        action_line = ""
-        if last is not None:
-            parts: list[str] = []
-            for pid in sorted(last.actions.keys()):
-                label = names.get(pid, pid)
-                parts.append(f"{label}={last.actions[pid].value}")
-            action_line = self.app.t("sim.last", actions=" ".join(parts))
-            if len(action_line) > _MAX_ACTION_LEN:
-                action_line = action_line[:_MAX_ACTION_LEN - 1] + "…"
-
-        labeled_scores = {
-            names.get(pid, pid): score for pid, score in render_state["scores"].items()
-        }
         status = self.live.status_message or self._build_status_message()
-        score_str = " · ".join(f"{name}: {v}" for name, v in labeled_scores.items())
-        if len(score_str) > 60:
-            score_str = score_str[:57] + "…"
-
-        hud_lines = [
-            self.app.t("sim.turn", turn=render_state["turn"], scores=score_str),
-            action_line,
-            status,
-        ]
-
         hud_y = hud_text_top()
-        draw_hud(
+        self._hud_cards_rect = draw_hud(
             surface,
-            title=scenario_name,
-            subtitle=self.app.t("sim.seed", seed=self.live.seed),
-            lines=hud_lines,
+            header=hud_header_line(
+                title=scenario_name,
+                seed=self.live.seed,
+                turn=render_state["turn"],
+                lang=self.app.lang(),
+            ),
+            bots=build_hud_bot_entries(
+                render_state,
+                self.live.last_turn,
+                lang=self.app.lang(),
+            ),
+            footer_lines=[status],
+            scroll=self._hud_scroll,
             y_offset=hud_y,
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)

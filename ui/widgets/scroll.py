@@ -1,4 +1,4 @@
-"""Simple vertical scroll state for coach panels."""
+"""Scroll state for coach panels and HUD bot cards."""
 
 from __future__ import annotations
 
@@ -29,4 +29,23 @@ class ScrollState:
         if not rect.collidepoint(pygame.mouse.get_pos()):
             return False
         self.scroll(-event.y * 24)
+        return True
+
+    def handle_wheel_horizontal(
+        self,
+        event: pygame.event.Event,
+        *,
+        rect: pygame.Rect,
+    ) -> bool:
+        """Scroll horizontally when the pointer is over *rect*."""
+        if event.type != pygame.MOUSEWHEEL:
+            return False
+        if not rect.collidepoint(pygame.mouse.get_pos()):
+            return False
+        delta = event.x
+        if delta == 0 and pygame.key.get_mods() & pygame.KMOD_SHIFT:
+            delta = event.y
+        if delta == 0:
+            return False
+        self.scroll(-delta * 24)
         return True

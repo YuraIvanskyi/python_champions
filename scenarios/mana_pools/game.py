@@ -78,6 +78,7 @@ class ManaPoolsScenario(ScenarioBase):
         self._finished = False
 
         # Per-bot stats for scoring/metrics
+        self._mana_gathered: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._gathers: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._pushes_landed: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._pushes_blocked: dict[str, int] = {pid: 0 for pid in self._player_ids}
@@ -108,6 +109,7 @@ class ManaPoolsScenario(ScenarioBase):
         self._place_pools(self._pool_count)
         self._place_players()
 
+        self._mana_gathered = {pid: 0 for pid in self._player_ids}
         self._gathers = {pid: 0 for pid in self._player_ids}
         self._pushes_landed = {pid: 0 for pid in self._player_ids}
         self._pushes_blocked = {pid: 0 for pid in self._player_ids}
@@ -249,6 +251,7 @@ class ManaPoolsScenario(ScenarioBase):
                     gained = min(gained, self._max_energy - self._energy[pid])
                     self._energy[pid] = min(self._max_energy, self._energy[pid] + gained)
                     self._pool_capacities[(sx, sy)] -= gained
+                    self._mana_gathered[pid] += gained
                     self._gathers[pid] += 1
                     events.append(f"{pid}_gathered_{gained}")
                     # Deplete station if empty
@@ -345,11 +348,11 @@ class ManaPoolsScenario(ScenarioBase):
     # ── Scoring ────────────────────────────────────────────────────────────────
 
     def calculate_score(self) -> dict[str, int]:
-        if not self._energy:
+        if not self._mana_gathered:
             return {pid: 0 for pid in self._player_ids}
-        max_e = max(self._energy.values()) or 1
+        max_gathered = max(self._mana_gathered.values()) or 1
         return {
-            pid: round(self._energy[pid] / max_e * 100)
+            pid: round(self._mana_gathered[pid] / max_gathered * 100)
             for pid in self._player_ids
         }
 
@@ -436,6 +439,7 @@ class ManaPoolsScenario(ScenarioBase):
     def energy_metrics(self) -> dict[str, Any]:
         return {
             "energy_final": dict(self._energy),
+            "mana_gathered": dict(self._mana_gathered),
             "gathers": dict(self._gathers),
             "pushes_landed": dict(self._pushes_landed),
             "pushes_blocked": dict(self._pushes_blocked),

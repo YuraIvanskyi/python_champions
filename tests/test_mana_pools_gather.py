@@ -109,3 +109,23 @@ def test_gather_increments_gathers_counter():
     s.apply_turn(actions)
 
     assert s._gathers[pid] == before + 1
+
+
+def test_score_uses_mana_gathered_not_stored_energy():
+    s = _setup_with_manual_positions()
+    pid = "p1"
+    rival = "p2"
+    _place_bot_adjacent_to_station(s, pid)
+
+    actions = {p: Action.WAIT for p in s.player_ids()}
+    actions[pid] = Action.GATHER
+    s.apply_turn(actions)
+
+    gained = s._mana_gathered[pid]
+    assert gained > 0
+    s._energy[pid] = 0
+    s._energy[rival] = s._max_energy
+
+    scores = s.calculate_score()
+    assert scores[pid] == 100
+    assert scores[rival] == 0

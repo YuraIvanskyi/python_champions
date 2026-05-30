@@ -16,7 +16,13 @@ from engine.core.replay import (
 )
 from engine.core.scenario_registry import scenario_display_name
 from ui.render.action_effects import ActionEffectManager
-from ui.render.hud import draw_centered_text, draw_hud, draw_toolbar_strip
+from ui.render.hud import (
+    build_hud_bot_entries,
+    draw_centered_text,
+    draw_hud,
+    draw_toolbar_strip,
+    hud_header_line,
+)
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -36,8 +42,6 @@ from ui.theme import (
 )
 from ui.widgets import Button, ListRow, WidgetGroup
 from ui.widgets.scroll import ScrollState
-
-_MAX_LINE_LEN = 200
 
 _ROW_H = 34
 _ROW_GAP = 4
@@ -71,6 +75,8 @@ class ReplayScreen:
         self._delete_all_btn = Button(pygame.Rect(0, 0, 120, _ACTION_BTN_H), "Delete All")
         self._transport = WidgetGroup()
         self._effects = ActionEffectManager()
+        self._hud_scroll = ScrollState()
+        self._hud_cards_rect = pygame.Rect(0, 0, 0, 0)
         self._build_transport()
 
     def _build_transport(self) -> None:
@@ -349,6 +355,9 @@ class ReplayScreen:
         if self._transport.handle_event(event):
             return
 
+        if self._hud_scroll.handle_wheel_horizontal(event, rect=self._hud_cards_rect):
+            return
+
         if event.type != pygame.KEYDOWN:
             return
 
@@ -414,39 +423,29 @@ class ReplayScreen:
         names = render_state.get("display_names", {})
         idx = self.replay.turn_index
         total = self.replay.turn_count
-        last = self.replay.last_turn
-        action_line = ""
-        if last is not None:
-            parts: list[str] = []
-            for pid in sorted(last.actions.keys()):
-                label = names.get(pid, pid)
-                parts.append(f"{label}={last.actions[pid].value}")
-            action_line = self.app.t("sim.last", actions=" ".join(parts))
-            if len(action_line) > _MAX_LINE_LEN:
-                action_line = action_line[:_MAX_LINE_LEN - 1] + "…"
-
-        labeled_scores = {
-            names.get(pid, pid): score for pid, score in render_state["scores"].items()
-        }
-        score_str = " · ".join(f"{n}: {v}" for n, v in labeled_scores.items())
-
         labeled_final = {
             names.get(pid, pid): score
             for pid, score in self.replay.final_scores.items()
         }
         final_str = " · ".join(f"{n}: {v}" for n, v in labeled_final.items())
 
-        draw_hud(
+        self._hud_cards_rect = draw_hud(
             surface,
-            title=scenario_name,
-            subtitle=self.app.t("sim.seed", seed=self.replay.seed),
-            lines=[
-                self.app.t(
-                    "replay.turn_line", current=idx + 1, total=total, scores=score_str,
+            header=hud_header_line(
+                title=scenario_name,
+                seed=self.replay.seed,
+                turn_label=self.app.t(
+                    "replay.turn_progress", current=idx + 1, total=total,
                 ),
-                action_line,
-                self.app.t("replay.final_line", scores=final_str),
-            ],
+                lang=self.app.lang(),
+            ),
+            bots=build_hud_bot_entries(
+                render_state,
+                self.replay.last_turn,
+                lang=self.app.lang(),
+            ),
+            footer_lines=[self.app.t("replay.final_line", scores=final_str)],
+            scroll=self._hud_scroll,
             y_offset=hud_text_top(),
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)

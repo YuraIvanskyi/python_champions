@@ -71,13 +71,13 @@ def test_boss_fight_threshold_matches_percent_scores() -> None:
 
 
 def test_mana_pools_threshold_matches_normalized_scores() -> None:
-    """calculate_score() returns 0–100 mana share; analysis must not saturate early."""
+    """calculate_score() returns 0–100 gather share; analysis must not saturate early."""
     weights = load_scoring_weights("mana_pools")
     assert weights.score_threshold == 100
 
     scenario = ManaPoolsScenario(1, player_ids=["a", "b"])
     scenario.setup()
-    scenario._energy = {"a": 62, "b": 100}
+    scenario._mana_gathered = {"a": 62, "b": 100}
     match_scores = scenario.calculate_score()
     assert match_scores == {"a": 62, "b": 100}
 

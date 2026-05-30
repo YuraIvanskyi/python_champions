@@ -5,6 +5,9 @@ move_cost = 1
 attack_cost = 3
 gather_rate = 5
 
+[pool]
+initial_capacity = 20
+
 [scenario]
 id = "mana_pools"
 name = "Mana Pools"
@@ -20,8 +23,5 @@ max_players = 8
 [scoring]
 gameplay_weight = 0.7
 code_weight = 0.3
-# calculate_score() already returns 0–100 (share of max mana); match boss_fight.
+# calculate_score() returns 0–100 (share of max mana gathered); match boss_fight.
 score_threshold = 100
-
-[pool]
-initial_capacity = 20
