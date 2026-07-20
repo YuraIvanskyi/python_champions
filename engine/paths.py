@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -11,6 +12,19 @@ from pathlib import Path
 
 def is_frozen() -> bool:
     return getattr(sys, "frozen", False)
+
+
+def subprocess_no_window_kwargs() -> dict[str, int]:
+    """Extra ``subprocess`` kwargs that stop Windows from flashing a console.
+
+    A windowed (``console=False``) frozen build has no console of its own, so
+    any child process that *is* a console-subsystem executable (e.g. the
+    bundled ``ruff.exe``) makes Windows allocate a brand-new visible console
+    window for it. ``CREATE_NO_WINDOW`` suppresses that. No-op elsewhere.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
 
 
 @lru_cache(maxsize=1)

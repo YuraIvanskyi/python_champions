@@ -13,7 +13,7 @@ from typing import Any
 from radon.complexity import cc_rank, cc_visit
 from radon.metrics import mi_rank, mi_visit
 
-from engine.paths import bundled_executable
+from engine.paths import bundled_executable, subprocess_no_window_kwargs
 
 
 @dataclass
@@ -86,6 +86,7 @@ def run_ruff(bot_path: Path, *, select: list[str]) -> list[RuffViolation]:
         capture_output=True,
         text=True,
         check=False,
+        **subprocess_no_window_kwargs(),
     )
     # returncode 0 = clean, 1 = violations found, 2+ = Ruff error
     if completed.returncode >= 2 or (not completed.stdout.strip() and completed.stderr.strip()):

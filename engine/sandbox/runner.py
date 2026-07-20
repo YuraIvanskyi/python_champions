@@ -12,7 +12,7 @@ from typing import Any
 
 from engine.core.action import Action, parse_action
 from engine.core.config import AppConfig
-from engine.paths import is_frozen
+from engine.paths import is_frozen, subprocess_no_window_kwargs
 from engine.sandbox.constants import SANDBOX_WORKER_FLAG
 
 DEFAULT_TIMEOUT_ACTION = Action.WAIT
@@ -42,6 +42,7 @@ class SandboxedBot:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
+            **subprocess_no_window_kwargs(),
         )
 
     def _readline_with_timeout(self, timeout_sec: float) -> dict[str, Any] | None:
