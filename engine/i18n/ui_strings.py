@@ -70,6 +70,10 @@ def _ui_en() -> dict[str, str]:
         "settings.sound": "Sound",
         "settings.sound.on": "On",
         "settings.sound.off": "Off",
+        "settings.sound.volume": "Volume (0–100)",
+        "settings.enable_ai": "AI summaries",
+        "settings.enable_ai.on": "Enabled",
+        "settings.enable_ai.off": "Disabled",
         "settings.ai_model": "AI Summary model",
         "settings.scenarios": "Scenarios",
         "settings.back": "Back to Menu",
@@ -132,6 +136,7 @@ def _ui_en() -> dict[str, str]:
         "scores.view_replay": "View Replay",
         "scores.code_coach": "Code Coach",
         "scores.open_folder": "Open Folder",
+        "scores.export_grades": "Export Grades",
         "scores.final_scores": "Final Scores",
         "scores.analysis": "Analysis",
         "scores.session": "Session: {name}",
@@ -150,6 +155,7 @@ def _ui_en() -> dict[str, str]:
         "scores.timeouts": "Timeouts: {n}",
         "scores.avg_turn": "Avg turn: {ms:.2f} ms",
         "scores.movement_prefix": "Movement: ",
+        "scores.movement_repeat": "{repeat}-turn repeat",
         "scores.context": "Scenario: {scenario}   Seed: {seed}   {turns} turns played",
         "scores.final_pts": "Overall: {v} pts",
         "scores.quality_pts": "Quality: {v}/100",
@@ -157,7 +163,7 @@ def _ui_en() -> dict[str, str]:
         # Coach / ollama
         "coach.back": "Back",
         "coach.menu": "Menu",
-        "coach.ai_tab": "⚗ AI Summary",
+        "coach.ai_tab": "AI Summary",
         "coach.bot_label": "Bot: {name}",
         "coach.no_analysis": "No analysis for this session. Run a match with analysis enabled.",
         "coach.checking_ollama": "Checking Ollama connection…",
@@ -253,7 +259,12 @@ def _ui_en() -> dict[str, str]:
         "pipeline.feedback": "Feedback:",
         "pipeline.player_sep": "--- {pid} ---",
         "ai.advisory_header": (
-            "> ⚠️ AI-generated summary — advisory only. " "Numeric scores come from static analysis.\n"
+            "> AI-generated summary — advisory only. " "Numeric scores come from static analysis.\n"
+        ),
+        "ai.advisory_default": "AI-generated summary — advisory only. Numeric scores come from static analysis.",
+        "ai.teacher_trust_note": (
+            "Your teacher's feedback still matters most — treat this summary as helpful hints, "
+            "not the final grade."
         ),
         "ai.unavailable": "_AI summary unavailable — AI timed out or went offline._",
         "ai.player_header": "## Player: {player_id}",
@@ -392,6 +403,10 @@ def _ui_uk() -> dict[str, str]:
         "settings.sound": "Звук",
         "settings.sound.on": "Увімк.",
         "settings.sound.off": "Вимк.",
+        "settings.sound.volume": "Гучність (0–100)",
+        "settings.enable_ai": "AI-звіти",
+        "settings.enable_ai.on": "Увімк.",
+        "settings.enable_ai.off": "Вимк.",
         "settings.ai_model": "Модель AI-звіту",
         "settings.scenarios": "Сценарії",
         "settings.back": "Назад до меню",
@@ -452,6 +467,7 @@ def _ui_uk() -> dict[str, str]:
         "scores.view_replay": "Запис гри",
         "scores.code_coach": "Тренер коду",
         "scores.open_folder": "Відкрити теку",
+        "scores.export_grades": "Експорт оцінок",
         "scores.final_scores": "Підсумкові бали",
         "scores.analysis": "Аналіз",
         "scores.session": "Сесія: {name}",
@@ -470,13 +486,14 @@ def _ui_uk() -> dict[str, str]:
         "scores.timeouts": "Таймаути: {n}",
         "scores.avg_turn": "Сер. хід: {ms:.2f} мс",
         "scores.movement_prefix": "Рух: ",
+        "scores.movement_repeat": "{repeat} однакових ходів поспіль",
         "scores.context": "Сценарій: {scenario}   Seed: {seed}   зіграно {turns} ходів",
         "scores.final_pts": "Підсумок: {v} оч.",
         "scores.quality_pts": "Якість: {v}/100",
         "scores.gameplay_pts": "Геймплей: {v}/100",
         "coach.back": "Назад",
         "coach.menu": "Меню",
-        "coach.ai_tab": "⚗ AI-звіт",
+        "coach.ai_tab": "AI-звіт",
         "coach.bot_label": "Бот: {name}",
         "coach.no_analysis": "Немає аналізу для цієї сесії. Запусти матч з увімкненим аналізом.",
         "coach.checking_ollama": "Перевірка з’єднання з Ollama…",
@@ -567,7 +584,12 @@ def _ui_uk() -> dict[str, str]:
         "pipeline.final_score": "Підсумковий бал: {final} (геймплей {gp}, якість коду {cq})",
         "pipeline.feedback": "Відгук:",
         "pipeline.player_sep": "--- {pid} ---",
-        "ai.advisory_header": ("> ⚠️ AI-звіт — лише довідка. " "Числові бали — зі статичного аналізу.\n"),
+        "ai.advisory_header": ("> AI-звіт — лише довідка. " "Числові бали — зі статичного аналізу.\n"),
+        "ai.advisory_default": "AI-звіт згенеровано автоматично — це лише довідка. Числові бали — зі статичного аналізу.",
+        "ai.teacher_trust_note": (
+            "Відгук вчителя все ще найважливіший — сприймай цей звіт як корисні підказки, "
+            "а не остаточну оцінку."
+        ),
         "ai.unavailable": "_AI-звіт недоступний — таймаут або офлайн._",
         "ai.player_header": "## Гравець: {player_id}",
         "error.unknown_scenario": "Невідомий сценарій: {id}",

@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
 import pygame
 
-from engine.core.turn_result import TurnResult
 from engine.i18n import translate
+from engine.paths import resource_path
 from ui.render.icons import load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -38,7 +36,7 @@ _BOT_ACTION_PT = 12
 _BOT_LINE_GAP = 2
 _BOT_ACTION_COLOR = (58, 44, 26)
 
-_MENTOR_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_1.png"
+_MENTOR_PATH = resource_path("ui", "assets", "icons", "mentor_1.png")
 _MENTOR_CACHE: dict[int, pygame.Surface | None] = {}
 
 

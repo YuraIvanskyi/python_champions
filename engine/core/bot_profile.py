@@ -49,6 +49,12 @@ def char_icon_path(index: int, *, root: Path | None = None) -> Path:
     return base / "ui" / "assets" / "icons" / f"char_{index % CHAR_ICON_COUNT:03d}.png"
 
 
+def deterministic_icon_index(bot_file: Path) -> int:
+    """Stable portrait index from bot path (reproducible across runs)."""
+    key = bot_file.resolve().as_posix()
+    return _ASSIGNABLE_ICON_INDICES[hash(key) % len(_ASSIGNABLE_ICON_INDICES)]
+
+
 def random_icon_index() -> int:
     """Pick a random portrait index, excluding reserved portraits."""
     return random.choice(_ASSIGNABLE_ICON_INDICES)
@@ -155,9 +161,8 @@ def _coerce_icon_index(value: Any) -> int:
 
 
 def _fallback_icon(bot_file: Path, *, root: Path | None = None) -> str | None:
-    """Return a random portrait when the bot declares no icon."""
-    del bot_file  # kept for call-site compatibility
-    idx = random_icon_index()
+    """Return a deterministic portrait when the bot declares no icon."""
+    idx = deterministic_icon_index(bot_file)
     path = char_icon_path(idx, root=root)
     if path.is_file():
         return str(path)

@@ -13,40 +13,24 @@ from engine.core.bot_base import BotBase
 from engine.core.bot_profile import read_profile_from_module
 from engine.core.errors import BotLoadError  # re-exported for callers
 from engine.core.player import Bot, Player
+from engine.core.sandbox_policy import DENIED_IMPORTS, FORBIDDEN_CALLS
 from engine.student_api import GameView
 
-def student_player_id_for_path(path: Path, index: int) -> str:
+
+def student_player_id_for_path(path: Path, index: int, *, total: int | None = None) -> str:
     """Stable id for multi-bot matches (file order + sanitized stem)."""
     stem = path.stem
     safe = "".join(c if c.isalnum() or c in "_-" else "_" for c in stem)
     if not safe:
         safe = "bot"
-    return f"p{index}_{safe}"
+    width = max(2, len(str(total if total is not None else index)))
+    return f"p{index:0{width}d}_{safe}"
 
 
-__all__ = ["BotLoadError", "load_bot", "student_player_id_for_path"]
-
-DENIED_IMPORTS = frozenset(
-    {
-        "os",
-        "subprocess",
-        "socket",
-        "sys",
-        "shutil",
-        "pathlib",
-        "importlib",
-        "ctypes",
-        "multiprocessing",
-        "urllib",
-        "http",
-        "ftplib",
-        "pickle",
-        "builtins",
-    }
-)
+__all__ = ["BotLoadError", "DENIED_IMPORTS", "load_bot", "student_player_id_for_path"]
 
 
-def _check_imports(source: str, path: Path) -> None:
+def _check_imports_and_calls(source: str, path: Path) -> None:
     tree = ast.parse(source, filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -58,6 +42,14 @@ def _check_imports(source: str, path: Path) -> None:
             root = node.module.split(".")[0]
             if root in DENIED_IMPORTS:
                 raise BotLoadError(f"Import not allowed: {node.module}")
+        elif isinstance(node, ast.Call):
+            name: str | None = None
+            if isinstance(node.func, ast.Name):
+                name = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                name = node.func.attr
+            if name in FORBIDDEN_CALLS:
+                raise BotLoadError(f"Call not allowed: {name}()")
 
 
 def _wrap_make_turn(fn: Any) -> Any:
@@ -76,7 +68,7 @@ def load_bot(
         raise BotLoadError(f"Bot file not found: {path}")
 
     source = path.read_text(encoding="utf-8")
-    _check_imports(source, path)
+    _check_imports_and_calls(source, path)
 
     module_name = f"student_bot_{path.stem}"
     spec = importlib.util.spec_from_file_location(module_name, path)

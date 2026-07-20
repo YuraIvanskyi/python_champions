@@ -17,11 +17,13 @@ from engine.core.config_io import (
 )
 from engine.core.scenario_config import load_scenario_section
 from engine.core.scenario_registry import list_scenarios, scenario_display_name
+from ui.layout import LayoutMixin
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
 from ui.theme import MARGIN_X, WINDOW_HEIGHT, content_width
 from ui.widgets import Button, LanguagePicker, RadioPicker, TextField, Widget, WidgetGroup
+from ui.widgets.button_sizing import button_width
 from ui.widgets.scroll import ScrollState
 
 _CONTENT_TOP = 88
@@ -48,8 +50,13 @@ _CREDITS_LINE_GAP = 2
 _CREDITS_PARA_GAP = 6
 
 LANGUAGE_OPTIONS: list[tuple[str, str, str]] = [
-    ("en", "English", "flag_en"),
-    ("uk", "Ukrainian", "flag_uk"),
+    ("en", "settings.lang.en", "flag_en"),
+    ("uk", "settings.lang.uk", "flag_uk"),
+]
+
+AI_ENABLE_OPTIONS: list[tuple[str, str]] = [
+    ("on", "settings.enable_ai.on"),
+    ("off", "settings.enable_ai.off"),
 ]
 
 AI_MODEL_OPTIONS: list[tuple[str, str]] = [
@@ -85,13 +92,15 @@ class _ScenarioFields:
     rows: list[list[str]] = field(default_factory=list)
 
 
-class SettingsScreen:
+class SettingsScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
         self._scroll = ScrollState()
         self._content_widgets: list[Widget] = []
         self._language: LanguagePicker | None = None
         self._sound: RadioPicker | None = None
+        self._volume_field: TextField | None = None
+        self._enable_ai: RadioPicker | None = None
         self._ai_model: RadioPicker | None = None
         self._scenario_fields: list[_ScenarioFields] = []
         self._error_message = ""
@@ -99,6 +108,8 @@ class SettingsScreen:
         self._content_height = 0
         self._lang_title_y = 0
         self._sound_title_y = 0
+        self._volume_title_y = 0
+        self._enable_ai_title_y = 0
         self._model_title_y = 0
         self._scenarios_title_y = 0
         self._credits_divider_y = 0
@@ -126,6 +137,14 @@ class SettingsScreen:
         self._back_btn.label = self.app.t("settings.back")
         self._save_btn.label = self.app.t("settings.save")
         self._load_from_config(self.app.config)
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
+
+    def _localized_language_options(self) -> list[tuple[str, str, str]]:
+        return [
+            (code, self.app.t(label_key), icon)
+            for code, label_key, icon in LANGUAGE_OPTIONS
+        ]
 
     def _load_from_config(self, cfg: AppConfig) -> None:
         self._content_widgets.clear()
@@ -136,7 +155,7 @@ class SettingsScreen:
 
         self._language = LanguagePicker(
             pygame.Rect(0, 0, content_w, _LANG_CARD_H),
-            options=LANGUAGE_OPTIONS,
+            options=self._localized_language_options(),
             value=cfg.locale.language,
             on_change=lambda _v: None,
         )
@@ -151,6 +170,24 @@ class SettingsScreen:
             on_change=lambda _v: None,
             row_height=_SOUND_ROW_H,
         )
+        volume_pct = str(int(round(cfg.ui.sound_volume * 100)))
+        self._volume_field = TextField(
+            pygame.Rect(0, 0, _FIELD_INPUT_W + 20, _ROW_H),
+            text=volume_pct,
+            on_change=lambda _t: None,
+            max_length=3,
+            digits_only=True,
+        )
+        ai_enable_h = len(AI_ENABLE_OPTIONS) * _MODEL_ROW_H
+        self._enable_ai = RadioPicker(
+            pygame.Rect(0, 0, content_w, ai_enable_h),
+            options=[
+                (val, self.app.t(label_key)) for val, label_key in AI_ENABLE_OPTIONS
+            ],
+            value="on" if cfg.analysis.enable_ai else "off",
+            on_change=lambda _v: None,
+            row_height=_MODEL_ROW_H,
+        )
         model_h = len(AI_MODEL_OPTIONS) * _MODEL_ROW_H
         self._ai_model = RadioPicker(
             pygame.Rect(0, 0, content_w, model_h),
@@ -159,7 +196,9 @@ class SettingsScreen:
             on_change=lambda _v: None,
             row_height=_MODEL_ROW_H,
         )
-        self._content_widgets.extend([self._language, self._sound, self._ai_model])
+        self._content_widgets.extend(
+            [self._language, self._sound, self._volume_field, self._enable_ai, self._ai_model]
+        )
 
         for entry in list_scenarios():
             sid = entry["id"]
@@ -181,6 +220,7 @@ class SettingsScreen:
             self._scenario_fields.append(fields)
 
         self._recompute_layout()
+        self.invalidate_layout()
 
     def _recompute_layout(self) -> None:
         y = 0
@@ -189,6 +229,12 @@ class SettingsScreen:
 
         self._sound_title_y = y
         y += _SECTION_TITLE_H + _SOUND_OPTIONS_COUNT * _SOUND_ROW_H + _SECTION_GAP
+
+        self._volume_title_y = y
+        y += _ROW_H + _SECTION_GAP
+
+        self._enable_ai_title_y = y
+        y += _SECTION_TITLE_H + len(AI_ENABLE_OPTIONS) * _MODEL_ROW_H + _SECTION_GAP
 
         self._model_title_y = y
         y += _SECTION_TITLE_H + len(AI_MODEL_OPTIONS) * _MODEL_ROW_H + _SECTION_GAP
@@ -288,6 +334,18 @@ class SettingsScreen:
             self._sound.rect = pygame.Rect(content.x, y, content.width, sound_h)
             y += sound_h + _SECTION_GAP
 
+        if self._volume_field is not None:
+            label_w = body_font(15).size(self.app.t("settings.sound.volume"))[0]
+            field_x = content.x + label_w + 24
+            self._volume_field.rect = pygame.Rect(field_x, y, _FIELD_INPUT_W + 20, _ROW_H)
+            y += _ROW_H + _SECTION_GAP
+
+        y += _SECTION_TITLE_H
+        if self._enable_ai is not None:
+            ai_h = len(AI_ENABLE_OPTIONS) * _MODEL_ROW_H
+            self._enable_ai.rect = pygame.Rect(content.x, y, content.width, ai_h)
+            y += ai_h + _SECTION_GAP
+
         y += _SECTION_TITLE_H
         if self._ai_model is not None:
             model_h = len(AI_MODEL_OPTIONS) * _MODEL_ROW_H
@@ -309,15 +367,26 @@ class SettingsScreen:
                 y += _ROW_H + _ROW_GAP
             y += _SECTION_GAP
 
+    def _layout(self, surface: pygame.Surface) -> None:
+        sw, sh = surface.get_width(), surface.get_height()
+        footer_y = sh - _FOOTER_H
+        back_w = button_width(self._back_btn.label, font_size=18, min_width=120)
+        save_w = button_width(self._save_btn.label, font_size=18, min_width=100)
+        self._back_btn.rect = pygame.Rect(MARGIN_X, footer_y, back_w, 40)
+        self._save_btn.rect = pygame.Rect(sw - MARGIN_X - save_w, footer_y, save_w, 40)
+
+        content = self._content_rect(window_height=sh)
+        self._scroll.set_content(self._content_height, content.height)
+        self._apply_scroll_layout(content)
+
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._footer.handle_event(event):
             return
 
         content = self._content_rect()
-        self._scroll.set_content(self._content_height, content.height)
-        self._apply_scroll_layout(content)
-
         if self._scroll.handle_wheel(event, rect=content):
+            self._apply_scroll_layout(content)
             return
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -354,10 +423,19 @@ class SettingsScreen:
     def _save(self) -> None:
         self._error_message = ""
         cfg = self.app.config.model_copy(deep=True)
-        assert self._language is not None and self._sound is not None and self._ai_model is not None
+        assert (
+            self._language is not None
+            and self._sound is not None
+            and self._volume_field is not None
+            and self._enable_ai is not None
+            and self._ai_model is not None
+        )
 
         cfg.locale.language = self._language.value  # type: ignore[assignment]
         cfg.ui.sound_enabled = self._sound.value == "on"
+        vol_text = self._volume_field.text.strip() or "0"
+        cfg.ui.sound_volume = max(0.0, min(1.0, int(vol_text) / 100.0))
+        cfg.analysis.enable_ai = self._enable_ai.value == "on"
         cfg.ai.model = self._ai_model.value
 
         try:
@@ -372,6 +450,13 @@ class SettingsScreen:
             save_app_config(cfg)
             reload_app_config(self.app)
             self._saved_until_ms = pygame.time.get_ticks() + 2500
+            # Radio/language pickers and static labels are baked in at load time
+            # (translated via app.t()), so a language change needs a full reload
+            # here — otherwise this screen keeps showing the old language until
+            # the user leaves and re-enters Settings.
+            self._back_btn.label = self.app.t("settings.back")
+            self._save_btn.label = self.app.t("settings.save")
+            self._load_from_config(self.app.config)
         except SettingsValidationError as exc:
             self._error_message = exc.message
 
@@ -388,6 +473,7 @@ class SettingsScreen:
         surface.blit(surf, (x, y))
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         sw, sh = surface.get_width(), surface.get_height()
 
@@ -400,8 +486,6 @@ class SettingsScreen:
         )
 
         content = self._content_rect(window_height=sh)
-        self._scroll.set_content(self._content_height, content.height)
-        self._apply_scroll_layout(content)
 
         panel = pygame.Rect(
             MARGIN_X,
@@ -434,6 +518,34 @@ class SettingsScreen:
         )
         if self._sound is not None:
             self._sound.draw(surface)
+
+        if self._volume_field is not None:
+            vol_rect = self._volume_field.rect
+            label_rect = pygame.Rect(
+                content.x,
+                vol_rect.y,
+                max(0, vol_rect.x - content.x - 8),
+                vol_rect.height,
+            )
+            skin.draw_text_clipped(
+                surface,
+                self.app.t("settings.sound.volume"),
+                label_rect,
+                body_font(15),
+                colors.GOLD_TEXT,
+                align="left",
+                pad_y=6,
+            )
+            self._volume_field.draw(surface)
+
+        self._draw_section_title(
+            surface,
+            text=self.app.t("settings.enable_ai"),
+            x=content.x,
+            y=int(base_y + self._enable_ai_title_y),
+        )
+        if self._enable_ai is not None:
+            self._enable_ai.draw(surface)
 
         self._draw_section_title(
             surface,
@@ -535,8 +647,6 @@ class SettingsScreen:
         )
 
         footer_y = sh - _FOOTER_H
-        self._back_btn.rect = pygame.Rect(MARGIN_X, footer_y, 160, 40)
-        self._save_btn.rect = pygame.Rect(sw - MARGIN_X - 140, footer_y, 140, 40)
         self._footer.draw(surface)
 
         if self._error_message:

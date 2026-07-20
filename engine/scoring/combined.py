@@ -41,7 +41,9 @@ def compute_scores(
     code_quality = compute_code_quality(static)
 
     crash_count = int((runtime or {}).get("crash_count", 0))
-    crash_penalty = crash_count > 0 and code_quality > _CRASH_QUALITY_CAP
+    timeout_count = int((runtime or {}).get("timeout_count", 0))
+    reliability_failures = crash_count + timeout_count
+    crash_penalty = reliability_failures > 0 and code_quality > _CRASH_QUALITY_CAP
     if crash_penalty:
         code_quality = _CRASH_QUALITY_CAP
 

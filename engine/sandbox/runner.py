@@ -12,8 +12,16 @@ from typing import Any
 
 from engine.core.action import Action, parse_action
 from engine.core.config import AppConfig
+from engine.paths import is_frozen
+from engine.sandbox.constants import SANDBOX_WORKER_FLAG
 
 DEFAULT_TIMEOUT_ACTION = Action.WAIT
+
+
+def _spawn_command(bot_path: Path) -> list[str]:
+    if is_frozen():
+        return [sys.executable, SANDBOX_WORKER_FLAG, str(bot_path)]
+    return [sys.executable, "-m", "engine.sandbox.worker_loop", str(bot_path)]
 
 
 class SandboxedBot:
@@ -21,16 +29,23 @@ class SandboxedBot:
 
     def __init__(self, bot_path: Path, config: AppConfig) -> None:
         self._bot_path = bot_path.resolve()
+        self._config = config
         self._timeout_sec = config.engine.turn_timeout_ms / 1000.0
+        self._proc: subprocess.Popen[str] | None = None
+        self._start_worker()
+
+    def _start_worker(self) -> None:
         self._proc = subprocess.Popen(
-            [sys.executable, "-m", "engine.sandbox.worker_loop", str(self._bot_path)],
+            _spawn_command(self._bot_path),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
         )
+
     def _readline_with_timeout(self, timeout_sec: float) -> dict[str, Any] | None:
+        assert self._proc is not None
         assert self._proc.stdout is not None
         result: list[str] = []
         error: list[Exception] = []
@@ -60,6 +75,10 @@ class SandboxedBot:
     def run_turn(self, game_state: dict[str, Any]) -> tuple[Action, list[str], float]:
         events: list[str] = []
         started = time.perf_counter()
+        if self._proc is None or self._proc.poll() is not None:
+            self._restart_worker()
+        assert self._proc is not None
+
         if self._proc.poll() is not None:
             events.append("sandbox_dead")
             elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -77,7 +96,7 @@ class SandboxedBot:
         data = self._readline_with_timeout(self._timeout_sec)
         elapsed_ms = (time.perf_counter() - started) * 1000.0
         if data is None:
-            self.close()
+            self._restart_worker()
             events.append("sandbox_timeout")
             return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
@@ -91,8 +110,13 @@ class SandboxedBot:
             events.append(f"invalid_action:{exc}")
             return DEFAULT_TIMEOUT_ACTION, events, elapsed_ms
 
+    def _restart_worker(self) -> None:
+        self.close()
+        self._start_worker()
+
     def close(self) -> None:
-        if self._proc.poll() is not None:
+        if self._proc is None or self._proc.poll() is not None:
+            self._proc = None
             return
         try:
             if self._proc.stdin:
@@ -103,6 +127,7 @@ class SandboxedBot:
             self._proc.wait(timeout=1)
         except subprocess.TimeoutExpired:
             self._proc.kill()
+        self._proc = None
 
 
 def run_turn_sandboxed(

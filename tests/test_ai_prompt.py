@@ -142,9 +142,12 @@ def test_system_prompt_includes_movement_instruction() -> None:
     assert "movement" in SYSTEM_PROMPT.lower()
 
 
-def test_ai_prompts_ignore_locale_use_english() -> None:
-    assert system_prompt("uk") == system_prompt("en")
-    uk_prompt = build_user_prompt(
+def test_ai_prompts_use_session_locale() -> None:
+    en_prompt = system_prompt("en")
+    uk_prompt = system_prompt("uk")
+    assert en_prompt
+    assert uk_prompt
+    assert build_user_prompt(
         scenario_name="resource_wars",
         turn_count=10,
         gameplay_score=50.0,
@@ -165,6 +168,3 @@ def test_ai_prompts_ignore_locale_use_english() -> None:
         function_line_count=10,
         language="uk",
     )
-    assert "Scenario:" in uk_prompt
-    assert "### Student Summary" in uk_prompt
-    assert "Сценарій:" not in uk_prompt

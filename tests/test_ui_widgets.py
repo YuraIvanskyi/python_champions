@@ -36,7 +36,9 @@ def test_list_row_select() -> None:
         "Resource Wars",
         on_click=lambda: selected.append(1),
     )
+    down = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": (10, 10), "button": 1})
     up = pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": (10, 10), "button": 1})
+    assert row.handle_event(down)
     assert row.handle_event(up)
     assert selected == [1]
 

@@ -11,7 +11,7 @@ from engine.core.player import Bot
 from engine.i18n import translate
 from engine.paths import default_results_dir, resource_path
 from ui import theme
-from ui.audio import BackgroundMusic, set_sound_enabled
+from ui.audio import BackgroundMusic, set_sound_enabled, set_sound_volume
 from ui.screens.bot_guide import BotGuideScreen
 from ui.screens.coach import CoachScreen
 from ui.screens.menu import MenuScreen
@@ -28,7 +28,8 @@ class App:
         theme.apply_config(cfg.ui)
         pygame.init()
         set_sound_enabled(cfg.ui.sound_enabled)
-        self.music = BackgroundMusic()
+        set_sound_volume(cfg.ui.sound_volume)
+        self.music = BackgroundMusic(volume=cfg.ui.sound_volume)
         self.music.start()
         pygame.display.set_caption("Code Scenarios")
         self._set_window_icon()
@@ -114,6 +115,7 @@ class App:
     def goto_scores(self, *, final_scores: dict[str, int], session_dir: Path | None) -> None:
         self.scores.set_results(final_scores, session_dir)
         self._set_screen(self.scores)
+        self.scores.on_enter()
 
     def goto_coach(self, session_dir: Path, *, player_id: str | None = None) -> None:
         self.coach.open_session(session_dir, player_id=player_id)
@@ -130,13 +132,32 @@ class App:
     def run(self) -> None:
         self.menu.on_enter()
         self.music.sync(self.menu)
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
         while self.running:
             dt_ms = self.clock.tick(60)
+            had_motion = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit()
                     break
+                if event.type == pygame.MOUSEMOTION:
+                    had_motion = True
                 self._current.handle_event(event)
+
+            # Widgets only update hover/cursor state on MOUSEMOTION events, which
+            # pygame does not emit while the mouse sits still. Without this, the
+            # cursor would flicker back to the arrow every frame that lacks a real
+            # motion event. Feeding a synthetic one keeps hover state accurate and
+            # stable every frame regardless of whether the mouse actually moved.
+            if self.running and not had_motion:
+                self._current.handle_event(
+                    pygame.event.Event(
+                        pygame.MOUSEMOTION,
+                        pos=pygame.mouse.get_pos(),
+                        rel=(0, 0),
+                        buttons=(0, 0, 0),
+                    )
+                )
 
             if hasattr(self._current, "update"):
                 self._current.update(dt_ms)

@@ -6,16 +6,17 @@ Provides Retry and Use-Templates-Only buttons.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
 import pygame
 
 from engine.i18n import translate
+from engine.paths import resource_path
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, code_font
 from ui.widgets import Button, WidgetGroup
+from ui.widgets.button_sizing import button_width
 
 _SETUP_COMMANDS = [
     "# Install Ollama from https://ollama.com",
@@ -48,6 +49,34 @@ class OllamaSetupPanel:
             on_click=on_use_templates,
         )
         self._widgets = WidgetGroup([self._retry_btn, self._templates_btn])
+        self._button_y = 0
+
+    def _button_row_y(self, rect: pygame.Rect, *, lang: str) -> int:
+        label_font = body_font(15)
+        cmd_font = code_font(14)
+        y = rect.y + 20
+        title_font = body_font(20)
+        y += title_font.get_height() + 12
+        y += label_font.get_height() + 4
+        y += label_font.get_height() + 12
+        cmd_box_h = len(_SETUP_COMMANDS) * (cmd_font.get_height() + 4) + 16
+        y += cmd_box_h + 16
+        y += label_font.get_height() + 24
+        return y
+
+    def layout_buttons(self, rect: pygame.Rect, *, lang: str) -> None:
+        self._retry_btn.label = translate("ollama.retry", lang=lang)
+        self._templates_btn.label = translate("ollama.templates_only", lang=lang)
+        y = self._button_row_y(rect, lang=lang)
+        retry_w = button_width(self._retry_btn.label, font_size=18, min_width=140)
+        templates_w = button_width(self._templates_btn.label, font_size=18, min_width=160)
+        x = rect.x + 24
+        self._retry_btn.rect = pygame.Rect(x, y, retry_w, 38)
+        self._templates_btn.rect = pygame.Rect(x + retry_w + 16, y, templates_w, 38)
+        self._button_y = y
+
+    def ensure_layout(self, rect: pygame.Rect, *, lang: str) -> None:
+        self.layout_buttons(rect, lang=lang)
 
     # ── Event / draw ──────────────────────────────────────────────────────────
 
@@ -66,6 +95,7 @@ class OllamaSetupPanel:
 
         self._retry_btn.label = translate("ollama.retry", lang=lang)
         self._templates_btn.label = translate("ollama.templates_only", lang=lang)
+        self.layout_buttons(rect, lang=lang)
 
         title_surf = title_font.render(translate("coach.ai_tab", lang=lang), True, colors.GOLD_TEXT)
         surface.blit(title_surf, (x, y))
@@ -108,9 +138,6 @@ class OllamaSetupPanel:
         )
         y += label_font.get_height() + 24
 
-        # Buttons
-        self._retry_btn.rect = pygame.Rect(x, y, 180, 38)
-        self._templates_btn.rect = pygame.Rect(x + 196, y, 200, 38)
         self._widgets.draw(surface)
 
 
@@ -270,7 +297,7 @@ _SCROLLBAR_PAD = 4
 _MENTOR4_GAP = 10
 _MENTOR4_PAD_LEFT = 4
 _MENTOR4_STICKY_H = 88
-_MENTOR4_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_4.png"
+_MENTOR4_PATH = resource_path("ui", "assets", "icons", "mentor_4.png")
 _MENTOR4_CACHE: dict[int, pygame.Surface | None] = {}
 _AI_ADVISORY_DEFAULT = (
     "AI-generated summary — advisory only. "
@@ -319,13 +346,15 @@ def _parse_player_id(display: str) -> str:
     return match.group(1).strip() if match else display.strip()
 
 
-def _sticky_note_lines(advisory: str, body_font_obj: pygame.font.Font, text_w: int) -> list[str]:
+def _sticky_note_lines(
+    advisory: str, body_font_obj: pygame.font.Font, text_w: int, *, lang: str = "en",
+) -> list[str]:
     lines = _wrap(body_font_obj, advisory, text_w)
-    lines.extend(_wrap(body_font_obj, _AI_TEACHER_TRUST_NOTE, text_w))
+    lines.extend(_wrap(body_font_obj, translate("ai.teacher_trust_note", lang=lang), text_w))
     return lines
 
 
-def _extract_advisory_note(report_text: str) -> tuple[str, str]:
+def _extract_advisory_note(report_text: str, *, lang: str = "en") -> tuple[str, str]:
     """Return advisory copy and report body with leading blockquote removed."""
     lines = report_text.splitlines()
     advisory_parts: list[str] = []
@@ -342,7 +371,11 @@ def _extract_advisory_note(report_text: str) -> tuple[str, str]:
         break
     while rest_start < len(lines) and not lines[rest_start].strip():
         rest_start += 1
-    advisory = " ".join(advisory_parts).strip() if advisory_parts else _AI_ADVISORY_DEFAULT
+    advisory = (
+        " ".join(advisory_parts).strip()
+        if advisory_parts
+        else translate("ai.advisory_default", lang=lang)
+    )
     body = "\n".join(lines[rest_start:])
     return advisory, body
 
@@ -353,6 +386,7 @@ def _measure_sticky_header(
     advisory: str,
     heading_font: pygame.font.Font,
     body_font_obj: pygame.font.Font,
+    lang: str = "en",
 ) -> tuple[int, int]:
     mentor = _mentor4_surface(_MENTOR4_STICKY_H)
     text_x = _MENTOR4_PAD_LEFT
@@ -360,7 +394,7 @@ def _measure_sticky_header(
         text_x += mentor.get_width() + _MENTOR4_GAP
     text_w = max(80, max_w - text_x)
     heading_h = heading_font.get_height() + 4
-    note_lines = _sticky_note_lines(advisory, body_font_obj, text_w)
+    note_lines = _sticky_note_lines(advisory, body_font_obj, text_w, lang=lang)
     note_h = len(note_lines) * (body_font_obj.get_height() + 2)
     block_h = max(_MENTOR4_STICKY_H, heading_h + note_h) + 14
     return block_h, text_x
@@ -396,7 +430,7 @@ def _draw_sticky_header(
         align="left",
     )
     y += heading_font.get_height() + 4
-    for line in _sticky_note_lines(advisory, body_font_obj, text_w):
+    for line in _sticky_note_lines(advisory, body_font_obj, text_w, lang=lang):
         skin.draw_text_clipped(
             surface,
             line,
@@ -571,12 +605,13 @@ class AiReportPanel:
         f_code   = _code_font(13)
         f_sticky = body_font(15)
 
-        advisory, _ = _extract_advisory_note(report_text)
+        advisory, _ = _extract_advisory_note(report_text, lang=lang)
         sticky_h, _ = _measure_sticky_header(
             max_w=max_w,
             advisory=advisory,
             heading_font=f_sticky,
             body_font_obj=f_small,
+            lang=lang,
         )
         self._sticky_h = sticky_h
 

@@ -85,9 +85,10 @@ def reload_app_config(app: object) -> AppConfig:
     if hasattr(app, "_apply_locale_fonts"):
         app._apply_locale_fonts()  # type: ignore[attr-defined]
     if hasattr(app, "music"):
-        from ui.audio import set_sound_enabled
+        from ui.audio import set_sound_enabled, set_sound_volume
 
         set_sound_enabled(cfg.ui.sound_enabled)
+        set_sound_volume(cfg.ui.sound_volume)
         music = app.music  # type: ignore[attr-defined]
         if cfg.ui.sound_enabled:
             music.start()

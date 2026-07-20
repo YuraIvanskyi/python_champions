@@ -9,9 +9,9 @@ SYSTEM_PROMPT = ""  # filled on first access via system_prompt("en")
 
 
 def system_prompt(language: str = "en") -> str:
-    """System prompt with guard rails (always English; LLM output not locale-forced)."""
-    _ = normalize_lang(language)
-    return translate("ai.system", lang="en")
+    """System prompt with guard rails in the session locale."""
+    lang = normalize_lang(language)
+    return translate("ai.system", lang=lang)
 
 
 def _legacy_system_prompt() -> str:
@@ -50,8 +50,7 @@ def build_user_prompt(
     Prompt text is always English so the model is not instructed to translate its reply.
     *feedback_items* may still reflect the session locale from static/runtime analysis.
     """
-    _ = normalize_lang(language)
-    lang = "en"
+    lang = normalize_lang(language)
     lines: list[str] = [
         translate("ai.prompt.scenario", lang=lang, name=scenario_name),
         translate(

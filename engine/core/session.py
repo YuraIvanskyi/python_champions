@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -10,11 +11,31 @@ from typing import Any
 from engine.core.bot_profile import player_dict
 from engine.core.player import Player
 from engine.core.turn_result import TurnResult
+from engine.paths import resolve_bot_path
 
 
 def _posix_bot_path(path_str: str) -> str:
     """Normalize stored bot paths for cross-platform replays."""
     return Path(path_str).as_posix()
+
+
+def _snapshot_bot_sources(
+    session_dir: Path,
+    bot_files: dict[str, str],
+) -> dict[str, str]:
+    """Copy student bot sources into the session so Coach survives file moves."""
+    bots_dir = session_dir / "bots"
+    bots_dir.mkdir(parents=True, exist_ok=True)
+    snapped: dict[str, str] = {}
+    for player_id, path_str in bot_files.items():
+        src = resolve_bot_path(path_str)
+        if src.is_file():
+            dest = bots_dir / f"{player_id}.py"
+            shutil.copy2(src, dest)
+            snapped[player_id] = dest.as_posix()
+        else:
+            snapped[player_id] = _posix_bot_path(path_str)
+    return snapped
 
 
 def write_session(
@@ -30,6 +51,7 @@ def write_session(
     text_log: list[str],
     players: dict[str, Player] | None = None,
     opponent_mode: str | None = None,
+    boss_difficulty: int | None = None,
 ) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     session_dir = results_dir / f"{scenario_id}_session_{timestamp}"
@@ -42,6 +64,9 @@ def write_session(
     elif len(paths) == 1:
         pid = player_ids[0] if player_ids else "student"
         bot_files = {pid: paths[0]}
+
+    if bot_files:
+        bot_files = _snapshot_bot_sources(session_dir, bot_files)
 
     replay: dict[str, Any] = {
         "schema_version": 2,
@@ -65,6 +90,8 @@ def write_session(
         replay["player_ids"] = list(player_ids)
     if opponent_mode is not None:
         replay["opponent_mode"] = opponent_mode
+    if boss_difficulty is not None:
+        replay["boss_difficulty"] = int(boss_difficulty)
     if players:
         replay["players"] = {
             pid: player_dict(pid, p.display_name, p.icon_path, is_student=p.is_student)

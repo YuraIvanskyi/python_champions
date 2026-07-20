@@ -18,6 +18,7 @@ from ui.coach_data import (
     load_replay,
     read_bot_source,
 )
+from ui.layout import LayoutMixin
 from ui.render.code_panel import draw_code_panel
 from ui.render.icons import load_icon
 from ui.render.loading_overlay import draw_loading_overlay
@@ -28,6 +29,7 @@ from ui.skin import colors
 from ui.skin.typography import body_font
 from ui.theme import MARGIN_X, coach_config, content_width, footer_top
 from ui.widgets import Button, WidgetGroup
+from ui.widgets.button_sizing import button_width
 from ui.widgets.scroll import ScrollState
 
 _CARD_GAP     = 8
@@ -44,7 +46,7 @@ _AI_TAB_LOADING   = "loading"
 _AI_TAB_REPORT    = "report"
 
 
-class CoachScreen:
+class CoachScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
         self.session_dir: Path | None = None
@@ -55,6 +57,9 @@ class CoachScreen:
         self.selected_quest  = 0
         self._code_scroll  = ScrollState()
         self._quest_scroll = ScrollState()
+        self._tab_scroll_offset = 0
+        self._tab_row_rect = pygame.Rect(0, 0, 0, 0)
+        self._layout_cache: dict[str, pygame.Rect] = {}
         self._back_btn = Button(
             pygame.Rect(MARGIN_X, 0, 120, 40),
             "Back",
@@ -119,6 +124,43 @@ class CoachScreen:
             self._ai_state = _AI_TAB_REPORT
 
         self._build_player_tabs()
+        self.invalidate_layout()
+
+    def _layout_player_tabs(self, surface: pygame.Surface) -> None:
+        tab_font = body_font(_TAB_FONT_PT)
+        y = 72
+        x = MARGIN_X - self._tab_scroll_offset
+        avail_w = content_width(surface.get_width())
+        self._tab_row_rect = pygame.Rect(MARGIN_X, y, avail_w, _TAB_H)
+
+        if len(self.player_ids) > 1:
+            for btn in self._player_tabs:
+                text_w = tab_font.size(btn.label)[0]
+                btn_w = text_w + 50
+                btn.rect = pygame.Rect(x, y, btn_w, _TAB_H)
+                x += btn_w + 8
+
+        if self._ai_tab_btn is not None:
+            ai_label = self.app.t("coach.ai_tab")
+            ai_w = tab_font.size(ai_label)[0] + 28
+            self._ai_tab_btn.rect = pygame.Rect(x, y, ai_w, _TAB_H)
+
+        total_w = x + self._tab_scroll_offset - MARGIN_X
+        max_scroll = max(0, total_w - avail_w)
+        self._tab_scroll_offset = max(0, min(max_scroll, self._tab_scroll_offset))
+
+    def _layout(self, surface: pygame.Surface) -> None:
+        layout = self._layout_rects(surface)
+        if layout:
+            self._layout_cache = layout
+        footer_y = footer_top(surface.get_height()) - 44
+        back_w = button_width(self._back_btn.label, font_size=_TAB_FONT_PT, min_width=100)
+        menu_w = button_width(self._menu_btn.label, font_size=_TAB_FONT_PT, min_width=90)
+        self._back_btn.rect = pygame.Rect(MARGIN_X, footer_y, back_w, 40)
+        self._menu_btn.rect = pygame.Rect(MARGIN_X + back_w + 10, footer_y, menu_w, 40)
+        self._layout_player_tabs(surface)
+        if layout and self._ai_state == _AI_TAB_OFFLINE:
+            self._ollama_panel.layout_buttons(layout["ai_panel"], lang=self.app.lang())
 
     # ── AI tab helpers ────────────────────────────────────────────────────────
 
@@ -187,33 +229,25 @@ class CoachScreen:
     def _build_player_tabs(self) -> None:
         self._player_tabs = []
         self._ai_tab_btn = None
+        self._tab_scroll_offset = 0
         self._widgets = WidgetGroup([self._back_btn, self._menu_btn])
-
-        tab_font = body_font(_TAB_FONT_PT)
-        x = MARGIN_X
-        y = 72
 
         if len(self.player_ids) > 1:
             for index, pid in enumerate(self.player_ids):
                 display = self._display_name(pid)
-                text_w = tab_font.size(display)[0]
-                # 22 px extra left room for the 18 px portrait icon + gap
-                btn_w  = text_w + 50
-                btn    = Button(
-                    pygame.Rect(x, y, btn_w, _TAB_H),
+                btn = Button(
+                    pygame.Rect(0, 0, 80, _TAB_H),
                     display,
                     on_click=lambda i=index: self._select_player(i),
                     font_size=_TAB_FONT_PT,
                 )
                 self._player_tabs.append(btn)
                 self._widgets.add(btn)
-                x += btn_w + 8
 
         if self._show_ai_tab:
             ai_label = self.app.t("coach.ai_tab")
-            ai_w = tab_font.size(ai_label)[0] + 28
             self._ai_tab_btn = Button(
-                pygame.Rect(x, y, ai_w, _TAB_H),
+                pygame.Rect(0, 0, 80, _TAB_H),
                 ai_label,
                 on_click=self._open_ai_tab,
                 font_size=_TAB_FONT_PT,
@@ -307,9 +341,10 @@ class CoachScreen:
         if surface is None:
             return None
         w      = surface.get_width()
+        h      = surface.get_height()
         has_tabs = len(self.player_ids) > 1 or self._show_ai_tab
         top    = 112 if has_tabs else 88
-        bottom = footer_top() - 52
+        bottom = footer_top(h) - 52
         split  = int(w * 0.58)
         quests_x = split + 8
         quests_w = w - split - MARGIN_X - 8
@@ -332,13 +367,17 @@ class CoachScreen:
     def on_enter(self) -> None:
         self._code_scroll.offset  = 0
         self._quest_scroll.offset = 0
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        layout = self._layout_rects(pygame.display.get_surface())
+        self.ensure_layout(self.app.screen)
+        layout = self._layout_cache or self._layout_rects(self.app.screen)
 
         # AI tab gets priority for wheel and panel events
         if self._ai_tab_active and layout:
             if self._ai_state == _AI_TAB_OFFLINE:
+                self._ollama_panel.ensure_layout(layout["ai_panel"], lang=self.app.lang())
                 if self._ollama_panel.handle_event(event):
                     return
             elif self._ai_state == _AI_TAB_REPORT:
@@ -354,21 +393,32 @@ class CoachScreen:
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos    = event.pos
-                quests = self._current_quests()
-                inner_q = layout["quests"].inflate(-8, -8)
-                card_w  = inner_q.width - 8   # matches draw() card_w approximation
-                y       = inner_q.y - self._quest_scroll.offset
-                for index, item in enumerate(quests):
-                    card_h = quest_card_height(item, card_w)
-                    card_rect = pygame.Rect(inner_q.x, y, card_w, card_h)
-                    if card_rect.collidepoint(pos):
-                        play_ui_click()
-                        self.selected_quest = index
-                        lines = quests[index].get("lines", [])
-                        if lines and isinstance(lines[0], int):
-                            self._code_scroll.offset = max(0, (lines[0] - 2) * 18)
-                        return
-                    y += card_h + _CARD_GAP
+                if not layout["quests"].collidepoint(pos):
+                    pass
+                else:
+                    quests = self._current_quests()
+                    inner_q = layout["quests"].inflate(-8, -8)
+                    card_w  = inner_q.width - 8
+                    y       = inner_q.y - self._quest_scroll.offset
+                    for index, item in enumerate(quests):
+                        card_h = quest_card_height(item, card_w)
+                        card_rect = pygame.Rect(inner_q.x, y, card_w, card_h)
+                        if card_rect.collidepoint(pos):
+                            play_ui_click()
+                            self.selected_quest = index
+                            lines = quests[index].get("lines", [])
+                            if lines and isinstance(lines[0], int):
+                                self._code_scroll.offset = max(0, (lines[0] - 2) * 18)
+                            return
+                        y += card_h + _CARD_GAP
+
+        if (
+            event.type == pygame.MOUSEWHEEL
+            and self._tab_row_rect.collidepoint(pygame.mouse.get_pos())
+        ):
+            self._tab_scroll_offset = max(0, self._tab_scroll_offset - event.y * 24)
+            self.invalidate_layout()
+            return
 
         if self._widgets.handle_event(event):
             return
@@ -391,6 +441,7 @@ class CoachScreen:
     # ── Drawing ───────────────────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         sw = surface.get_width()
         cw = content_width()
@@ -399,9 +450,6 @@ class CoachScreen:
             surface, self.app.t("scores.code_coach"),
             center_x=sw // 2, y=14, max_width=cw,
         )
-
-        self._back_btn.rect = pygame.Rect(MARGIN_X,           footer_top() - 44, 120, 40)
-        self._menu_btn.rect = pygame.Rect(MARGIN_X + 130,     footer_top() - 44, 100, 40)
 
         if self.metrics is None:
             panel = pygame.Rect(MARGIN_X, 200, cw, 120)
@@ -450,7 +498,7 @@ class CoachScreen:
         if self._ai_tab_active and self._ai_tab_btn:
             pygame.draw.rect(surface, colors.TEAL_ACCENT, self._ai_tab_btn.rect, 2, border_radius=5)
 
-        layout = self._layout_rects(surface)
+        layout = self._layout_cache or self._layout_rects(surface)
         if not layout:
             return
 

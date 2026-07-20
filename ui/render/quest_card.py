@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pygame
 
+from engine.paths import resource_path
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font, title_font
@@ -20,7 +20,7 @@ _LINE_H         = _BODY_PT + 4   # pixel height per wrapped line
 _MAX_MSG_LINES  = 5
 _MAX_HINT_LINES = 2
 _SCORE_MENTOR_GAP = 10
-_MENTOR2_PATH = Path(__file__).resolve().parents[1] / "assets" / "icons" / "mentor_2.png"
+_MENTOR2_PATH = resource_path("ui", "assets", "icons", "mentor_2.png")
 _MENTOR2_CACHE: dict[int, pygame.Surface | None] = {}
 
 

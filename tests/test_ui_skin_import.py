@@ -127,11 +127,19 @@ def test_draw_background_procedural() -> None:
 
 
 def test_draw_loading_overlay_procedural() -> None:
+    import os
+
     import pygame
     from ui.render.loading_overlay import draw_loading_overlay
 
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
     pygame.display.init()
     pygame.font.init()
+    pygame.display.set_mode((1, 1), flags=pygame.NOFRAME)
+    from ui.skin import typography
+
+    typography._game_cache.clear()
+    typography._code_cache.clear()
     surf = pygame.Surface((640, 480))
     draw_loading_overlay(surf, spinner_angle=0.5)
     center = surf.get_at((320, 240))

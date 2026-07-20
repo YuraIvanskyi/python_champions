@@ -15,6 +15,7 @@ from engine.core.replay import (
     session_list_label,
 )
 from engine.core.scenario_registry import scenario_display_name
+from ui.layout import LayoutMixin
 from ui.render.action_effects import ActionEffectManager
 from ui.render.hud import (
     build_hud_bot_entries,
@@ -41,6 +42,7 @@ from ui.theme import (
     toolbar_top,
 )
 from ui.widgets import Button, ListRow, WidgetGroup
+from ui.widgets.button_sizing import button_width
 from ui.widgets.scroll import ScrollState
 
 _ROW_H = 34
@@ -56,7 +58,7 @@ _DELETE_ALL_W = 120
 _PANEL_TITLE_PT = 15
 
 
-class ReplayScreen:
+class ReplayScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
         self.sessions: list[Path] = []
@@ -102,11 +104,23 @@ class ReplayScreen:
         )
 
     def _layout_transport(self, surface: pygame.Surface) -> None:
-        """Reposition transport buttons along the bottom toolbar."""
         sw = surface.get_width()
         btn_h = TOOLBAR_HEIGHT - 10
         btn_y = toolbar_top(surface.get_height()) + 5
-        w = TOOLBAR_BTN_WIDTH
+        labels = (
+            self._back_btn.label,
+            self._fwd_btn.label,
+            self._home_btn.label,
+            self._end_btn.label,
+            self._menu_btn.label,
+        )
+        w = max(
+            TOOLBAR_BTN_WIDTH,
+            *(
+                button_width(label, font_size=TOOLBAR_BTN_FONT, min_width=TOOLBAR_BTN_WIDTH)
+                for label in labels
+            ),
+        )
         gap = TOOLBAR_BTN_GAP
 
         x = MARGIN_X
@@ -115,6 +129,12 @@ class ReplayScreen:
             x += w + gap
 
         self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w, btn_y, w, btn_h)
+
+    def _layout(self, surface: pygame.Surface) -> None:
+        if self._pick_mode:
+            self._layout_picker_panel(surface)
+        else:
+            self._layout_transport(surface)
 
     def _localize_toolbar(self) -> None:
         self._back_btn.label = self.app.t("replay.back")
@@ -131,6 +151,8 @@ class ReplayScreen:
             self.selected = 0
             self.error = ""
             self._rebuild_picker()
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
 
     def _rebuild_picker(self) -> None:
         self._picker_scroll.offset = 0
@@ -218,14 +240,17 @@ class ReplayScreen:
 
         btn_y = self._picker_panel.bottom + 10
         ix = self._picker_panel.x + skin.PANEL_PAD_X
-        self._load_btn.rect = pygame.Rect(ix, btn_y, 130, _ACTION_BTN_H)
+        load_w = button_width(self._load_btn.label, font_size=18, min_width=100)
+        back_w = button_width(self._picker_back_btn.label, font_size=18, min_width=90)
+        delete_w = button_width(self._delete_all_btn.label, font_size=18, min_width=_DELETE_ALL_W)
+        self._load_btn.rect = pygame.Rect(ix, btn_y, load_w, _ACTION_BTN_H)
         self._picker_back_btn.rect = pygame.Rect(
-            ix + 130 + _ACTION_BTN_GAP, btn_y, 110, _ACTION_BTN_H,
+            ix + load_w + _ACTION_BTN_GAP, btn_y, back_w, _ACTION_BTN_H,
         )
         self._delete_all_btn.rect = pygame.Rect(
-            self._picker_panel.right - skin.PANEL_PAD_X - _DELETE_ALL_W,
+            self._picker_panel.right - skin.PANEL_PAD_X - delete_w,
             btn_y,
-            _DELETE_ALL_W,
+            delete_w,
             _ACTION_BTN_H,
         )
 
@@ -276,10 +301,17 @@ class ReplayScreen:
             self._effects.clear()
             self.app.replay_path = path
             self.app.music.sync(self)
+            self._localize_toolbar()
         except (OSError, ValueError, KeyError) as exc:
             self.error = self.app.t("replay.load_error", error=exc)
             self.replay = None
             self._pick_mode = True
+        # Switching between pick/transport mode changes which widgets are laid
+        # out, but ensure_layout() only re-runs _layout() when the window size
+        # changes — without this, callers that open a replay directly (e.g.
+        # "View Replay" from the Scores screen, which skips on_enter()) leave
+        # the transport buttons stuck at their (0, 0) placeholder rect.
+        self.invalidate_layout()
 
     def _step_back(self) -> None:
         if self.replay is not None:
@@ -319,12 +351,13 @@ class ReplayScreen:
         return self._picker_list_area.collidepoint(pos)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._pick_mode:
-            self._layout_picker_panel(self.app.screen)
             self._apply_picker_scroll_layout()
             if self._picker_action_widgets.handle_event(event):
                 return
             if self._picker_scroll.handle_wheel(event, rect=self._picker_viewport):
+                self._apply_picker_scroll_layout()
                 return
             if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
                 if not self._picker_list_accepts_pointer(event.pos):
@@ -341,8 +374,10 @@ class ReplayScreen:
                     self._select_session((self.selected + 1) % len(self.sessions))
                 elif event.key == pygame.K_PAGEUP:
                     self._picker_scroll.scroll(-80)
+                    self._apply_picker_scroll_layout()
                 elif event.key == pygame.K_PAGEDOWN:
                     self._picker_scroll.scroll(80)
+                    self._apply_picker_scroll_layout()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._load_selected()
                 elif event.key == pygame.K_ESCAPE:
@@ -376,6 +411,7 @@ class ReplayScreen:
             self.app.music.sync(self)
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         if self._pick_mode:
             self._draw_picker(surface)
@@ -449,8 +485,6 @@ class ReplayScreen:
             y_offset=hud_text_top(),
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
-        self._layout_transport(surface)
-
         self._transport.draw(surface)
 
     def _draw_picker(self, surface: pygame.Surface) -> None:

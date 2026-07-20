@@ -13,10 +13,10 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-def _advisory_header() -> str:
-    from engine.i18n import translate
+def _advisory_header(lang: str) -> str:
+    from engine.i18n import normalize_lang, translate
 
-    return translate("ai.advisory_header", lang="en")
+    return translate("ai.advisory_header", lang=normalize_lang(lang))
 
 
 def generate_report(session_dir: Path, config: "AppConfig") -> Path | None:
@@ -61,26 +61,29 @@ def _generate(session_dir: Path, config: "AppConfig") -> Path | None:
         pid = metrics.get("gameplay", {}).get("player_id", "student")
         blocks = [(pid, metrics)]
 
-    from engine.i18n import translate
+    from engine.i18n import normalize_lang, translate
 
-    sections: list[str] = [_advisory_header()]
+    lang = normalize_lang(config.locale.language)
+    sections: list[str] = [_advisory_header(lang)]
 
     from ai import client as ai_client
     from ai.prompts import build_user_prompt, system_prompt
 
-    sys_prompt = system_prompt()
+    sys_prompt = system_prompt(lang)
 
     for player_id, block in blocks:
         prompt_kwargs = _extract_prompt_kwargs(block, player_id=player_id, replay=replay)
-        user_prompt = build_user_prompt(**prompt_kwargs)
+        user_prompt = build_user_prompt(**prompt_kwargs, language=lang)
         response = ai_client.complete(sys_prompt, user_prompt, config)
 
         if response is None:
             log.warning("AI summary unavailable for '%s' — timed out or offline", player_id)
-            response = translate("ai.unavailable", lang="en")
+            response = translate("ai.unavailable", lang=lang)
 
         if len(blocks) > 1:
-            sections.append(translate("ai.player_header", lang="en", player_id=player_id) + "\n")
+            sections.append(
+                translate("ai.player_header", lang=lang, player_id=player_id) + "\n"
+            )
         sections.append(response.strip())
         sections.append("")
 

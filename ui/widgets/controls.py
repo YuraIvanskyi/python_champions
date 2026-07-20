@@ -57,6 +57,8 @@ class WidgetGroup:
                 over_any = over_any or widget.hovered
             if over_any:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
             return False
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -87,13 +89,12 @@ class WidgetGroup:
 
 
 def _ensure_min_size(rect: pygame.Rect) -> pygame.Rect:
-    w = max(rect.width, MIN_HIT_SIZE)
-    h = max(rect.height, MIN_HIT_SIZE)
-    if w == rect.width and h == rect.height:
-        return rect
+    # Always copy: callers sometimes pass the same placeholder Rect instance to
+    # several widgets before layout runs, and mutating one widget's rect must
+    # never move another widget that happens to share the object.
     out = rect.copy()
-    out.w = w
-    out.h = h
+    out.w = max(out.width, MIN_HIT_SIZE)
+    out.h = max(out.height, MIN_HIT_SIZE)
     return out
 
 
@@ -125,11 +126,13 @@ class Button(Widget):
                 self._pressed = True
                 return True
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            clicked = False
             if self._pressed and self.contains(event.pos) and self.on_click:
                 play_ui_click()
                 self.on_click()
+                clicked = True
             self._pressed = False
-            return self._pressed or self.contains(event.pos)
+            return clicked
         return False
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -242,11 +245,18 @@ class ListRow(Widget):
     def handle_event(self, event: pygame.event.Event) -> bool:
         if not self.enabled:
             return False
-        if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.contains(event.pos):
-            if self.on_click:
-                play_ui_click()
-                self.on_click()
-            return True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.contains(event.pos):
+                self._pressed = True
+                return True
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self._pressed and self.contains(event.pos):
+                if self.on_click:
+                    play_ui_click()
+                    self.on_click()
+                self._pressed = False
+                return True
+            self._pressed = False
         return False
 
     def draw(self, surface: pygame.Surface) -> None:

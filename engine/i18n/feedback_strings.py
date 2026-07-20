@@ -59,7 +59,7 @@ def _feedback_en() -> dict[str, str]:
         "feedback.crash.title": "Bot crashed",
         "feedback.crash.message": (
             "Your bot crashed during the game. "
-            "Check for typos, missing keys in game_state, or bad return values."
+            "Check for typos, invalid GameView method calls, or bad return values."
         ),
         "feedback.crash.fix_hint": "Run the bot locally and fix the first error Python reports.",
         "feedback.crash_cap.title": "Code quality capped at 50",
@@ -272,7 +272,7 @@ def _feedback_uk() -> dict[str, str]:
         "feedback.crash.title": "Бот аварійно завершився",
         "feedback.crash.message": (
             "Під час гри бот зіткнувся з помилкою. "
-            "Перевір друкарські помилки, відсутні ключі в game_state або некоректні значення return."
+            "Перевір друкарські помилки, некоректні виклики GameView або значення return."
         ),
         "feedback.crash.fix_hint": "Запусти бота локально й виправ першу помилку Python.",
         "feedback.crash_cap.title": "Якість коду обмежено до 50",

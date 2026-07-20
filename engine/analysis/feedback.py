@@ -86,6 +86,39 @@ def _ruff_lines(static: dict[str, Any]) -> list[int]:
     return sorted(lines)
 
 
+def _make_turn_def_line(static: dict[str, Any]) -> list[int]:
+    for fn in static.get("functions", []):
+        if isinstance(fn, dict) and fn.get("name") == "make_turn":
+            line = fn.get("lineno")
+            if isinstance(line, int):
+                return [line]
+    return [1]
+
+
+def _worst_function_line(static: dict[str, Any]) -> list[int]:
+    funcs = static.get("functions", [])
+    if not funcs:
+        return _make_turn_def_line(static)
+    worst = max(funcs, key=lambda f: f.get("complexity", 0) if isinstance(f, dict) else 0)
+    if isinstance(worst, dict):
+        line = worst.get("lineno")
+        if isinstance(line, int):
+            return [line]
+    return _make_turn_def_line(static)
+
+
+def _longest_function_line(static: dict[str, Any]) -> list[int]:
+    funcs = static.get("functions", [])
+    if not funcs:
+        return _make_turn_def_line(static)
+    longest = max(funcs, key=lambda f: f.get("line_count", 0) if isinstance(f, dict) else 0)
+    if isinstance(longest, dict):
+        line = longest.get("lineno")
+        if isinstance(line, int):
+            return [line]
+    return _make_turn_def_line(static)
+
+
 def _forbidden_lines(static: dict[str, Any]) -> list[int]:
     lines: list[int] = []
     for entry in static.get("forbidden_constructs", []):
@@ -123,6 +156,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.turn_timeout.message"),
                 fix_hint=_fb(lang, "feedback.turn_timeout.fix_hint"),
                 panel="parchment",
+                lines=_make_turn_def_line(static),
             )
         )
 
@@ -135,6 +169,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.crash.message"),
                 fix_hint=_fb(lang, "feedback.crash.fix_hint"),
                 panel="parchment",
+                lines=_make_turn_def_line(static),
             )
         )
         items.append(
@@ -157,6 +192,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.invalid_actions.message"),
                 fix_hint=_fb(lang, "feedback.invalid_actions.fix_hint"),
                 panel="wood",
+                lines=_make_turn_def_line(static),
             )
         )
 
@@ -172,6 +208,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.high_complexity.message"),
                 fix_hint=_fb(lang, "feedback.high_complexity.fix_hint"),
                 panel="wood",
+                lines=_worst_function_line(static),
             )
         )
     elif max_complexity >= 7:
@@ -183,6 +220,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.growing_complexity.message"),
                 fix_hint=_fb(lang, "feedback.growing_complexity.fix_hint"),
                 panel="wood",
+                lines=_worst_function_line(static),
             )
         )
 
@@ -196,11 +234,12 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.deep_nesting.message"),
                 fix_hint=_fb(lang, "feedback.deep_nesting.fix_hint"),
                 panel="wood",
+                lines=_worst_function_line(static),
             )
         )
 
     max_lines = static.get("max_function_lines", 0)
-    if max_lines >= 50:
+    if max_lines >= 40:
         items.append(
             _item(
                 category="efficiency",
@@ -209,6 +248,7 @@ def generate_feedback_items(
                 message=_fb(lang, "feedback.long_function.message"),
                 fix_hint=_fb(lang, "feedback.long_function.fix_hint"),
                 panel="wood",
+                lines=_longest_function_line(static),
             )
         )
 

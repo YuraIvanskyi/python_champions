@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pygame
 
+from engine.paths import resource_path
 from ui.bot_guide_content import GuideBlock
 from ui.skin import chrome as skin
 from ui.skin import colors
@@ -21,7 +20,7 @@ _MENTOR_MAX_WIDTH = 175
 _MENTOR_FLOAT_START_BLOCK = 0
 _MENTOR_FLOAT_END_BLOCK = 3
 _MENTOR_BOTTOM_PAD = 6
-_MENTOR_PATH = Path(__file__).resolve().parent / "assets" / "icons" / "mentor_3.png"
+_MENTOR_PATH = resource_path("ui", "assets", "icons", "mentor_3.png")
 _MENTOR_CACHE: dict[tuple[int, int | None], pygame.Surface | None] = {}
 _MENTOR_ASPECT = 601 / 599
 

@@ -47,6 +47,12 @@ def _build_4side_scenario() -> tuple[ManaPoolsScenario, tuple[int, int]]:
     for pid in s.player_ids():
         s._energy[pid] = s._starting_energy
 
+    # Isolate the target station so gathers cannot pull from other pools
+    for pos in list(s._pool_capacities.keys()):
+        if pos != target:
+            del s._pool_capacities[pos]
+            s._map.set_tile(pos[0], pos[1], TileType.EMPTY)
+
     return s, target
 
 

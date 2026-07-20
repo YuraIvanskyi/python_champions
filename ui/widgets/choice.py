@@ -10,7 +10,7 @@ from ui.audio import play_ui_click
 from ui.render.icons import draw_menu_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
-from ui.skin.typography import body_font
+from ui.skin.typography import body_font, multiscript_font
 from ui.widgets.controls import Widget, _ensure_min_size
 
 _RADIO_R = 7
@@ -165,7 +165,10 @@ class LanguagePicker(Widget):
         return False
 
     def draw(self, surface: pygame.Surface) -> None:
-        font = body_font(14)
+        # Both option labels ("English" / "Українська") are shown together
+        # regardless of the active UI language, so this needs a font with
+        # Latin + Cyrillic coverage rather than the locale-selected body font.
+        font = multiscript_font(14)
         for i, (val, label, icon_name) in enumerate(self.options):
             card = self._card_rect(i)
             selected = val == self._selected

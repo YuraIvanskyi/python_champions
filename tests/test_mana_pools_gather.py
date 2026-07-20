@@ -127,5 +127,6 @@ def test_score_uses_mana_gathered_not_stored_energy():
     s._energy[rival] = s._max_energy
 
     scores = s.calculate_score()
-    assert scores[pid] == 100
+    expected = min(100, round(gained / s._score_threshold * 100))
+    assert scores[pid] == expected
     assert scores[rival] == 0

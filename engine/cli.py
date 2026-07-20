@@ -191,7 +191,7 @@ def _load_bots(paths: list[Path], scenario_id: str, *, lang: str) -> list:
             )
             sys.exit(1)
         for index, path in enumerate(paths):
-            pid = student_player_id_for_path(path, index)
+            pid = student_player_id_for_path(path, index, total=len(paths))
             bots.append(load_bot(path, player_id=pid))
     return bots
 

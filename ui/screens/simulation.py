@@ -22,6 +22,7 @@ from ui.render.hud import (
 from ui.render.loading_overlay import draw_loading_overlay
 from ui.render.map_renderer import draw_map
 from ui.skin import chrome as skin
+from ui.layout import LayoutMixin
 from ui.theme import (
     MAP_PADDING,
     MARGIN_X,
@@ -38,7 +39,7 @@ from ui.widgets import Button, WidgetGroup
 from ui.widgets.scroll import ScrollState
 
 
-class SimulationScreen:
+class SimulationScreen(LayoutMixin):
     AUTO_MS = 350
 
     def __init__(self, app: object) -> None:
@@ -75,7 +76,15 @@ class SimulationScreen:
         sw = surface.get_width()
         btn_h = TOOLBAR_HEIGHT - 10
         btn_y = toolbar_top(surface.get_height()) + 5
-        w = TOOLBAR_BTN_WIDTH
+        from ui.widgets.button_sizing import button_width
+
+        labels = (self._step_btn.label, self._play_btn.label, self._menu_btn.label)
+        w = max(
+            TOOLBAR_BTN_WIDTH,
+            button_width(labels[0], font_size=TOOLBAR_BTN_FONT, min_width=TOOLBAR_BTN_WIDTH),
+            button_width(labels[1], font_size=TOOLBAR_BTN_FONT, min_width=TOOLBAR_BTN_WIDTH),
+            button_width(labels[2], font_size=TOOLBAR_BTN_FONT, min_width=TOOLBAR_BTN_WIDTH),
+        )
         gap = TOOLBAR_BTN_GAP
 
         x = MARGIN_X
@@ -84,6 +93,9 @@ class SimulationScreen:
             x += w + gap
 
         self._menu_btn.rect = pygame.Rect(sw - MARGIN_X - w, btn_y, w, btn_h)
+
+    def _layout(self, surface: pygame.Surface) -> None:
+        self._layout_toolbar(surface)
 
     def start(
         self,
@@ -118,6 +130,8 @@ class SimulationScreen:
         self._step_btn.label = self.app.t("sim.step")
         self._menu_btn.label = self.app.t("sim.menu")
         self._sync_play_label()
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
 
     def _reset_finish_state(self) -> None:
         self._finishing = False
@@ -130,8 +144,10 @@ class SimulationScreen:
         self._play_btn.label = (
             self.app.t("sim.pause") if self.auto_mode else self.app.t("sim.play")
         )
+        self.invalidate_layout()
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._finishing or self.live is None:
             return
         if self._toolbar.handle_event(event):
@@ -258,6 +274,7 @@ class SimulationScreen:
         return frame_top + self._FRAME_PAD
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         if self.live is None:
             return
@@ -314,7 +331,6 @@ class SimulationScreen:
             y_offset=hud_y,
         )
         draw_toolbar_strip(surface, y=toolbar_top(), height=TOOLBAR_HEIGHT)
-        self._layout_toolbar(surface)
         self._toolbar.draw(surface)
 
         if self._finishing:

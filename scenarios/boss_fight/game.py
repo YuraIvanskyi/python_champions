@@ -1,4 +1,4 @@
-"""Boss Fight scenario — cooperative PvE on an 8×8 grid."""
+"""Boss Fight scenario — cooperative PvE on a configurable grid."""
 
 from __future__ import annotations
 
@@ -198,17 +198,18 @@ class BossFightScenario(ScenarioBase):
             if self._alive[pid]:
                 self._turns_alive[pid] += 1
 
-        # Student bot actions in sorted player_id order; dead bots skipped
-        for pid in sorted(self._player_ids):
+        # Student bot actions in setup order; dead bots skipped
+        for pid in self._player_ids:
             if not self._alive[pid]:
                 continue
             action = actions.get(pid, Action.WAIT)
             events.extend(self._apply_player_action(pid, action))
 
-        # Boss AI
-        events.extend(self._apply_boss_turn())
+        # Boss AI — skip if boss already defeated this turn
+        if self._boss_hp > 0:
+            events.extend(self._apply_boss_turn())
 
-        # Check win/lose
+        # Check win/lose (boss defeat takes precedence over party wipe)
         if self._boss_hp <= 0:
             self._finished = True
             events.append("boss_defeated")
@@ -333,13 +334,13 @@ class BossFightScenario(ScenarioBase):
             return events
 
         if self._difficulty == 1:
-            targets = adjacent[:1]
+            targets = [self._rng.choice(adjacent)]
         elif self._difficulty == 2:
             # Smart targeting: if multiple adjacent, pick lowest HP
             targets = [min(adjacent, key=lambda p: self._hp[p])]
         else:
-            # Level 3: up to 2 adjacent bots, lowest HP first
-            targets = sorted(adjacent, key=lambda p: self._hp[p])[:2]
+            max_targets = 2 if self._multi_target else 1
+            targets = sorted(adjacent, key=lambda p: self._hp[p])[:max_targets]
 
         for pid in targets:
             self._hp[pid] -= self._boss_damage
@@ -415,15 +416,24 @@ class BossFightScenario(ScenarioBase):
 
     def calculate_score(self) -> dict[str, int]:
         boss_defeated = self._boss_hp <= 0
-        total_damage = sum(self._damage_dealt.values()) or 1
+        total_damage = sum(self._damage_dealt.values())
+        if total_damage <= 0:
+            return {pid: 0 for pid in self._player_ids}
         scores: dict[str, int] = {}
+        raw_scores: list[int] = []
         for pid in self._player_ids:
             fraction = self._damage_dealt[pid] / total_damage
             if boss_defeated:
-                scores[pid] = round(fraction * 100)
+                raw = round(fraction * 100)
             else:
                 raw = round(fraction * _LOSS_SCORE_CAP)
-                scores[pid] = raw
+            raw_scores.append(raw)
+            scores[pid] = raw
+        if boss_defeated and raw_scores:
+            diff = 100 - sum(raw_scores)
+            if diff != 0:
+                top_pid = max(self._player_ids, key=lambda p: self._damage_dealt[p])
+                scores[top_pid] = max(0, scores[top_pid] + diff)
         return scores
 
     def is_finished(self) -> bool:

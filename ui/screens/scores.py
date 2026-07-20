@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import re
@@ -11,12 +12,14 @@ from pathlib import Path
 
 import pygame
 
+from ui.layout import LayoutMixin
 from ui.render.icons import load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
 from ui.theme import MARGIN_X, content_width
 from ui.widgets import Button, WidgetGroup
+from ui.widgets.button_sizing import button_width
 from ui.widgets.scroll import ScrollState
 
 _PANEL_PAD = 16
@@ -101,13 +104,13 @@ def _movement_summary(mv: dict, *, lang: str = "en") -> str:
         parts.append(f"{translate('scores.movement_bounced', lang=lang)} {osc}\u00d7")
     max_run = int(mv.get("max_consecutive_same_action", 0))
     if max_run >= 6:
-        parts.append(f"{max_run}-turn repeat")
+        parts.append(translate("scores.movement_repeat", lang=lang, repeat=max_run))
     if not parts:
         return ""
     return translate("scores.movement_prefix", lang=lang) + " \u00b7 ".join(parts)
 
 
-class ScoresScreen:
+class ScoresScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
         self.final_scores: dict[str, int] = {}
@@ -116,6 +119,8 @@ class ScoresScreen:
         self.replay_meta: dict | None = None
         self._scroll = ScrollState()
         self._viewport_rect = pygame.Rect(0, 0, 1, 1)
+        self._score_row_rects: list[tuple[pygame.Rect, str]] = []
+        self._btn_y = 0
 
         self._play_again = Button(
             pygame.Rect(0, 0, _BTN_W_PRIMARY, _BTN_H),
@@ -138,8 +143,19 @@ class ScoresScreen:
             "Open Folder",
             on_click=self._reveal_folder,
         )
+        self._export_btn = Button(
+            pygame.Rect(0, 0, _BTN_W_SECONDARY, _BTN_H),
+            "Export Grades",
+            on_click=self._export_grades,
+        )
         self._widgets = WidgetGroup(
-            [self._play_again, self._view_replay, self._coach_btn, self._open_results]
+            [
+                self._play_again,
+                self._view_replay,
+                self._coach_btn,
+                self._open_results,
+                self._export_btn,
+            ]
         )
 
     # ── Data loading ──────────────────────────────────────────────────────────
@@ -154,6 +170,7 @@ class ScoresScreen:
         self._view_replay.label = self.app.t("scores.view_replay")
         self._coach_btn.label = self.app.t("scores.code_coach")
         self._open_results.label = self.app.t("scores.open_folder")
+        self._export_btn.label = self.app.t("scores.export_grades")
         if session_dir is not None:
             metrics_path = session_dir / "metrics.json"
             if metrics_path.is_file():
@@ -167,6 +184,13 @@ class ScoresScreen:
         has_replay = session_dir is not None and (session_dir / "replay.json").is_file()
         self._view_replay.enabled = has_replay
         self._coach_btn.enabled = self.metrics is not None
+        self._open_results.enabled = session_dir is not None
+        self._export_btn.enabled = self.session_dir is not None and self.metrics is not None
+        self.invalidate_layout()
+
+    def on_enter(self) -> None:
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -187,10 +211,49 @@ class ScoresScreen:
         if replay_path.is_file():
             self.app.open_replay(replay_path)
 
-    def _open_coach(self) -> None:
+    def _open_coach(self, *, player_id: str | None = None) -> None:
         if self.session_dir is None:
             return
-        self.app.goto_coach(self.session_dir)
+        self.app.goto_coach(self.session_dir, player_id=player_id)
+
+    def _open_coach_for_row(self, row_key: str) -> None:
+        pid = self._player_id_for_score_row(row_key)
+        self._open_coach(player_id=pid)
+
+    def _export_grades(self) -> None:
+        if self.session_dir is None or self.metrics is None:
+            return
+        from ui.coach_data import list_player_metrics
+
+        out_path = self.session_dir / "session_summary.csv"
+        fieldnames = [
+            "player_id",
+            "display_name",
+            "gameplay",
+            "code_quality",
+            "final",
+            "top_feedback",
+            "crashes",
+            "timeouts",
+        ]
+        rows: list[dict[str, object]] = []
+        for pid, pdata in list_player_metrics(self.metrics):
+            scores = pdata.get("scores", {})
+            runtime = pdata.get("runtime", {})
+            rows.append({
+                "player_id": pid,
+                "display_name": self._display_name(pid),
+                "gameplay": scores.get("gameplay", ""),
+                "code_quality": scores.get("code_quality", ""),
+                "final": scores.get("final", ""),
+                "top_feedback": _best_feedback_hint(pdata),
+                "crashes": runtime.get("crash_count", 0),
+                "timeouts": runtime.get("timeout_count", 0),
+            })
+        with out_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
 
     def _reveal_folder(self) -> None:
         if self.session_dir is None or not self.session_dir.is_dir():
@@ -207,10 +270,75 @@ class ScoresScreen:
 
     # ── Input ─────────────────────────────────────────────────────────────────
 
+    def _layout(self, surface: pygame.Surface) -> None:
+        sw, sh = surface.get_size()
+        btn_y = sh - _BTN_H - _BTN_MARGIN_B
+        self._btn_y = btn_y
+
+        btn_specs = [
+            (self._play_again, True),
+            (self._view_replay, False),
+            (self._coach_btn, False),
+            (self._export_btn, False),
+            (self._open_results, False),
+        ]
+        widths: list[int] = []
+        for btn, primary in btn_specs:
+            if not btn.enabled and btn is not self._play_again:
+                continue
+            min_w = _BTN_W_PRIMARY if primary else _BTN_W_SECONDARY
+            widths.append(button_width(btn.label, font_size=18, min_width=min_w))
+
+        total_btn_w = sum(widths) + _BTN_GAP * max(0, len(widths) - 1)
+        bx = sw // 2 - total_btn_w // 2
+        wi = 0
+        for btn, primary in btn_specs:
+            if not btn.enabled and btn is not self._play_again:
+                btn.rect = pygame.Rect(0, 0, 0, 0)
+                continue
+            w = widths[wi]
+            wi += 1
+            btn.rect = pygame.Rect(bx, btn_y, w, _BTN_H)
+            bx += w + _BTN_GAP
+
+        cw = content_width(sw)
+        mx = MARGIN_X
+        panel_w = cw - _SCROLLBAR_W - _SCROLLBAR_PAD
+        vp_top = _BANNER_BOTTOM
+        vp_bottom = btn_y - 8
+        vp_h = max(1, vp_bottom - vp_top)
+        self._viewport_rect = pygame.Rect(mx, vp_top, panel_w, vp_h)
+
+        lines = sorted(self.final_scores.items(), key=lambda kv: kv[1], reverse=True)
+        if not lines:
+            lines = [("—", 0)]
+        has_metrics = self.metrics is not None
+        row_h = _ROW_H_WITH_SUB if has_metrics else _ROW_H_SIMPLE
+        row_w = panel_w - 12
+
+        self._score_row_rects = []
+        row_y = vp_top + 45 + 8 - self._scroll.offset
+        for pid, _sc in lines:
+            self._score_row_rects.append(
+                (pygame.Rect(mx + 6, row_y, row_w, row_h), pid)
+            )
+            row_y += row_h + _ROW_GAP
+
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._widgets.handle_event(event):
             return
+        if (
+            event.type == pygame.MOUSEBUTTONUP
+            and event.button == 1
+            and self.metrics is not None
+        ):
+            for row_rect, row_key in self._score_row_rects:
+                if row_rect.collidepoint(event.pos):
+                    self._open_coach_for_row(row_key)
+                    return
         if self._scroll.handle_wheel(event, rect=self._viewport_rect):
+            self.invalidate_layout()
             return
         if event.type != pygame.KEYDOWN:
             return
@@ -218,8 +346,10 @@ class ScoresScreen:
             self.app.goto_menu()
         elif event.key == pygame.K_DOWN:
             self._scroll.scroll(40)
+            self.invalidate_layout()
         elif event.key == pygame.K_UP:
             self._scroll.scroll(-40)
+            self.invalidate_layout()
         elif event.key == pygame.K_v:
             self._open_replay()
         elif event.key == pygame.K_c:
@@ -230,42 +360,24 @@ class ScoresScreen:
     # ── Drawing ───────────────────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         sw, sh = surface.get_size()
         cw = content_width(sw)
         mx = MARGIN_X
         panel_w = cw - _SCROLLBAR_W - _SCROLLBAR_PAD
+        btn_y = self._btn_y
 
-        # ── Banner (fixed) ────────────────────────────────────────────────────
         skin.draw_banner_title(
             surface, self.app.t("scores.game_over"), center_x=sw // 2, y=22, max_width=cw,
         )
-
-        # ── Buttons (fixed at bottom) ─────────────────────────────────────────
-        btn_y = sh - _BTN_H - _BTN_MARGIN_B
-        total_btn_w = (
-            _BTN_W_PRIMARY  + _BTN_GAP
-            + _BTN_W_SECONDARY + _BTN_GAP
-            + _BTN_W_SECONDARY + _BTN_GAP
-            + _BTN_W_SECONDARY
-        )
-        bx = sw // 2 - total_btn_w // 2
-        self._play_again.rect   = pygame.Rect(bx, btn_y, _BTN_W_PRIMARY,   _BTN_H)
-        bx += _BTN_W_PRIMARY + _BTN_GAP
-        self._view_replay.rect  = pygame.Rect(bx, btn_y, _BTN_W_SECONDARY, _BTN_H)
-        bx += _BTN_W_SECONDARY + _BTN_GAP
-        self._coach_btn.rect    = pygame.Rect(bx, btn_y, _BTN_W_SECONDARY, _BTN_H)
-        bx += _BTN_W_SECONDARY + _BTN_GAP
-        self._open_results.rect = pygame.Rect(bx, btn_y, _BTN_W_SECONDARY, _BTN_H)
         self._widgets.draw(surface)
 
-        # ── Scrollable viewport ───────────────────────────────────────────────
-        vp_top    = _BANNER_BOTTOM
+        vp_top = _BANNER_BOTTOM
         vp_bottom = btn_y - 8
-        vp_h      = vp_bottom - vp_top
+        vp_h = vp_bottom - vp_top
         if vp_h < 1:
             return
-        self._viewport_rect = pygame.Rect(mx, vp_top, panel_w, vp_h)
 
         # Measure content
         lines = sorted(self.final_scores.items(), key=lambda kv: kv[1], reverse=True)

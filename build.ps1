@@ -41,6 +41,13 @@ if ($Target -in @("exe", "all")) {
         --noconfirm `
         --distpath (Join-Path $Root "dist") `
         --workpath $work
+    $ruffInDist = Join-Path $Root "dist\CodeScenarios\ruff.exe"
+    if (-not (Test-Path $ruffInDist)) {
+        $ruffInInternal = Get-ChildItem -Path (Join-Path $Root "dist\CodeScenarios") -Filter "ruff.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $ruffInInternal) {
+            Write-Error "Build verification failed: ruff.exe not found in dist\CodeScenarios. Install ruff in the build venv and rebuild."
+        }
+    }
 }
 
 Write-Host ""

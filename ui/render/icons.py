@@ -73,7 +73,7 @@ def draw_menu_icon(
 ) -> None:
     """Draw a small procedural RPG-style icon into *rect* on *surface*.
 
-    Supported names: ``swords``, ``scroll``, ``folder``, ``shield``,
+    Supported names: ``swords``, ``scroll``, ``folder``, ``file``, ``shield``,
     ``classroom``, ``door``, ``random``, ``flag_en``, ``flag_uk``.
     """
     key: tuple[str, int, tuple[int, int, int]] = (name, rect.width, color)
@@ -127,6 +127,28 @@ def _render_menu_icon(
             (1, 2),
         ])
         pygame.draw.rect(surf, dim, pygame.Rect(0, body_y, s, s - body_y - 1), 1, border_radius=2)
+
+    elif name == "file":
+        # Single document: rect with a folded top-right corner + content lines
+        fold = max(3, s // 4)
+        pts = [
+            (1, 1),
+            (s - fold - 1, 1),
+            (s - 2, fold + 1),
+            (s - 2, s - 2),
+            (1, s - 2),
+        ]
+        pygame.draw.polygon(surf, c, pts)
+        pygame.draw.polygon(surf, dim, pts, 1)
+        # Folded corner triangle in the dim shade
+        fold_pts = [(s - fold - 1, 1), (s - 2, fold + 1), (s - fold - 1, fold + 1)]
+        pygame.draw.polygon(surf, dim, fold_pts, 1)
+        line_color = (max(0, c[0] - 80), max(0, c[1] - 80), max(0, c[2] - 80))
+        for i in range(3):
+            y = fold + 5 + i * (s - fold - 6) // 3
+            if y >= s - 3:
+                break
+            pygame.draw.line(surf, line_color, (4, y), (s - 5, y), 1)
 
     elif name == "shield":
         # Pentagon shield

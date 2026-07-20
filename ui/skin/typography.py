@@ -78,3 +78,14 @@ def body_font(size: int) -> pygame.font.Font:
 def code_font(size: int) -> pygame.font.Font:
     """Monospace font for code panels, text fields, and line numbers."""
     return _load_font(_code_font_path, size, _code_cache)
+
+
+def multiscript_font(size: int) -> pygame.font.Font:
+    """Font that renders both Latin and Cyrillic labels correctly.
+
+    Used for UI elements (like the language picker) that must display
+    text from more than one locale at once, regardless of which font
+    the active UI language would normally select — Skranji (English
+    face) has no Cyrillic glyphs, so it can't be used for that purpose.
+    """
+    return _load_font(_PANGOLIN_FONT, size, _game_cache)

@@ -6,8 +6,9 @@ import random
 from typing import Any
 
 from engine.core.action import Action
-from engine.core.config_io import load_scenario_toml
+from engine.core.turn_order import ordered_action_player_ids
 from engine.core.scenario import ScenarioBase
+from engine.core.config_io import load_scenario_toml
 from engine.core.turn_result import TurnResult
 from engine.simulation.map import Map, TileType
 
@@ -54,6 +55,10 @@ class ManaPoolsScenario(ScenarioBase):
         self._gather_rate = int(pc["gather_rate"])
 
         self._initial_capacity = int(cfg["pool"]["initial_capacity"])
+        scoring = cfg.get("scoring", {})
+        self._score_threshold = int(
+            scoring.get("score_threshold", sc.get("score_threshold", 100))
+        )
 
         if player_ids is None:
             self._player_ids: list[str] = ["p1", "p2"]
@@ -201,10 +206,9 @@ class ManaPoolsScenario(ScenarioBase):
         self._turn += 1
         events: list[str] = []
 
-        # Resolve actions in sorted player_id order for determinism
-        for pid in sorted(self._player_ids):
-            action = actions.get(pid, Action.WAIT)
-            events.extend(self._apply_player_action(pid, action))
+        # Resolve actions in setup order for determinism
+        for pid in ordered_action_player_ids(self._player_ids, actions):
+            events.extend(self._apply_player_action(pid, actions[pid]))
 
         # Check win conditions
         if not self._pool_capacities:
@@ -245,9 +249,8 @@ class ManaPoolsScenario(ScenarioBase):
                     key=lambda pos: (self._pool_capacities.get(pos, 0), pos),
                 )
                 cap = self._pool_capacities.get((sx, sy), 0)
-                if cap > 0:
+                if cap > 0 and self._energy[pid] < self._max_energy:
                     gained = min(self._gather_rate, cap)
-                    # Apply cap
                     gained = min(gained, self._max_energy - self._energy[pid])
                     self._energy[pid] = min(self._max_energy, self._energy[pid] + gained)
                     self._pool_capacities[(sx, sy)] -= gained
@@ -266,8 +269,7 @@ class ManaPoolsScenario(ScenarioBase):
 
         elif action is Action.ATTACK:
             current_energy = self._energy[pid]
-            if current_energy == 0:
-                # No energy: silently treat as WAIT
+            if current_energy < self._attack_cost:
                 events.append(f"{pid}_attack_no_energy")
                 return events
 
@@ -348,11 +350,9 @@ class ManaPoolsScenario(ScenarioBase):
     # ── Scoring ────────────────────────────────────────────────────────────────
 
     def calculate_score(self) -> dict[str, int]:
-        if not self._mana_gathered:
-            return {pid: 0 for pid in self._player_ids}
-        max_gathered = max(self._mana_gathered.values()) or 1
+        threshold = max(1, self._score_threshold)
         return {
-            pid: round(self._mana_gathered[pid] / max_gathered * 100)
+            pid: min(100, round(self._mana_gathered[pid] / threshold * 100))
             for pid in self._player_ids
         }
 

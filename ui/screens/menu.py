@@ -15,14 +15,12 @@ from engine.core.opponents import OPPONENT_MODES, builtin_icon_path
 from engine.core.scenario_registry import create_scenario, list_scenarios, scenario_display_name
 from engine.paths import resolve_bot_path, resource_path
 from ui.audio import play_ui_click
+from ui.layout import LayoutMixin
 from ui.render.icons import draw_menu_icon, load_icon
 from ui.skin import chrome as skin
 from ui.skin import colors
 from ui.skin.typography import body_font
-from ui.theme import (
-    MARGIN_X,
-    content_width,
-)
+from ui.theme import MARGIN_X, content_width
 from ui.widgets import Button, ListRow, TextField, WidgetGroup
 
 _LABEL_PT = 14
@@ -34,89 +32,85 @@ LaunchMode = Literal["practice", "classroom"]
 # Both panels: y=92 h=668.  draw_panel_titled overhead = 45 px → content y=137.
 # ────────────────────────────────────────────────────────────────────────────
 
-_LPANEL_X = MARGIN_X            # 48
+_LPANEL_X = MARGIN_X  # 48
 _LPANEL_W = 404
-_RPANEL_X = _LPANEL_X + _LPANEL_W + 8     # 460
-_RPANEL_W = 1024 - MARGIN_X - _RPANEL_X   # 516
-_PANEL_Y  = 92
-_PANEL_H  = 668
-_HDR      = 45
+_RPANEL_X = _LPANEL_X + _LPANEL_W + 8  # 460
+_PANEL_Y = 92
+_PANEL_H = 668
+_HDR = 45
 
-_LX = _LPANEL_X + 12            # 60
-_RX = _RPANEL_X + 12            # 472
-_CY = _PANEL_Y  + _HDR          # 137
-_LW = _LPANEL_W - 24            # 380
-_RW = _RPANEL_W - 24            # 492
+_LX = _LPANEL_X + 12  # 60
+_RX = _RPANEL_X + 12  # 472
+_CY = _PANEL_Y + _HDR  # 137
+_LW = _LPANEL_W - 24  # 380
+_RW = 492  # default inner width at 1024px window; updated in _layout
 
 # ── Left panel: scenario rows ─────────────────────────────────────────────────
-_SC_ROW_H    = 126               # tall rows: name + type + 2-line flavor + 2-line hint
-_SC_ROW_GAP  = 8
-_SC_START_Y  = _CY
+_SC_ROW_H = 126  # tall rows: name + type + 2-line flavor + 2-line hint
+_SC_ROW_GAP = 8
+_SC_START_Y = _CY
 
 # ── Right panel: mode tabs ───────────────────────────────────────────────────
-_TAB_H   = 36
+_TAB_H = 36
 _TAB_GAP = 6
-_TAB_W   = (_RW - _TAB_GAP) // 2   # 243
+_TAB_W = (_RW - _TAB_GAP) // 2  # 243
 
 # ── Bot section (shared) ─────────────────────────────────────────────────────
-_CONTENT_START = _CY + _TAB_H + 12    # 185
-_BOT_LABEL_Y   = _CONTENT_START        # 185
-_BOT_FIELD_Y   = _BOT_LABEL_Y + 18    # 203
-_BOT_FIELD_H   = 40
-_AFTER_BOT_Y   = _BOT_FIELD_Y + _BOT_FIELD_H + 6   # 249
+_CONTENT_START = _CY + _TAB_H + 12  # 185
+_BOT_LABEL_Y = _CONTENT_START  # 185
+_BOT_FIELD_Y = _BOT_LABEL_Y + 18  # 203
+_BOT_FIELD_H = 40
+_AFTER_BOT_Y = _BOT_FIELD_Y + _BOT_FIELD_H + 6  # 249
 
-# Icon-only Browse/Folder (40 × 40 squares)
-_ICON_BTN_W      = 40
-_PRAC_FIELD_W    = _RW - _ICON_BTN_W - 6              # 446
-_PRAC_BROWSE_X   = _RX + _PRAC_FIELD_W + 6            # 924
-_CLASS_FIELD_W   = _RW - _ICON_BTN_W * 2 - 12         # 400
-_CLASS_BROWSE_X  = _RX + _CLASS_FIELD_W + 6           # 878
-_CLASS_FOLDER_X  = _CLASS_BROWSE_X + _ICON_BTN_W + 6  # 924
+# Icon-only Browse/Folder (40 × 40 squares) — field/browse x computed in MenuScreen._layout
+_ICON_BTN_W = 40
 
 # ── Practice: opponent cards ─────────────────────────────────────────────────
-_OPP_DIV_Y   = _AFTER_BOT_Y               # 249
-_OPP_LABEL_Y = _OPP_DIV_Y + 12           # 261
-_OPP_CARD_Y  = _OPP_LABEL_Y + 18         # 279
-_OPP_CARD_H  = 66
-_OPP_CARD_W  = (_RW - 8) // 2            # 242
-_AFTER_OPP_Y = _OPP_CARD_Y + _OPP_CARD_H + 10   # 345
+_OPP_DIV_Y = _AFTER_BOT_Y  # 249
+_OPP_LABEL_Y = _OPP_DIV_Y + 12  # 261
+_OPP_CARD_Y = _OPP_LABEL_Y + 18  # 279
+_OPP_CARD_H = 66
+_OPP_CARD_W = (_RW - 8) // 2
+_AFTER_OPP_Y = _OPP_CARD_Y + _OPP_CARD_H + 10  # 345
 
 # ── Tile row (col 0 = Random, col 1-5 = preset maps) ─────────────────────────
-_TILE_SIZE   = 76
-_TILE_TOTAL  = 6
+_TILE_SIZE = 76
+_TILE_TOTAL = 6
 _TILE_MARGIN = 8
-_TILE_GAP    = (_RW - 2 * _TILE_MARGIN - _TILE_TOTAL * _TILE_SIZE) // (_TILE_TOTAL - 1)  # 4
-_TILE_ROW_H  = _TILE_SIZE + 16   # 92
+_TILE_GAP = (_RW - 2 * _TILE_MARGIN - _TILE_TOTAL * _TILE_SIZE) // (_TILE_TOTAL - 1)
+_TILE_ROW_H = _TILE_SIZE + 16
+_PRAC_FIELD_W = _RW - _ICON_BTN_W - 6
+_CLASS_FIELD_W = _RW - _ICON_BTN_W * 2 - 12
+_BOTTOM_BTN_W = (_RW - 12) // 3
 
 # ── Practice: map section + action row ───────────────────────────────────────
-_PRAC_MAP_DIV_Y   = _AFTER_OPP_Y                            # 345
-_PRAC_MAP_LABEL_Y = _PRAC_MAP_DIV_Y + 12                    # 357
-_PRAC_TILES_Y     = _PRAC_MAP_LABEL_Y + 18                  # 375
-_PRAC_DIV2_Y      = _PRAC_TILES_Y + _TILE_ROW_H + 8         # 475
-_PRAC_RUN_Y       = _PRAC_DIV2_Y + 10                       # 485
-_PRAC_RUN_H       = 58
-_PRAC_GUIDE_Y     = _PRAC_RUN_Y + _PRAC_RUN_H + 8           # 551
-_PRAC_GUIDE_H     = 40
-_PRAC_BOTTOM_Y    = _PRAC_GUIDE_Y + _PRAC_GUIDE_H + 8     # 599
-_PRAC_BOTTOM_H    = 38
-_PRAC_ERROR_Y     = _PRAC_BOTTOM_Y + _PRAC_BOTTOM_H + 6   # 643
+_PRAC_MAP_DIV_Y = _AFTER_OPP_Y  # 345
+_PRAC_MAP_LABEL_Y = _PRAC_MAP_DIV_Y + 12  # 357
+_PRAC_TILES_Y = _PRAC_MAP_LABEL_Y + 18  # 375
+_PRAC_DIV2_Y = _PRAC_TILES_Y + _TILE_ROW_H + 8  # 475
+_PRAC_RUN_Y = _PRAC_DIV2_Y + 10  # 485
+_PRAC_RUN_H = 58
+_PRAC_GUIDE_Y = _PRAC_RUN_Y + _PRAC_RUN_H + 8  # 551
+_PRAC_GUIDE_H = 40
+_PRAC_BOTTOM_Y = _PRAC_GUIDE_Y + _PRAC_GUIDE_H + 8  # 599
+_PRAC_BOTTOM_H = 38
+_PRAC_ERROR_Y = _PRAC_BOTTOM_Y + _PRAC_BOTTOM_H + 6  # 643
 
 # ── Classroom: map section + action row ──────────────────────────────────────
-_CLASS_COUNT_Y     = _AFTER_BOT_Y                             # 249
-_CLASS_MAP_DIV_Y   = _CLASS_COUNT_Y + 22 + 8                  # 279
-_CLASS_MAP_LABEL_Y = _CLASS_MAP_DIV_Y + 12                    # 291
-_CLASS_TILES_Y     = _CLASS_MAP_LABEL_Y + 18                  # 309
-_CLASS_DIV2_Y      = _CLASS_TILES_Y + _TILE_ROW_H + 8         # 409
-_CLASS_RUN_Y       = _CLASS_DIV2_Y + 10                       # 419
-_CLASS_RUN_H       = 58
-_CLASS_GUIDE_Y     = _CLASS_RUN_Y + _CLASS_RUN_H + 8        # 485
-_CLASS_GUIDE_H     = 40
-_CLASS_BOTTOM_Y    = _CLASS_GUIDE_Y + _CLASS_GUIDE_H + 8    # 533
-_CLASS_BOTTOM_H    = 38
-_CLASS_ERROR_Y     = _CLASS_BOTTOM_Y + _CLASS_BOTTOM_H + 6  # 577
+_CLASS_COUNT_Y = _AFTER_BOT_Y  # 249
+_CLASS_MAP_DIV_Y = _CLASS_COUNT_Y + 22 + 8  # 279
+_CLASS_MAP_LABEL_Y = _CLASS_MAP_DIV_Y + 12  # 291
+_CLASS_TILES_Y = _CLASS_MAP_LABEL_Y + 18  # 309
+_CLASS_DIV2_Y = _CLASS_TILES_Y + _TILE_ROW_H + 8  # 409
+_CLASS_RUN_Y = _CLASS_DIV2_Y + 10  # 419
+_CLASS_RUN_H = 58
+_CLASS_GUIDE_Y = _CLASS_RUN_Y + _CLASS_RUN_H + 8  # 485
+_CLASS_GUIDE_H = 40
+_CLASS_BOTTOM_Y = _CLASS_GUIDE_Y + _CLASS_GUIDE_H + 8  # 533
+_CLASS_BOTTOM_H = 38
+_CLASS_ERROR_Y = _CLASS_BOTTOM_Y + _CLASS_BOTTOM_H + 6  # 577
 
 # ── Bottom row button layout (Settings + View Replays + Quit) ───────────────
-_BOTTOM_BTN_W = (_RW - 12) // 3   # three buttons, 6 px gaps
 
 # ── Scenario text ─────────────────────────────────────────────────────────────
 _SCENARIO_FLAVOR: dict[str, str] = {
@@ -142,14 +136,14 @@ _DEFAULT_BOT: dict[str, str] = {
 }
 
 # ── Opponent display ──────────────────────────────────────────────────────────
-_OPPONENT_NAMES: dict[str, str]      = {"greedy": "Rival",  "dumb": "Rookie"}
+_OPPONENT_NAMES: dict[str, str] = {"greedy": "Rival", "dumb": "Rookie"}
 _OPPONENT_SHORT_DESC: dict[str, str] = {
     "greedy": "Chases resources efficiently",
-    "dumb":   "Wanders — great first win",
+    "dumb": "Wanders — great first win",
 }
 _BOSS_FIGHT_ALLY_DESC: dict[str, str] = {
     "greedy": "Attacks the boss and heals when hurt",
-    "dumb":   "Wanders — easy warm-up",
+    "dumb": "Wanders — easy warm-up",
 }
 
 _BOSS_DIFFICULTY_LEVELS = (1, 2, 3)
@@ -168,23 +162,19 @@ _DIFF_SECTION_H = 12 + 18 + _DIFF_CARD_H + 10
 
 # ── Text colours for scenario rows ────────────────────────────────────────────
 # Unselected rows use wood background — need warm readable colours.
-_WOOD_NAME   = colors.GOLD_TEXT              # bright torch-gold name
-_WOOD_TYPE   = (205, 178, 110)               # warm sandy amber type line
-_WOOD_FLAVOR = (190, 168, 105)               # slightly dimmer flavor
-_WOOD_HINT   = (220, 210, 165)               # warm cream hint
+_WOOD_NAME = colors.GOLD_TEXT  # bright torch-gold name
+_WOOD_TYPE = (205, 178, 110)  # warm sandy amber type line
+_WOOD_FLAVOR = (190, 168, 105)  # slightly dimmer flavor
+_WOOD_HINT = (220, 210, 165)  # warm cream hint
 
 # Selected rows use parchment background — need dark readable colours.
-_PARCH_NAME   = colors.PARCHMENT_TEXT        # very dark brown
-_PARCH_TYPE   = (70, 55, 32)                 # medium dark brown
-_PARCH_FLAVOR = (85, 68, 40)                 # medium-dark brown
-_PARCH_HINT   = (60, 48, 30)                 # dark brown
+_PARCH_NAME = colors.PARCHMENT_TEXT  # very dark brown
+_PARCH_TYPE = (70, 55, 32)  # medium dark brown
+_PARCH_FLAVOR = (85, 68, 40)  # medium-dark brown
+_PARCH_HINT = (60, 48, 30)  # dark brown
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _tile_rect(col: int, row_y: int) -> pygame.Rect:
-    x = _RX + _TILE_MARGIN + col * (_TILE_SIZE + _TILE_GAP)
-    return pygame.Rect(x, row_y, _TILE_SIZE, _TILE_SIZE)
 
 
 def _parse_bot_path_lines(text: str) -> list[Path]:
@@ -218,12 +208,15 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
 
         if scenario_id == "boss_fight":
             from scenarios.boss_fight.game import BossFightScenario
+
             scenario = BossFightScenario(seed=seed, player_ids=["p1"])
         elif scenario_id == "mana_pools":
             from scenarios.mana_pools.game import ManaPoolsScenario
+
             scenario = ManaPoolsScenario(seed=seed, player_ids=["p1", "p2"])
         else:
             from scenarios.resource_wars.game import ResourceWarsScenario
+
             scenario = ResourceWarsScenario(seed=seed, player_ids=["p1", "p2"])
 
         scenario.setup()
@@ -232,10 +225,10 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
             return None
 
         _tile_colors = {
-            TileType.EMPTY:    (62, 72, 94),
+            TileType.EMPTY: (62, 72, 94),
             TileType.RESOURCE: (72, 200, 100),
             TileType.OBSTACLE: (118, 86, 52),
-            TileType.POOL:  (120, 70, 180),
+            TileType.POOL: (120, 70, 180),
         }
         size = 100
         cell = max(1, size // max(m.width, m.height))
@@ -252,6 +245,7 @@ def _build_minimap_surface(seed: int, scenario_id: str = "resource_wars") -> pyg
 
 
 # ── Text helpers ──────────────────────────────────────────────────────────────
+
 
 def _wrap_words(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
     """Word-wrap *text* into lines that fit within *max_w* pixels."""
@@ -272,6 +266,7 @@ def _wrap_words(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
 
 
 # ── Scenario row widget ───────────────────────────────────────────────────────
+
 
 class ScenarioRow(ListRow):
     """Tall scenario list row: name + type + flavour + hint."""
@@ -313,26 +308,26 @@ class ScenarioRow(ListRow):
         x = self.rect.x + 16
         y = self.rect.y + 10
         # Available pixel width for sub-lines (accounts for clip inset + sub-indent)
-        sub_x    = x + 12
-        avail_w  = self.rect.width - 32   # rect.width − left-x-offset(28) − right-clip-inset(4)
+        sub_x = x + 12
+        avail_w = self.rect.width - 32  # rect.width − left-x-offset(28) − right-clip-inset(4)
 
         # Name
         name_color = _PARCH_NAME if sel else _WOOD_NAME
-        name_s     = body_font(17).render(self.label, True, name_color)
+        name_s = body_font(17).render(self.label, True, name_color)
         surface.blit(name_s, (x, y))
         y += name_s.get_height() + 3
 
         # Type line (single — always short)
         if self._type:
             type_color = _PARCH_TYPE if sel else _WOOD_TYPE
-            type_s     = body_font(13).render(self._type, True, type_color)
+            type_s = body_font(13).render(self._type, True, type_color)
             surface.blit(type_s, (sub_x, y))
             y += type_s.get_height() + 3
 
         # Flavour line — word-wrapped, max 2 lines
         if self._flavor:
             fv_color = _PARCH_FLAVOR if sel else _WOOD_FLAVOR
-            fv_font  = body_font(13)
+            fv_font = body_font(13)
             for line in _wrap_words(self._flavor, fv_font, avail_w)[:2]:
                 fv_s = fv_font.render(line, True, fv_color)
                 surface.blit(fv_s, (sub_x, y))
@@ -342,7 +337,7 @@ class ScenarioRow(ListRow):
         # Hint line — word-wrapped, max 2 lines
         if self._hint:
             hint_color = _PARCH_HINT if sel else _WOOD_HINT
-            hint_font  = body_font(12)
+            hint_font = body_font(12)
             for line in _wrap_words(self._hint, hint_font, avail_w)[:2]:
                 hint_s = hint_font.render(line, True, hint_color)
                 surface.blit(hint_s, (sub_x, y))
@@ -353,21 +348,24 @@ class ScenarioRow(ListRow):
 
 # ── Main screen ───────────────────────────────────────────────────────────────
 
-class MenuScreen:
+
+class MenuScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
-        self.scenarios = list_scenarios() or [
-            {"id": "resource_wars", "name": "Resource Wars", "description": ""}
-        ]
+        self._rpanel_x = _RPANEL_X
+        self._rpanel_w = 516
+        self._rx = _RPANEL_X + 12
+        self._rw = 492
+        self.scenarios = list_scenarios() or [{"id": "resource_wars", "name": "Resource Wars", "description": ""}]
         self.selected = 0
         initial_sid = self.scenarios[self.selected].get("id", "resource_wars")
         self.bot_paths_text = self._default_bot_path(initial_sid)
-        self.seed           = 42
-        self.opponent_mode  = "dumb"
+        self.seed = 42
+        self.opponent_mode = "dumb"
         self.boss_difficulty = 1
-        self.error          = ""
+        self.error = ""
         self.launch_mode: LaunchMode = "practice"
-        self._use_random_seed  = False
+        self._use_random_seed = False
         self._selected_preset: int | None = None
         self._hovered_tile: int = -1
 
@@ -378,15 +376,11 @@ class MenuScreen:
             self._scenario_preset_names: dict[str, list[str]] = cfg.ui.map_presets.scenario_names
         except Exception:
             self._preset_seeds = [7, 23, 42, 58, 91]
-            self._preset_names = [
-                "The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"
-            ]
+            self._preset_names = ["The Clearing", "Obstacle Run", "Classic", "Open Field", "The Maze"]
             self._scenario_preset_names = {}
 
         self._minimap_cache: dict[str, list[pygame.Surface | None]] = {}
-        self._minimap_cache[initial_sid] = [
-            _build_minimap_surface(s, initial_sid) for s in self._preset_seeds
-        ]
+        self._minimap_cache[initial_sid] = [_build_minimap_surface(s, initial_sid) for s in self._preset_seeds]
         self._minimap_surfs = self._minimap_cache[initial_sid]
 
         self._widgets: WidgetGroup = WidgetGroup()
@@ -449,9 +443,7 @@ class MenuScreen:
         return self._classroom_map_div_y() + 12 + 18
 
     def _default_bot_path(self, scenario_id: str) -> str:
-        rel = _DEFAULT_BOT.get(
-            scenario_id, "student_bots/resource_wars/example_bot.py"
-        )
+        rel = _DEFAULT_BOT.get(scenario_id, "student_bots/resource_wars/example_bot.py")
         return str(resolve_bot_path(rel))
 
     def _build_widgets(self) -> None:
@@ -491,12 +483,17 @@ class MenuScreen:
         self._widgets.add(self._class_tab)
 
         # ── Bot path field + icon-only Browse [+ Folder] ──────────────────
+        # Placeholder geometry here — real positions are computed in _layout()
+        # (called immediately after _build_widgets via on_enter) once the
+        # actual window/panel width is known.
         if self.launch_mode == "practice":
-            field_w  = _PRAC_FIELD_W
-            browse_x = _PRAC_BROWSE_X
+            field_w = _PRAC_FIELD_W
+            browse_x = _RX + field_w + 6
+            folder_x = 0
         else:
-            field_w  = _CLASS_FIELD_W
-            browse_x = _CLASS_BROWSE_X
+            field_w = _CLASS_FIELD_W
+            browse_x = _RX + field_w + 6
+            folder_x = browse_x + _ICON_BTN_W + 6
 
         self._bot_field = TextField(
             pygame.Rect(_RX, _BOT_FIELD_Y, field_w, _BOT_FIELD_H),
@@ -508,7 +505,7 @@ class MenuScreen:
             pygame.Rect(browse_x, _BOT_FIELD_Y, _ICON_BTN_W, _BOT_FIELD_H),
             "",
             on_click=self._browse_bot,
-            icon="folder",
+            icon="file",
             icon_size=20,
         )
         self._widgets.add(self._bot_field)
@@ -516,7 +513,7 @@ class MenuScreen:
 
         if self.launch_mode == "classroom":
             self._folder_btn: Button | None = Button(
-                pygame.Rect(_CLASS_FOLDER_X, _BOT_FIELD_Y, _ICON_BTN_W, _BOT_FIELD_H),
+                pygame.Rect(folder_x, _BOT_FIELD_Y, _ICON_BTN_W, _BOT_FIELD_H),
                 "",
                 on_click=self._browse_folder,
                 icon="folder",
@@ -530,7 +527,7 @@ class MenuScreen:
         if self.launch_mode == "practice":
             self._opponent_cards = []
             for i, mode in enumerate(OPPONENT_MODES):
-                cx    = _RX + i * (_OPP_CARD_W + 8)
+                cx = _RX + i * (_OPP_CARD_W + 8)
                 crect = pygame.Rect(cx, _OPP_CARD_Y, _OPP_CARD_W, _OPP_CARD_H)
                 self._opponent_cards.append((mode, crect))
                 btn = Button(
@@ -565,12 +562,8 @@ class MenuScreen:
         self._tiles_y = self._map_tiles_y()
 
         # ── Run Match ─────────────────────────────────────────────────────
-        run_y = (
-            self._practice_run_div_y() + 10
-            if self.launch_mode == "practice"
-            else self._classroom_run_div_y() + 10
-        )
-        run_h  = _PRAC_RUN_H  if self.launch_mode == "practice" else _CLASS_RUN_H
+        run_y = self._practice_run_div_y() + 10 if self.launch_mode == "practice" else self._classroom_run_div_y() + 10
+        run_h = _PRAC_RUN_H if self.launch_mode == "practice" else _CLASS_RUN_H
 
         self._run_btn = Button(
             pygame.Rect(_RX, run_y, _RW, run_h),
@@ -637,8 +630,7 @@ class MenuScreen:
             self.opponent_mode = "dumb"
         else:
             current_sid = (
-                self.scenarios[self.selected].get("id", "resource_wars")
-                if self.scenarios else "resource_wars"
+                self.scenarios[self.selected].get("id", "resource_wars") if self.scenarios else "resource_wars"
             )
             self.bot_paths_text = self._default_bot_path(current_sid)
         self.launch_mode = mode
@@ -653,9 +645,7 @@ class MenuScreen:
         # Rebuild minimaps for new scenario
         sid = self.scenarios[index].get("id", "resource_wars") if self.scenarios else "resource_wars"
         if sid not in self._minimap_cache:
-            self._minimap_cache[sid] = [
-                _build_minimap_surface(s, sid) for s in self._preset_seeds
-            ]
+            self._minimap_cache[sid] = [_build_minimap_surface(s, sid) for s in self._preset_seeds]
         self._minimap_surfs = self._minimap_cache[sid]
         if self.launch_mode == "practice":
             self.bot_paths_text = self._default_bot_path(sid)
@@ -671,10 +661,7 @@ class MenuScreen:
         self.boss_difficulty = level
 
     def _open_bot_guide(self) -> None:
-        sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
+        sid = self.scenarios[self.selected].get("id", "resource_wars") if self.scenarios else "resource_wars"
         self.app.goto_bot_guide(sid)
 
     def _toggle_random(self) -> None:
@@ -693,9 +680,7 @@ class MenuScreen:
             row.selected = i == self.selected
 
     def _refresh_scenarios(self) -> None:
-        raw = list_scenarios() or [
-            {"id": "resource_wars", "name": "Resource Wars", "description": ""}
-        ]
+        raw = list_scenarios() or [{"id": "resource_wars", "name": "Resource Wars", "description": ""}]
         lang = self.app.lang()
         self.scenarios = [
             {
@@ -713,24 +698,117 @@ class MenuScreen:
         if hasattr(self, "_bot_field"):
             self._bot_field.text = self.bot_paths_text
         self._sync_scenario_selection()
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
+
+    def _panel_dims(self, sw: int) -> tuple[int, int, int, int]:
+        rpanel_x = _LPANEL_X + _LPANEL_W + 8
+        rpanel_w = max(200, sw - MARGIN_X - rpanel_x)
+        rx = rpanel_x + 12
+        rw = max(120, rpanel_w - 24)
+        return rpanel_x, rpanel_w, rx, rw
+
+    def _tile_gap(self) -> int:
+        return (self._rw - 2 * _TILE_MARGIN - _TILE_TOTAL * _TILE_SIZE) // (_TILE_TOTAL - 1)
+
+    def _opp_card_w(self) -> int:
+        return (self._rw - 8) // 2
+
+    def _bottom_btn_w(self) -> int:
+        return (self._rw - 12) // 3
+
+    def _tile_rect(self, col: int, row_y: int) -> pygame.Rect:
+        gap = self._tile_gap()
+        x = self._rx + _TILE_MARGIN + col * (_TILE_SIZE + gap)
+        return pygame.Rect(x, row_y, _TILE_SIZE, _TILE_SIZE)
+
+    def _layout(self, surface: pygame.Surface) -> None:
+        sw, _sh = surface.get_size()
+        self._rpanel_x, self._rpanel_w, self._rx, self._rw = self._panel_dims(sw)
+        self._tiles_y = self._map_tiles_y()
+
+        ly = _SC_START_Y
+        for row in self._scenario_rows:
+            row.rect = pygame.Rect(_LX, ly, _LW, _SC_ROW_H)
+            ly += _SC_ROW_H + _SC_ROW_GAP
+
+        tab_w = (self._rw - _TAB_GAP) // 2
+        self._prac_tab.rect = pygame.Rect(self._rx, _CY, tab_w, _TAB_H)
+        self._class_tab.rect = pygame.Rect(self._rx + tab_w + _TAB_GAP, _CY, tab_w, _TAB_H)
+
+        if self.launch_mode == "practice":
+            field_w = self._rw - _ICON_BTN_W - 6
+            browse_x = self._rx + field_w + 6
+        else:
+            field_w = self._rw - _ICON_BTN_W * 2 - 12
+            browse_x = self._rx + field_w + 6
+            folder_x = browse_x + _ICON_BTN_W + 6
+
+        self._bot_field.rect = pygame.Rect(self._rx, _BOT_FIELD_Y, field_w, _BOT_FIELD_H)
+        self._browse_btn.rect = pygame.Rect(browse_x, _BOT_FIELD_Y, _ICON_BTN_W, _BOT_FIELD_H)
+        if self._folder_btn is not None:
+            self._folder_btn.rect = pygame.Rect(folder_x, _BOT_FIELD_Y, _ICON_BTN_W, _BOT_FIELD_H)
+
+        opp_card_w = self._opp_card_w()
+        for i, (mode, crect) in enumerate(self._opponent_cards):
+            cx = self._rx + i * (opp_card_w + 8)
+            crect.update(cx, _OPP_CARD_Y, opp_card_w, _OPP_CARD_H)
+            for opp_mode, btn in self._opponent_buttons:
+                if opp_mode == mode:
+                    btn.rect = crect.copy()
+
+        if self._show_boss_difficulty():
+            diff_y = self._difficulty_card_y()
+            gap = 8
+            card_w = (self._rw - gap * 2) // 3
+            for i, (level, crect) in enumerate(self._difficulty_cards):
+                cx = self._rx + i * (card_w + gap)
+                crect.update(cx, diff_y, card_w, _DIFF_CARD_H)
+                for diff_level, btn in self._difficulty_buttons:
+                    if diff_level == level:
+                        btn.rect = crect.copy()
+
+        run_y = self._practice_run_div_y() + 10 if self.launch_mode == "practice" else self._classroom_run_div_y() + 10
+        run_h = _PRAC_RUN_H if self.launch_mode == "practice" else _CLASS_RUN_H
+        self._run_btn.rect = pygame.Rect(self._rx, run_y, self._rw, run_h)
+        guide_y = run_y + run_h + 8
+        guide_h = _PRAC_GUIDE_H if self.launch_mode == "practice" else _CLASS_GUIDE_H
+        self._guide_btn.rect = pygame.Rect(self._rx, guide_y, self._rw, guide_h)
+        bottom_y = guide_y + guide_h + 8
+        bottom_h = _PRAC_BOTTOM_H if self.launch_mode == "practice" else _CLASS_BOTTOM_H
+        bottom_btn_w = self._bottom_btn_w()
+        self._settings_btn.rect = pygame.Rect(self._rx, bottom_y, bottom_btn_w, bottom_h)
+        self._replays_btn.rect = pygame.Rect(
+            self._rx + bottom_btn_w + 6,
+            bottom_y,
+            bottom_btn_w,
+            bottom_h,
+        )
+        self._quit_btn.rect = pygame.Rect(
+            self._rx + (bottom_btn_w + 6) * 2,
+            bottom_y,
+            bottom_btn_w,
+            bottom_h,
+        )
 
     # ── Event handling ────────────────────────────────────────────────────────
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._widgets.handle_event(event):
             return
 
         if event.type == pygame.MOUSEMOTION:
             self._hovered_tile = -1
             for col in range(_TILE_TOTAL):
-                if _tile_rect(col, self._tiles_y).collidepoint(event.pos):
+                if self._tile_rect(col, self._tiles_y).collidepoint(event.pos):
                     self._hovered_tile = col
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
                     break
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             for col in range(_TILE_TOTAL):
-                if _tile_rect(col, self._tiles_y).collidepoint(event.pos):
+                if self._tile_rect(col, self._tiles_y).collidepoint(event.pos):
                     play_ui_click()
                     if col == 0:
                         self._toggle_random()
@@ -773,10 +851,7 @@ class MenuScreen:
             )
             root.destroy()
             if chosen:
-                self.bot_paths_text = (
-                    chosen[0] if self.launch_mode == "practice"
-                    else ", ".join(chosen)
-                )
+                self.bot_paths_text = chosen[0] if self.launch_mode == "practice" else ", ".join(chosen)
                 self._bot_field.text = self.bot_paths_text
         except Exception:
             self.error = self.app.t("menu.file_browser_unavailable")
@@ -811,6 +886,7 @@ class MenuScreen:
         except Exception:
             pass
         from scenarios.resource_wars.game import ResourceWarsScenario
+
         return ResourceWarsScenario.player_limits()
 
     # ── Run match ─────────────────────────────────────────────────────────────
@@ -858,10 +934,7 @@ class MenuScreen:
             if len(paths) == 1:
                 bots = [load_bot(paths[0])]
             else:
-                bots = [
-                    load_bot(path, player_id=student_player_id_for_path(path, i))
-                    for i, path in enumerate(paths)
-                ]
+                bots = [load_bot(path, player_id=student_player_id_for_path(path, i)) for i, path in enumerate(paths)]
         except BotLoadError as exc:
             self.error = str(exc)
             return
@@ -877,22 +950,30 @@ class MenuScreen:
     # ── Drawing ───────────────────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         sw = surface.get_width()
 
         skin.draw_banner_title(
-            surface, self.app.t("menu.title"),
-            center_x=sw // 2, y=18, max_width=content_width(),
+            surface,
+            self.app.t("menu.title"),
+            center_x=sw // 2,
+            y=18,
+            max_width=content_width(sw),
         )
 
         skin.draw_panel_titled(
-            surface, pygame.Rect(_LPANEL_X, _PANEL_Y, _LPANEL_W, _PANEL_H),
-            self.app.t("menu.scenarios"), style="wood",
+            surface,
+            pygame.Rect(_LPANEL_X, _PANEL_Y, _LPANEL_W, _PANEL_H),
+            self.app.t("menu.scenarios"),
+            style="wood",
         )
 
         skin.draw_panel_titled(
-            surface, pygame.Rect(_RPANEL_X, _PANEL_Y, _RPANEL_W, _PANEL_H),
-            self.app.t("menu.configuration"), style="stone",
+            surface,
+            pygame.Rect(self._rpanel_x, _PANEL_Y, self._rpanel_w, _PANEL_H),
+            self.app.t("menu.configuration"),
+            style="stone",
         )
 
         paths = _parse_bot_path_lines(self._bot_field.text)
@@ -902,34 +983,29 @@ class MenuScreen:
             cnt = len(paths)
             plural = self.app.t("menu.bot_plural.s") if cnt != 1 else self.app.t("menu.bot_plural.empty")
             bot_lbl = self.app.t("menu.bot_paths_multi", count=cnt, plural=plural)
-        _draw_label(surface, bot_lbl, _RX, _BOT_LABEL_Y, max_w=_RW)
+        _draw_label(surface, bot_lbl, self._rx, _BOT_LABEL_Y, max_w=self._rw)
 
-        # Tiny "Browse" / "Folder" captions above icon buttons
         cap_font = body_font(11)
-        browse_x = _PRAC_BROWSE_X if self.launch_mode == "practice" else _CLASS_BROWSE_X
+        browse_x = self._browse_btn.rect.x
         caps = [(self.app.t("menu.browse"), browse_x)]
-        if self.launch_mode == "classroom":
-            caps.append((self.app.t("menu.folder"), _CLASS_FOLDER_X))
+        if self.launch_mode == "classroom" and self._folder_btn is not None:
+            caps.append((self.app.t("menu.folder"), self._folder_btn.rect.x))
         for cap, cx in caps:
             cs = cap_font.render(cap, True, colors.TEXT_MUTED)
-            surface.blit(cs, (cx + (_ICON_BTN_W - cs.get_width()) // 2,
-                               _BOT_FIELD_Y - 14))
+            surface.blit(cs, (cx + (_ICON_BTN_W - cs.get_width()) // 2, _BOT_FIELD_Y - 14))
 
         # Practice: opponent / ally section
         if self.launch_mode == "practice":
-            skin.draw_ornamental_divider(
-                surface, pygame.Rect(_RX, _OPP_DIV_Y, _RW, 10)
-            )
+            skin.draw_ornamental_divider(surface, pygame.Rect(self._rx, _OPP_DIV_Y, self._rw, 10))
             _cur_sid = self._current_sid()
             opp_name = self.app.t(f"menu.opponent.{self.opponent_mode}")
-            role = (
-                self.app.t("menu.ally")
-                if _cur_sid == "boss_fight"
-                else self.app.t("menu.opponent")
-            )
+            role = self.app.t("menu.ally") if _cur_sid == "boss_fight" else self.app.t("menu.opponent")
             _draw_label(
-                surface, f"{role}  —  {opp_name}",
-                _RX, _OPP_LABEL_Y, max_w=_RW,
+                surface,
+                f"{role}  —  {opp_name}",
+                self._rx,
+                _OPP_LABEL_Y,
+                max_w=self._rw,
             )
             map_div_y = self._practice_map_div_y()
             map_label_y = map_div_y + 12
@@ -938,13 +1014,18 @@ class MenuScreen:
             _cur_sid = self._current_sid()
             _min_p, _max_p = self._get_scenario_player_limits(_cur_sid)
             _class_hint = self.app.t(
-                "menu.classroom_hint", min_p=_min_p, max_p=_max_p,
+                "menu.classroom_hint",
+                min_p=_min_p,
+                max_p=_max_p,
             )
             _draw_label(
                 surface,
                 _class_hint,
-                _RX, _CLASS_COUNT_Y,
-                color=colors.TEXT_MUTED, pt=12, max_w=_RW,
+                self._rx,
+                _CLASS_COUNT_Y,
+                color=colors.TEXT_MUTED,
+                pt=12,
+                max_w=self._rw,
             )
             map_div_y = self._classroom_map_div_y()
             map_label_y = map_div_y + 12
@@ -952,27 +1033,22 @@ class MenuScreen:
 
         if self._show_boss_difficulty():
             diff_div_y = _AFTER_OPP_Y if self.launch_mode == "practice" else _CLASS_COUNT_Y + 22
-            skin.draw_ornamental_divider(
-                surface, pygame.Rect(_RX, diff_div_y, _RW, 10)
-            )
+            skin.draw_ornamental_divider(surface, pygame.Rect(self._rx, diff_div_y, self._rw, 10))
             diff_name = self.app.t(f"menu.difficulty.{self.boss_difficulty}")
             _draw_label(
                 surface,
                 self.app.t("menu.boss_difficulty", name=diff_name),
-                _RX,
+                self._rx,
                 diff_div_y + 12,
-                max_w=_RW,
+                max_w=self._rw,
             )
 
         # Map / seed header
-        skin.draw_ornamental_divider(
-            surface, pygame.Rect(_RX, map_div_y, _RW, 10)
-        )
+        skin.draw_ornamental_divider(surface, pygame.Rect(self._rx, map_div_y, self._rw, 10))
         _cur_preset_names = self._current_preset_names()
         if self._use_random_seed:
             seed_lbl = self.app.t("menu.seed_random")
-        elif (self._selected_preset is not None
-              and self._selected_preset < len(_cur_preset_names)):
+        elif self._selected_preset is not None and self._selected_preset < len(_cur_preset_names):
             seed_lbl = self.app.t(
                 "menu.seed_named",
                 name=_cur_preset_names[self._selected_preset],
@@ -980,17 +1056,11 @@ class MenuScreen:
             )
         else:
             seed_lbl = self.app.t("menu.seed_number", seed=self.seed)
-        _draw_label(surface, seed_lbl, _RX, map_label_y, max_w=_RW)
+        _draw_label(surface, seed_lbl, self._rx, map_label_y, max_w=self._rw)
 
         # Divider before Run
-        run_div_y = (
-            self._practice_run_div_y()
-            if self.launch_mode == "practice"
-            else self._classroom_run_div_y()
-        )
-        skin.draw_ornamental_divider(
-            surface, pygame.Rect(_RX, run_div_y, _RW, 10)
-        )
+        run_div_y = self._practice_run_div_y() if self.launch_mode == "practice" else self._classroom_run_div_y()
+        skin.draw_ornamental_divider(surface, pygame.Rect(self._rx, run_div_y, self._rw, 10))
 
         # Widgets (drawn before tile row so tiles render on top)
         self._widgets.draw(surface)
@@ -1009,9 +1079,12 @@ class MenuScreen:
         # Error
         if self.error:
             skin.draw_text_clipped(
-                surface, self.error,
-                pygame.Rect(_RX, error_y, _RW, 22),
-                body_font(13), colors.RED_FAIL, align="left",
+                surface,
+                self.error,
+                pygame.Rect(self._rx, error_y, self._rw, 22),
+                body_font(13),
+                colors.RED_FAIL,
+                align="left",
             )
 
     # ── Sub-drawing helpers ───────────────────────────────────────────────────
@@ -1061,13 +1134,9 @@ class MenuScreen:
             rect = btn.rect
             is_active = self.launch_mode == mode
             is_hovered = btn.hovered and btn.enabled and not is_active
-            self._draw_selectable_card(
-                surface, rect, is_active=is_active, is_hovered=is_hovered
-            )
+            self._draw_selectable_card(surface, rect, is_active=is_active, is_hovered=is_hovered)
 
-            text_color = colors.PARCHMENT_TEXT if is_active else (
-                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
-            )
+            text_color = colors.PARCHMENT_TEXT if is_active else (colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED)
             text_surf = font.render(label, True, text_color)
             gap = 6
             content_w = icon_size + gap + text_surf.get_width()
@@ -1088,30 +1157,22 @@ class MenuScreen:
         return None
 
     def _draw_opponent_cards(self, surface: pygame.Surface) -> None:
-        sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
+        sid = self.scenarios[self.selected].get("id", "resource_wars") if self.scenarios else "resource_wars"
         for mode, card_rect in self._opponent_cards:
             is_active = mode == self.opponent_mode
             btn = self._opponent_button(mode)
             is_hovered = bool(btn and btn.hovered and btn.enabled and not is_active)
 
-            self._draw_selectable_card(
-                surface, card_rect, is_active=is_active, is_hovered=is_hovered
-            )
+            self._draw_selectable_card(surface, card_rect, is_active=is_active, is_hovered=is_hovered)
 
             icon_path = builtin_icon_path(mode)
             icon_surf = load_icon(icon_path, size=32) if icon_path else None
             tx = card_rect.x + 12
             if icon_surf:
-                surface.blit(icon_surf,
-                              (tx, card_rect.y + (card_rect.height - 32) // 2))
+                surface.blit(icon_surf, (tx, card_rect.y + (card_rect.height - 32) // 2))
                 tx += 40
 
-            tc = colors.PARCHMENT_TEXT if is_active else (
-                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
-            )
+            tc = colors.PARCHMENT_TEXT if is_active else (colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED)
             name = self.app.t(f"menu.opponent.{mode}")
             ns = body_font(15).render(name, True, tc)
             surface.blit(ns, (tx, card_rect.y + 6))
@@ -1150,23 +1211,17 @@ class MenuScreen:
             btn = self._difficulty_button(level)
             is_hovered = bool(btn and btn.hovered and btn.enabled and not is_active)
 
-            self._draw_selectable_card(
-                surface, card_rect, is_active=is_active, is_hovered=is_hovered
-            )
+            self._draw_selectable_card(surface, card_rect, is_active=is_active, is_hovered=is_hovered)
 
             tx = card_rect.x + 10
-            tc = colors.PARCHMENT_TEXT if is_active else (
-                colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED
-            )
+            tc = colors.PARCHMENT_TEXT if is_active else (colors.GOLD_TEXT if is_hovered else colors.TEXT_MUTED)
             ns = body_font(14).render(self.app.t(f"menu.difficulty.{level}"), True, tc)
             surface.blit(ns, (tx, card_rect.y + 8))
 
             desc_color = _PARCH_TYPE if is_active else colors.TEXT_MUTED
             desc_font = body_font(11)
             max_desc_w = card_rect.right - tx - 4
-            desc_lines = _wrap_words(
-                self.app.t(f"menu.difficulty.{level}.desc"), desc_font, max_desc_w
-            )[:2]
+            desc_lines = _wrap_words(self.app.t(f"menu.difficulty.{level}.desc"), desc_font, max_desc_w)[:2]
             dy = card_rect.y + 8 + ns.get_height() + 2
             line_step = desc_font.get_height() + 1
             desc_clip = pygame.Rect(tx, dy, max_desc_w, card_rect.bottom - dy - 4)
@@ -1184,10 +1239,7 @@ class MenuScreen:
         """Return localized preset names for the currently selected scenario."""
         from engine.i18n import map_preset_name
 
-        sid = (
-            self.scenarios[self.selected].get("id", "resource_wars")
-            if self.scenarios else "resource_wars"
-        )
+        sid = self.scenarios[self.selected].get("id", "resource_wars") if self.scenarios else "resource_wars"
         lang = self.app.lang()
         count = len(self._scenario_preset_names.get(sid, self._preset_names))
         return [map_preset_name(sid, i, lang) for i in range(count)]
@@ -1198,10 +1250,10 @@ class MenuScreen:
         preset_names = self._current_preset_names()
 
         for col in range(_TILE_TOTAL):
-            rect      = _tile_rect(col, row_y)
-            hovered   = self._hovered_tile == col
+            rect = self._tile_rect(col, row_y)
+            hovered = self._hovered_tile == col
             is_random = col == 0
-            preset_i  = col - 1
+            preset_i = col - 1
 
             selected = (
                 self._use_random_seed
@@ -1209,39 +1261,37 @@ class MenuScreen:
                 else (self._selected_preset == preset_i and not self._use_random_seed)
             )
 
-            border_col = colors.TEAL_ACCENT if selected else (
-                colors.STONE_HIGHLIGHT if hovered else (55, 62, 80)
-            )
+            border_col = colors.TEAL_ACCENT if selected else (colors.STONE_HIGHLIGHT if hovered else (55, 62, 80))
 
             pygame.draw.rect(surface, (38, 44, 58), rect)
 
             if is_random:
-                ic       = colors.TEAL_ACCENT if selected else colors.TEXT_MUTED
+                ic = colors.TEAL_ACCENT if selected else colors.TEXT_MUTED
                 die_size = 48
                 die_rect = pygame.Rect(
-                    rect.x + (rect.width  - die_size) // 2,
+                    rect.x + (rect.width - die_size) // 2,
                     rect.y + (rect.height - die_size) // 2,
-                    die_size, die_size,
+                    die_size,
+                    die_size,
                 )
                 draw_menu_icon(surface, "random", die_rect, ic)
                 label = self.app.t("menu.random")
             else:
                 if preset_i < len(self._minimap_surfs) and self._minimap_surfs[preset_i]:
-                    inner  = rect.inflate(-4, -4)
-                    scaled = pygame.transform.smoothscale(
-                        self._minimap_surfs[preset_i], (inner.width, inner.height)
-                    )
+                    inner = rect.inflate(-4, -4)
+                    scaled = pygame.transform.smoothscale(self._minimap_surfs[preset_i], (inner.width, inner.height))
                     surface.blit(scaled, inner.topleft)
                 else:
-                    sv = (self._preset_seeds[preset_i]
-                          if preset_i < len(self._preset_seeds) else preset_i)
+                    sv = self._preset_seeds[preset_i] if preset_i < len(self._preset_seeds) else preset_i
                     fb = body_font(12).render(f"#{sv}", True, colors.TEXT_MUTED)
-                    surface.blit(fb, (
-                        rect.x + (rect.width  - fb.get_width())  // 2,
-                        rect.y + (rect.height - fb.get_height()) // 2,
-                    ))
-                label = (preset_names[preset_i]
-                         if preset_i < len(preset_names) else "")
+                    surface.blit(
+                        fb,
+                        (
+                            rect.x + (rect.width - fb.get_width()) // 2,
+                            rect.y + (rect.height - fb.get_height()) // 2,
+                        ),
+                    )
+                label = preset_names[preset_i] if preset_i < len(preset_names) else ""
 
             pygame.draw.rect(surface, border_col, rect, 2, border_radius=3)
 

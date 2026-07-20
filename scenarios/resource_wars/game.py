@@ -8,6 +8,7 @@ from typing import Any
 from engine.core.action import Action
 from engine.core.scenario import ScenarioBase
 from engine.core.scenario_config import load_scenario_section
+from engine.core.turn_order import ordered_action_player_ids
 from engine.core.turn_result import TurnResult
 from engine.simulation.entity import Entity
 from engine.simulation.map import Map, TileType
@@ -160,7 +161,7 @@ class ResourceWarsScenario(ScenarioBase):
         if missing:
             raise KeyError(f"Missing actions for players: {sorted(missing)}")
 
-        for player_id in sorted(actions.keys()):
+        for player_id in ordered_action_player_ids(self._player_ids, actions):
             action = actions[player_id]
             entity = self._entities[player_id]
             if action in MOVE_DELTAS:
@@ -180,6 +181,8 @@ class ResourceWarsScenario(ScenarioBase):
                     events.append(f"{player_id}_gather_failed")
             elif action is Action.WAIT:
                 events.append(f"{player_id}_waited")
+            else:
+                events.append(f"{player_id}_unsupported_{action.value}")
 
         return TurnResult(
             turn_number=self._turn,

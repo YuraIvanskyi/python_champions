@@ -74,7 +74,7 @@ def test_random_icon_index_excludes_reserved() -> None:
         assert 0 <= idx <= 99
 
 
-def test_fallback_icon_varies_between_loads(tmp_path: Path) -> None:
+def test_fallback_icon_is_deterministic_per_bot_file(tmp_path: Path) -> None:
     root = tmp_path
     icons_dir = root / "ui" / "assets" / "icons"
     icons_dir.mkdir(parents=True)
@@ -92,14 +92,14 @@ def test_fallback_icon_varies_between_loads(tmp_path: Path) -> None:
     assert spec and spec.loader
 
     indices: set[int] = set()
-    for _ in range(30):
+    for _ in range(5):
         module = importlib.util.module_from_spec(spec)
         assert spec.loader
         spec.loader.exec_module(module)
         _, icon_path = read_profile_from_module(module, bot_file=bot_file, root=root)
         assert icon_path is not None
         indices.add(int(Path(icon_path).stem.split("_")[1]))
-    assert len(indices) >= 2
+    assert len(indices) == 1
 
 
 def test_builtin_opponent_icons() -> None:

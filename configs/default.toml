@@ -23,7 +23,6 @@ min_turns_for_analysis = 5
 
 [engine]
 turn_timeout_ms = 200
-max_turns = 50
 
 [game]
 default_opponent = "greedy"
@@ -33,6 +32,7 @@ language = "en"
 
 [ui]
 sound_enabled = true
+sound_volume = 0.45
 tile_size = 40
 map_padding = 24
 map_top = 16

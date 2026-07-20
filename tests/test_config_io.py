@@ -96,17 +96,20 @@ def test_scenario_save_merges_scenario_section_only(
 
 
 def test_frozen_config_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    exe = tmp_path / "CodeScenarios.exe"
-    exe.write_bytes(b"")
+    appdata = tmp_path / "AppData"
+    appdata.mkdir()
+    monkeypatch.setenv("LOCALAPPDATA", str(appdata))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(exe))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "CodeScenarios.exe"))
     from engine import paths
 
     paths.writable_root.cache_clear()
     try:
-        assert config_write_path() == tmp_path / "configs" / "default.toml"
+        root = paths.writable_root()
+        assert root == appdata / "CodeScenarios"
+        assert config_write_path() == root / "configs" / "default.toml"
         assert scenario_toml_write_path("resource_wars") == (
-            tmp_path / "scenarios" / "resource_wars" / "scenario.toml"
+            root / "scenarios" / "resource_wars" / "scenario.toml"
         )
         assert scenario_toml_read_path("resource_wars").is_file()
     finally:

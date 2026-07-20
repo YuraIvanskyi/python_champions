@@ -7,9 +7,11 @@ import pygame
 from engine.core.scenario_registry import scenario_display_name
 from ui.bot_guide_content import guide_blocks_for_scenario
 from ui.bot_guide_layout import draw_guide_content, draw_guide_scrollbar, measure_guide_content
+from ui.layout import LayoutMixin
 from ui.skin import chrome as skin
 from ui.theme import MARGIN_X, WINDOW_HEIGHT, content_width
 from ui.widgets import Button, WidgetGroup
+from ui.widgets.button_sizing import button_width
 from ui.widgets.scroll import ScrollState
 
 _CONTENT_TOP = 88
@@ -18,7 +20,7 @@ _SCROLLBAR_W = 8
 _INSET = 20
 
 
-class BotGuideScreen:
+class BotGuideScreen(LayoutMixin):
     def __init__(self, app: object) -> None:
         self.app = app
         self.scenario_id = "resource_wars"
@@ -40,6 +42,13 @@ class BotGuideScreen:
         self._scroll.offset = 0
         self._back_btn.label = self.app.t("bot_guide.back")
         self._blocks = guide_blocks_for_scenario(self.scenario_id, self.app.lang())
+        self.invalidate_layout()
+        self.ensure_layout(self.app.screen)
+
+    def _layout(self, surface: pygame.Surface) -> None:
+        sh = surface.get_height()
+        btn_w = button_width(self._back_btn.label, font_size=18, min_width=120)
+        self._back_btn.rect = pygame.Rect(MARGIN_X, sh - _FOOTER_H, btn_w, 40)
 
     def _content_rect(self, *, window_height: int | None = None) -> pygame.Rect:
         sh = window_height if window_height is not None else WINDOW_HEIGHT
@@ -58,6 +67,7 @@ class BotGuideScreen:
         self._scroll.set_content(total, rect.height)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        self.ensure_layout(self.app.screen)
         if self._widgets.handle_event(event):
             return
         rect = self._content_rect()
@@ -67,6 +77,7 @@ class BotGuideScreen:
             self.app.goto_menu()
 
     def draw(self, surface: pygame.Surface) -> None:
+        self.ensure_layout(surface)
         skin.draw_background(surface)
         sw, sh = surface.get_width(), surface.get_height()
         name = scenario_display_name(self.scenario_id, self.app.lang())
@@ -112,10 +123,4 @@ class BotGuideScreen:
             offset=self._scroll.offset,
         )
 
-        self._back_btn.rect = pygame.Rect(
-            MARGIN_X,
-            sh - _FOOTER_H,
-            160,
-            40,
-        )
         self._widgets.draw(surface)

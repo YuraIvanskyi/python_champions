@@ -300,16 +300,18 @@ class LiveGame:
                 text_log=self.text_log,
                 players=self.players,
                 opponent_mode=self.opponent_mode,
+                boss_difficulty=(
+                    getattr(self.scenario, "_difficulty", self.boss_difficulty)
+                    if self.scenario_id == "boss_fight"
+                    else None
+                ),
             )
             if run_analysis:
                 from engine.analysis.pipeline import run_analysis_for_session
 
-                # Collect scenario-specific extra gameplay metrics per player.
-                # Prefer the generic "scenario_metrics" hook; fall back to the
-                # legacy "energy_metrics" name for backward compatibility.
                 _extra_fn = getattr(self.scenario, "scenario_metrics", None) or getattr(
                     self.scenario, "energy_metrics", None
-                )
+                ) or getattr(self.scenario, "boss_metrics", None)
                 _scenario_metrics: dict | None = (
                     _extra_fn() if callable(_extra_fn) else None
                 )

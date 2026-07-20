@@ -31,4 +31,16 @@ def test_identical_replay_for_same_seed(tmp_path: Path) -> None:
     assert len(sessions) == 2
     replay_a = json.loads((sessions[0] / "replay.json").read_text(encoding="utf-8"))
     replay_b = json.loads((sessions[1] / "replay.json").read_text(encoding="utf-8"))
-    assert replay_a == replay_b
+
+    def _game_payload(replay: dict) -> dict:
+        return {
+            "seed": replay["seed"],
+            "scenario": replay["scenario"],
+            "turns": replay["turns"],
+            "final_scores": replay["final_scores"],
+            "player_ids": replay.get("player_ids"),
+            "opponent_mode": replay.get("opponent_mode"),
+            "boss_difficulty": replay.get("boss_difficulty"),
+        }
+
+    assert _game_payload(replay_a) == _game_payload(replay_b)

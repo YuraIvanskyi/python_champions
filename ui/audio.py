@@ -32,10 +32,27 @@ _CLICK_FILE = "click.wav"
 _DEFAULT_CLICK_VOLUME = 0.55
 
 _sound_enabled = True
+_music_volume = _DEFAULT_VOLUME
+_click_volume = _DEFAULT_CLICK_VOLUME
 
 
 def sound_enabled() -> bool:
     return _sound_enabled
+
+
+def set_sound_volume(volume: float) -> None:
+    """Set background music and UI click volume (0.0–1.0)."""
+    global _music_volume, _click_volume
+    clamped = max(0.0, min(1.0, volume))
+    _music_volume = clamped
+    _click_volume = max(0.0, min(1.0, clamped * 1.22))
+    try:
+        if pygame.mixer.get_init():
+            pygame.mixer.music.set_volume(_music_volume)
+            if _click_sound is not None:
+                _click_sound.set_volume(_click_volume)
+    except pygame.error:
+        pass
 
 
 def set_sound_enabled(enabled: bool) -> None:
@@ -86,6 +103,7 @@ class BackgroundMusic:
 
     def __init__(self, *, volume: float = _DEFAULT_VOLUME) -> None:
         self._volume = max(0.0, min(1.0, volume))
+        set_sound_volume(self._volume)
         self._enabled = False
         self._current: BgmTrack | None = None
 
@@ -102,7 +120,7 @@ class BackgroundMusic:
         if not _ensure_mixer():
             return
         try:
-            pygame.mixer.music.set_volume(self._volume)
+            pygame.mixer.music.set_volume(_music_volume)
             self._enabled = True
             preload_ui_click()
         except pygame.error as exc:
@@ -158,7 +176,7 @@ def preload_ui_click() -> None:
         return
     try:
         _click_sound = pygame.mixer.Sound(str(path))
-        _click_sound.set_volume(_DEFAULT_CLICK_VOLUME)
+        _click_sound.set_volume(_click_volume)
     except pygame.error as exc:
         logger.warning("Could not load %s: %s", path.name, exc)
 

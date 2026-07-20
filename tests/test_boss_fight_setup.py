@@ -44,7 +44,7 @@ def test_bots_on_outer_ring() -> None:
 def test_player_limits() -> None:
     min_p, max_p = BossFightScenario.player_limits()
     assert min_p == 1
-    assert max_p == 6
+    assert max_p == 8
 
 
 def test_invalid_player_count_raises() -> None:
@@ -69,7 +69,7 @@ def test_boss_hp_scales_with_difficulty() -> None:
     hard = BossFightScenario(seed=1, player_ids=["p0"], difficulty=3)
     easy.setup()
     hard.setup()
-    assert easy._boss_max_hp == 30
+    assert easy._boss_max_hp == 20
     assert easy._boss_damage == 2
     assert hard._boss_max_hp == 60
     assert hard._boss_damage == 5

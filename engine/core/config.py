@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class EngineConfig(BaseModel):
-    turn_timeout_ms: int = 100
-    max_turns: int = 300
+    turn_timeout_ms: int = 200
 
 
 class MovementAnalysisConfig(BaseModel):
@@ -87,6 +86,7 @@ class UIMapPresetsConfig(BaseModel):
 
 class UIConfig(BaseModel):
     sound_enabled: bool = True
+    sound_volume: float = 0.45
     tile_size: int = 40
     map_padding: int = 24
     map_top: int = 16

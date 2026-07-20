@@ -131,10 +131,13 @@ class ReplaySession:
         self.player_ids: list[str] | None = (
             list(raw_ids) if isinstance(raw_ids, list) and raw_ids else None
         )
+        boss_difficulty = replay.get("boss_difficulty")
+        self._boss_difficulty = int(boss_difficulty) if boss_difficulty is not None else None
         self.scenario = create_scenario(
             self.scenario_id,
             seed=self.seed,
             player_ids=self.player_ids,
+            boss_difficulty=self._boss_difficulty,
         )
         self.scenario.setup()
         self.turn_index = -1
@@ -154,6 +157,7 @@ class ReplaySession:
             self.scenario_id,
             seed=self.seed,
             player_ids=self.player_ids,
+            boss_difficulty=self._boss_difficulty,
         )
         self.scenario.setup()
         self.turn_index = -1

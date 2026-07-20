@@ -31,24 +31,24 @@ def test_apply_turn_requires_all_players() -> None:
         scenario.apply_turn({"p0_a": Action.WAIT})
 
 
-def test_wait_event_order_is_sorted_by_player_id() -> None:
+def test_wait_event_order_follows_setup_order() -> None:
     scenario = ResourceWarsScenario(0, player_ids=["zebra", "alpha"])
     scenario.setup()
     result = scenario.apply_turn({"zebra": Action.WAIT, "alpha": Action.WAIT})
     waited = [e for e in result.events if e.endswith("_waited")]
-    assert waited == ["alpha_waited", "zebra_waited"]
+    assert waited == ["zebra_waited", "alpha_waited"]
 
 
 def test_live_game_two_student_paths_no_builtin_ai(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(Path(__file__).resolve().parents[1])
-    template = (Path("student_bots") / "example_bot.py").read_text(encoding="utf-8")
+    template = (Path("student_bots/resource_wars/example_bot.py")).read_text(encoding="utf-8")
     a = tmp_path / "aa.py"
     b = tmp_path / "bb.py"
     a.write_text(template, encoding="utf-8")
     b.write_text(template, encoding="utf-8")
     bots = [
-        load_bot(a, player_id=student_player_id_for_path(a, 0)),
-        load_bot(b, player_id=student_player_id_for_path(b, 1)),
+        load_bot(a, player_id=student_player_id_for_path(a, 0, total=2)),
+        load_bot(b, player_id=student_player_id_for_path(b, 1, total=2)),
     ]
     config = load_config(Path("configs/default.toml"))
     live = LiveGame(
@@ -58,14 +58,14 @@ def test_live_game_two_student_paths_no_builtin_ai(tmp_path: Path, monkeypatch: 
         config=config,
         opponent_mode="greedy",
     )
-    assert set(live.scenario.player_ids()) == {"p0_aa", "p1_bb"}
+    assert set(live.scenario.player_ids()) == {"p00_aa", "p01_bb"}
     live.finish(write_results=False)
 
 
 def test_cli_runs_two_distinct_bots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = Path(__file__).resolve().parents[1]
     monkeypatch.chdir(root)
-    template = (root / "student_bots" / "example_bot.py").read_text(encoding="utf-8")
+    template = (root / "student_bots" / "resource_wars" / "example_bot.py").read_text(encoding="utf-8")
     one = tmp_path / "one.py"
     two = tmp_path / "two.py"
     one.write_text(template, encoding="utf-8")

@@ -10,7 +10,7 @@ from pathlib import Path
 
 def test_run_writes_feedback_items(tmp_path: Path) -> None:
     repo = Path(__file__).resolve().parents[1]
-    bot = repo / "student_bots" / "example_bot.py"
+    bot = repo / "student_bots" / "resource_wars" / "example_bot.py"
     results = tmp_path / "results"
     results.mkdir()
     cmd = [
