@@ -115,7 +115,7 @@ def make_turn(state):
 
 ## 7. Студентський API: читабельний «вид» стану (`GameView`)
 
-Учень взаємодіє зі станом гри **через методи, а не через ключі словника**: `state.my_x()`, `state.score()`, `state.is_walkable(x, y)`, `state.on_resource()`, `state.resource_tiles()` тощо. Для розширених сценаріїв додаються спеціалізовані методи: у Boss Fight — `my_hp()`, `boss_hp()`, `is_boss_adjacent()`, `weakest_ally_id()`; у Mana Pools — `my_energy()`, `nearest_pool()`, `can_gather()`.
+Учень взаємодіє зі станом гри **через методи, а не через ключі словника**: `state.my_x()`, `state.score()`, `state.is_walkable(x, y)` (немає стіни; не враховує інших юнітів), `state.is_free(x, y)` (немає стіни й ніхто не стоїть), `state.on_resource()`, `state.resource_tiles()` тощо. Для розширених сценаріїв додаються спеціалізовані методи: у Boss Fight — `my_hp()`, `boss_hp()`, `is_boss_adjacent()`, `weakest_ally_id()`; у Mana Pools — `my_energy()`, `nearest_pool()`, `can_gather()`.
 
 Чому саме методи, а не «сирий» словник:
 - **Виявність (discoverability)** — автодоповнення в IDE підказує доступні методи; не треба запам'ятовувати структуру даних.

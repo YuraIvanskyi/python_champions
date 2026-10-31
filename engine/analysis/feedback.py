@@ -6,8 +6,14 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from engine.i18n import normalize_lang, translate
-from engine.i18n.feedback_strings import RUFF_PREFIXES
+from engine.i18n import normalize_lang, plural_suffix, translate
+from engine.i18n.feedback_strings import (
+    DEFAULT_GATHER_CHECK,
+    DEFAULT_GOAL_HELPERS,
+    RUFF_PREFIXES,
+    SCENARIO_GATHER_CHECK,
+    SCENARIO_GOAL_HELPERS,
+)
 
 if TYPE_CHECKING:
     from engine.analysis.movement import MovementConfig
@@ -137,6 +143,7 @@ def generate_feedback_items(
     movement: dict[str, Any] | None = None,
     movement_cfg: "MovementConfig | None" = None,
     language: str = "en",
+    scenario_id: str | None = None,
 ) -> list[FeedbackItem]:
     """Return structured hints ordered by priority (most important first)."""
     from engine.analysis.movement import MovementConfig as _MovementConfig
@@ -196,7 +203,7 @@ def generate_feedback_items(
             )
         )
 
-    _movement_items(items, _mv, _mcfg, static, lang)
+    _movement_items(items, _mv, _mcfg, static, lang, scenario_id)
 
     max_complexity = static.get("max_complexity", 0)
     if max_complexity >= 10:
@@ -371,16 +378,29 @@ def generate_feedback_items(
     return items
 
 
+_BLOCK_CAUSE_ORDER = ("obstacle", "unit", "conflict", "edge")
+
+
+def _dominant_block_cause(causes: dict[str, int]) -> str:
+    """Most frequent blocked-move cause; ``obstacle`` when the replay has no cause data."""
+    known = {c: n for c, n in causes.items() if c in _BLOCK_CAUSE_ORDER and n > 0}
+    if not known:
+        return "obstacle"
+    return max(_BLOCK_CAUSE_ORDER, key=lambda c: known.get(c, 0))
+
+
 def _movement_items(
     items: list[FeedbackItem],
     mv: dict[str, Any],
     cfg: "MovementConfig",
     static: dict[str, Any],
     lang: str,
+    scenario_id: str | None = None,
 ) -> None:
     """Append movement-quality feedback cards to *items* (mutates in place)."""
+    helpers = SCENARIO_GOAL_HELPERS.get(scenario_id or "", DEFAULT_GOAL_HELPERS)
     if not mv.get("analyzed", False):
-        _movement_static_items(items, static, lang)
+        _movement_static_items(items, static, lang, helpers)
         return
 
     static_mv: dict[str, Any] = static.get("movement", {})
@@ -396,7 +416,7 @@ def _movement_items(
             range_str = _fb(
                 lang, "feedback.stuck.range", start=stuck_range[0], end=stuck_range[1],
             )
-        plural = _fb(lang, "feedback.plural.s") if stuck > 1 else _fb(lang, "feedback.plural.empty")
+        plural = plural_suffix(stuck, lang=lang)
         items.append(
             _item(
                 category="logic",
@@ -414,7 +434,7 @@ def _movement_items(
 
     osc = int(mv.get("oscillation_episodes", 0))
     if osc >= 1:
-        plural = _fb(lang, "feedback.plural.s") if osc > 1 else _fb(lang, "feedback.plural.empty")
+        plural = plural_suffix(osc, lang=lang)
         items.append(
             _item(
                 category="logic",
@@ -445,16 +465,25 @@ def _movement_items(
     no_walkable = static_mv.get("no_walkable_check", False)
     if blocked_ratio >= cfg.blocked_ratio_warn:
         pct = int(blocked_ratio * 100)
-        extra = _fb(lang, "feedback.blocked_moves.extra_no_walkable") if no_walkable else ""
+        # Pick the message by the dominant cause; replays without cause data keep the
+        # original obstacle wording.
+        cause = _dominant_block_cause(mv.get("blocked_causes") or {})
+        suffix = "" if cause == "obstacle" else f".{cause}"
+        obstacle_advice = cause == "obstacle"
+        extra = (
+            _fb(lang, "feedback.blocked_moves.extra_no_walkable")
+            if no_walkable and obstacle_advice
+            else ""
+        )
         items.append(
             _item(
                 category="logic",
                 severity="warn",
                 title=_fb(lang, "feedback.blocked_moves.title"),
-                message=_fb(lang, "feedback.blocked_moves.message", pct=pct, extra=extra),
-                fix_hint=_fb(lang, "feedback.blocked_moves.fix_hint"),
+                message=_fb(lang, f"feedback.blocked_moves.message{suffix}", pct=pct, extra=extra),
+                fix_hint=_fb(lang, f"feedback.blocked_moves.fix_hint{suffix}"),
                 panel="wood",
-                lines=hint_lines if no_walkable else [],
+                lines=hint_lines if no_walkable and obstacle_advice else [],
             )
         )
     elif no_walkable and blocked_ratio > 0:
@@ -470,6 +499,45 @@ def _movement_items(
             )
         )
 
+    failed_gathers = int(mv.get("failed_gather_count", 0))
+    if failed_gathers >= cfg.failed_gather_warn:
+        listed: list[int] = mv.get("failed_gather_turns") or []
+        turns_str = (
+            _fb(lang, "feedback.wasted_gather.turns", turns=", ".join(str(t) for t in listed))
+            if listed
+            else ""
+        )
+        check = SCENARIO_GATHER_CHECK.get(scenario_id or "", DEFAULT_GATHER_CHECK)
+        items.append(
+            _item(
+                category="logic",
+                severity="warn",
+                title=_fb(lang, "feedback.wasted_gather.title"),
+                message=_fb(
+                    lang, "feedback.wasted_gather.message",
+                    count=failed_gathers, plural=plural_suffix(failed_gathers, lang=lang),
+                    turns=turns_str,
+                ),
+                fix_hint=_fb(lang, "feedback.wasted_gather.fix_hint", check=check),
+                panel="wood",
+                lines=hint_lines,
+            )
+        )
+
+    wait_ratio = float(mv.get("wait_ratio", 0.0))
+    if wait_ratio >= cfg.wait_ratio_warn:
+        items.append(
+            _item(
+                category="logic",
+                severity="info",
+                title=_fb(lang, "feedback.too_much_wait.title"),
+                message=_fb(lang, "feedback.too_much_wait.message", pct=int(wait_ratio * 100)),
+                fix_hint=_fb(lang, "feedback.too_much_wait.fix_hint"),
+                panel="parchment",
+                lines=hint_lines,
+            )
+        )
+
     stall = int(mv.get("score_stall_turns", 0))
     if stall >= cfg.score_stall_warn:
         items.append(
@@ -478,7 +546,7 @@ def _movement_items(
                 severity="info",
                 title=_fb(lang, "feedback.score_stall.title"),
                 message=_fb(lang, "feedback.score_stall.message", stall=stall),
-                fix_hint=_fb(lang, "feedback.score_stall.fix_hint"),
+                fix_hint=_fb(lang, "feedback.score_stall.fix_hint", helpers=helpers),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -491,7 +559,7 @@ def _movement_items(
                 severity="warn",
                 title=_fb(lang, "feedback.no_branch.title"),
                 message=_fb(lang, "feedback.no_branch.message"),
-                fix_hint=_fb(lang, "feedback.no_branch.fix_hint"),
+                fix_hint=_fb(lang, "feedback.no_branch.fix_hint", helpers=helpers),
                 panel="stone",
                 lines=hint_lines,
             )
@@ -503,8 +571,8 @@ def _movement_items(
                 category="logic",
                 severity="info",
                 title=_fb(lang, "feedback.no_target.title"),
-                message=_fb(lang, "feedback.no_target.message"),
-                fix_hint=_fb(lang, "feedback.no_target.fix_hint"),
+                message=_fb(lang, "feedback.no_target.message", helpers=helpers),
+                fix_hint=_fb(lang, "feedback.no_target.fix_hint", helpers=helpers),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -524,7 +592,9 @@ def _movement_items(
         )
 
 
-def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any], lang: str) -> None:
+def _movement_static_items(
+    items: list[FeedbackItem], static: dict[str, Any], lang: str, helpers: str,
+) -> None:
     """Emit static-only movement cards when no replay data is available."""
     static_mv: dict[str, Any] = static.get("movement", {})
     make_turn_line: int | None = static_mv.get("make_turn_line")
@@ -537,7 +607,7 @@ def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any], la
                 severity="warn",
                 title=_fb(lang, "feedback.no_branch.title"),
                 message=_fb(lang, "feedback.no_branch.message"),
-                fix_hint=_fb(lang, "feedback.no_branch.fix_hint_static"),
+                fix_hint=_fb(lang, "feedback.no_branch.fix_hint_static", helpers=helpers),
                 panel="stone",
                 lines=hint_lines,
             )
@@ -562,8 +632,8 @@ def _movement_static_items(items: list[FeedbackItem], static: dict[str, Any], la
                 category="logic",
                 severity="info",
                 title=_fb(lang, "feedback.no_target.title"),
-                message=_fb(lang, "feedback.no_target.message_static"),
-                fix_hint=_fb(lang, "feedback.no_target.fix_hint"),
+                message=_fb(lang, "feedback.no_target.message_static", helpers=helpers),
+                fix_hint=_fb(lang, "feedback.no_target.fix_hint", helpers=helpers),
                 panel="parchment",
                 lines=hint_lines,
             )
@@ -577,6 +647,7 @@ def generate_feedback(
     movement: dict[str, Any] | None = None,
     movement_cfg: "MovementConfig | None" = None,
     language: str = "en",
+    scenario_id: str | None = None,
 ) -> list[str]:
     """Return plain-language hints ordered by priority (CLI / legacy JSON)."""
     return [
@@ -587,5 +658,6 @@ def generate_feedback(
             movement=movement,
             movement_cfg=movement_cfg,
             language=language,
+            scenario_id=scenario_id,
         )
     ]

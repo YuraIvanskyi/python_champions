@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+# Student-API methods that exist for each scenario's view (shown in goal-seeking hints).
+SCENARIO_GOAL_HELPERS = {
+    "resource_wars": "state.on_resource(), state.resource_tiles()",
+    "mana_pools": "state.can_gather(), state.nearest_pool()",
+    "boss_fight": "state.is_boss_adjacent(), state.boss_x(), state.boss_y()",
+}
+# Which view method tells a student that GATHER will work.
+SCENARIO_GATHER_CHECK = {
+    "resource_wars": "state.on_resource()",
+    "mana_pools": "state.can_gather()",
+}
+DEFAULT_GATHER_CHECK = "state.on_resource() (or state.can_gather() in Mana Pools)"
+DEFAULT_GOAL_HELPERS = "state.on_resource(), state.resource_tiles()"
+
 # Ruff prefix → (title_key_suffix uses same prefix)
 RUFF_PREFIXES = (
     "E1", "E2", "E3", "E4", "E5", "E7", "E9", "W2", "W3", "W5", "W6",
-    "F4", "F8", "F9", "N", "B", "C9", "E", "W", "F",
+    "F4", "F811", "F821", "F822", "F823", "F841", "F842", "F9",
+    "N", "B", "C9", "E", "W", "F",
 )
 
 
@@ -23,7 +38,12 @@ def _feedback_en() -> dict[str, str]:
         "W5": "Line-break warning",
         "W6": "Deprecated syntax",
         "F4": "Unused import",
-        "F8": "Unused name",
+        "F811": "Name defined twice",
+        "F821": "Undefined name",
+        "F822": "Undefined name",
+        "F823": "Undefined name",
+        "F841": "Unused variable",
+        "F842": "Unused variable",
         "F9": "Undefined name",
         "N": "Naming convention",
         "B": "Possible bug",
@@ -35,7 +55,12 @@ def _feedback_en() -> dict[str, str]:
     ruff_hints = {
         "F4": "Remove or sort the import at the top of the file.",
         "E4": "Remove or sort the import at the top of the file.",
-        "F8": "Delete the name if you don't use it, or use it in your logic.",
+        "F811": "The same name is defined twice — rename one of them or delete the extra one.",
+        "F821": "Check the spelling, then define the name (or import it) before you use it.",
+        "F822": "Check the spelling, then define the name (or import it) before you use it.",
+        "F823": "Check the spelling, then define the name (or import it) before you use it.",
+        "F841": "Delete the variable if you don't use it, or use it in your logic.",
+        "F842": "Delete the variable if you don't use it, or use it in your logic.",
         "F9": "Check the spelling — the name must be defined before you use it.",
         "E1": "Fix the indentation — use 4 spaces per level.",
         "E2": "Remove extra spaces or add a missing one around the operator.",
@@ -70,10 +95,10 @@ def _feedback_en() -> dict[str, str]:
         "feedback.crash_cap.fix_hint": "Fix the crash first — once the bot runs without errors, the cap is lifted.",
         "feedback.invalid_actions.title": "Invalid actions",
         "feedback.invalid_actions.message": (
-            "Some turns used invalid actions (for example GATHER when not on a resource). "
-            "Read the allowed actions in the bot template comments."
+            "Some turns returned an action the game does not understand (for example a typo like "
+            "\"MOVE_RGHT\"). Read the allowed actions in the bot template comments."
         ),
-        "feedback.invalid_actions.fix_hint": "Use GameView helpers (on_resource, is_walkable) before returning an action.",
+        "feedback.invalid_actions.fix_hint": "Return exactly one of the allowed action strings, spelled as in the template.",
         "feedback.high_complexity.title": "High complexity",
         "feedback.high_complexity.message": (
             "Your code has high cyclomatic complexity. "
@@ -165,6 +190,39 @@ def _feedback_en() -> dict[str, str]:
         ),
         "feedback.blocked_moves.extra_no_walkable": " The code does not check is_walkable() before moving.",
         "feedback.blocked_moves.fix_hint": "Call is_walkable(x, y) before returning MOVE_* to avoid walking into walls.",
+        "feedback.blocked_moves.message.unit": (
+            "Your bot tried to step onto a cell where another unit stood {pct}% of the time. "
+            "is_walkable() only knows about walls, not about units."
+        ),
+        "feedback.blocked_moves.fix_hint.unit": (
+            "Use state.is_free(x, y) (or state.other_units()) before returning MOVE_*; "
+            "if a unit is in the way, go around it or WAIT."
+        ),
+        "feedback.blocked_moves.message.conflict": (
+            "Your bot and another unit tried to enter the same cell in the same turn "
+            "({pct}% of moves) - only one of you can get it."
+        ),
+        "feedback.blocked_moves.fix_hint.conflict": (
+            "When a rival is next to your target cell, pick another cell or WAIT one turn "
+            "instead of racing for the same tile."
+        ),
+        "feedback.blocked_moves.message.edge": (
+            "Your bot tried to walk off the edge of the map {pct}% of the time."
+        ),
+        "feedback.blocked_moves.fix_hint.edge": "Check state.is_inside(x, y) before returning MOVE_*.",
+        "feedback.wasted_gather.title": "GATHER with nothing to gather",
+        "feedback.wasted_gather.message": (
+            "Your bot used GATHER {count} time{plural} when there was nothing to gather{turns}. "
+            "Each of those turns gives no score."
+        ),
+        "feedback.wasted_gather.turns": " (for example on turns {turns})",
+        "feedback.wasted_gather.fix_hint": "Check {check} before returning \"GATHER\"; otherwise move toward a target.",
+        "feedback.too_much_wait.title": "Many idle turns",
+        "feedback.too_much_wait.message": (
+            "Your bot did nothing (WAIT) on {pct}% of its turns. "
+            "Idle turns cannot add to your score."
+        ),
+        "feedback.too_much_wait.fix_hint": "Return WAIT only when there is a reason; otherwise move toward a target.",
         "feedback.no_walkable.title": "No obstacle check in code",
         "feedback.no_walkable.message": (
             "Your bot never calls is_walkable() or is_obstacle(). "
@@ -181,7 +239,7 @@ def _feedback_en() -> dict[str, str]:
             "It may be heading in the wrong direction or targeting empty tiles."
         ),
         "feedback.score_stall.fix_hint": (
-            "Head toward resources/stations; use nearest_station() or resource_tiles() to find active targets."
+            "Head toward a target; use {helpers} to find it."
         ),
         "feedback.no_branch.title": "No decision logic in make_turn",
         "feedback.no_branch.message": (
@@ -189,22 +247,21 @@ def _feedback_en() -> dict[str, str]:
             "The bot cannot react to the map or game state."
         ),
         "feedback.no_branch.fix_hint": (
-            "Add if/elif branches to choose different actions based on state.on_resource(), "
-            "state.nearest_station(), etc."
+            "Add if/elif branches to choose different actions based on {helpers}, etc."
         ),
         "feedback.no_branch.fix_hint_static": (
-            "Add if/elif branches based on state.on_resource(), state.nearest_station(), etc."
+            "Add if/elif branches based on {helpers}, etc."
         ),
         "feedback.no_target.title": "No goal-seeking in code",
         "feedback.no_target.message": (
-            "Your bot never uses helpers like on_resource(), nearest_station(), or can_gather(). "
+            "Your bot never uses goal helpers like {helpers}. "
             "Without goal logic it moves randomly and misses easy score opportunities."
         ),
         "feedback.no_target.message_static": (
-            "Your bot never uses helpers like on_resource() or nearest_station(). "
+            "Your bot never uses goal helpers like {helpers}. "
             "Goal-seeking logic turns random walking into effective play."
         ),
-        "feedback.no_target.fix_hint": "Use state.nearest_station() or state.resource_tiles() to pick a target each turn.",
+        "feedback.no_target.fix_hint": "Use {helpers} to pick a target each turn.",
         "feedback.no_fallback.title": "No fallback when path is blocked",
         "feedback.no_fallback.message": (
             "Your movement helper has no WAIT or alternate direction when the direct path is blocked. "
@@ -212,8 +269,9 @@ def _feedback_en() -> dict[str, str]:
         ),
         "feedback.no_fallback.fix_hint": "Return 'WAIT' or a perpendicular direction when is_walkable() returns False.",
         "feedback.stuck.range": " (around turns {start}–{end})",
-        "feedback.plural.s": "s",
-        "feedback.plural.empty": "",
+        "feedback.plural.one": "",
+        "feedback.plural.few": "s",
+        "feedback.plural.many": "s",
     }
     for prefix, title in ruff_titles.items():
         d[f"feedback.ruff.{prefix}.title"] = title
@@ -236,7 +294,12 @@ def _feedback_uk() -> dict[str, str]:
         "W5": "Попередження про перенос",
         "W6": "Застарілий синтаксис",
         "F4": "Невикористаний імпорт",
-        "F8": "Невикористана назва",
+        "F811": "Назву визначено двічі",
+        "F821": "Невизначена назва",
+        "F822": "Невизначена назва",
+        "F823": "Невизначена назва",
+        "F841": "Невикористана змінна",
+        "F842": "Невикористана змінна",
         "F9": "Невизначена назва",
         "N": "Угода про імена",
         "B": "Можлива помилка",
@@ -248,7 +311,12 @@ def _feedback_uk() -> dict[str, str]:
     ruff_hints = {
         "F4": "Прибери або впорядкуй імпорт на початку файлу.",
         "E4": "Прибери або впорядкуй імпорт на початку файлу.",
-        "F8": "Видали назву, якщо не використовуєш, або застосуй її в логіці.",
+        "F811": "Одну назву визначено двічі — перейменуй одну з них або видали зайву.",
+        "F821": "Перевір написання, потім визнач назву (або імпортуй її) до використання.",
+        "F822": "Перевір написання, потім визнач назву (або імпортуй її) до використання.",
+        "F823": "Перевір написання, потім визнач назву (або імпортуй її) до використання.",
+        "F841": "Видали змінну, якщо не використовуєш, або застосуй її в логіці.",
+        "F842": "Видали змінну, якщо не використовуєш, або застосуй її в логіці.",
         "F9": "Перевір написання — назва має бути визначена до використання.",
         "E1": "Виправ відступи — 4 пробіли на рівень.",
         "E2": "Прибери зайві пробіли або додай між оператором.",
@@ -283,10 +351,10 @@ def _feedback_uk() -> dict[str, str]:
         "feedback.crash_cap.fix_hint": "Спочатку виправ падіння — після цього обмеження знімається.",
         "feedback.invalid_actions.title": "Недопустимі дії",
         "feedback.invalid_actions.message": (
-            "Деякі ходи містили недопустимі дії (наприклад GATHER не на ресурсі). "
+            "Деякі ходи повернули дію, якої гра не розуміє (наприклад, помилка в \"MOVE_RGHT\"). "
             "Переглянь дозволені дії в коментарях шаблону бота."
         ),
-        "feedback.invalid_actions.fix_hint": "Використовуй GameView (on_resource, is_walkable) перед return дії.",
+        "feedback.invalid_actions.fix_hint": "Повертай рівно один із дозволених рядків дії, написаний як у шаблоні.",
         "feedback.high_complexity.title": "Висока складність",
         "feedback.high_complexity.message": (
             "У коді висока цикломатична складність. "
@@ -378,6 +446,39 @@ def _feedback_uk() -> dict[str, str]:
         ),
         "feedback.blocked_moves.extra_no_walkable": " Код не викликає is_walkable() перед рухом.",
         "feedback.blocked_moves.fix_hint": "Викликай is_walkable(x, y) перед MOVE_*.",
+        "feedback.blocked_moves.message.unit": (
+            "Бот у {pct}% випадків ступав на клітинку, де стояв інший юніт. "
+            "is_walkable() знає лише про стіни, а не про юнітів."
+        ),
+        "feedback.blocked_moves.fix_hint.unit": (
+            "Перевіряй state.is_free(x, y) (або state.other_units()) перед MOVE_*; "
+            "якщо на шляху юніт — обійди його або зроби WAIT."
+        ),
+        "feedback.blocked_moves.message.conflict": (
+            "Бот і інший юніт одночасно намагалися зайти в ту саму клітинку "
+            "({pct}% ходів) — вона дістається лише одному."
+        ),
+        "feedback.blocked_moves.fix_hint.conflict": (
+            "Якщо суперник поруч із твоєю ціллю — обери іншу клітинку або зроби WAIT, "
+            "а не наввипередки лізь у ту саму."
+        ),
+        "feedback.blocked_moves.message.edge": (
+            "Бот у {pct}% випадків намагався вийти за межі карти."
+        ),
+        "feedback.blocked_moves.fix_hint.edge": "Перевіряй state.is_inside(x, y) перед MOVE_*.",
+        "feedback.wasted_gather.title": "GATHER, коли збирати нічого",
+        "feedback.wasted_gather.message": (
+            "Бот {count} раз{plural} використав GATHER, коли збирати було нічого{turns}. "
+            "Кожен такий хід не дає очок."
+        ),
+        "feedback.wasted_gather.turns": " (наприклад, на ходах {turns})",
+        "feedback.wasted_gather.fix_hint": "Перевір {check} перед return \"GATHER\"; інакше йди до цілі.",
+        "feedback.too_much_wait.title": "Багато пропущених ходів",
+        "feedback.too_much_wait.message": (
+            "Бот нічого не робив (WAIT) у {pct}% ходів. "
+            "Пропущені ходи не додають очок."
+        ),
+        "feedback.too_much_wait.fix_hint": "Повертай WAIT лише за потреби; інакше йди до цілі.",
         "feedback.no_walkable.title": "Немає перевірки перешкод у коді",
         "feedback.no_walkable.message": (
             "Бот ніколи не викликає is_walkable() або is_obstacle(). "
@@ -394,7 +495,7 @@ def _feedback_uk() -> dict[str, str]:
             "Можливо, йде не туди або цілиться в порожні клітинки."
         ),
         "feedback.score_stall.fix_hint": (
-            "Йди до ресурсів/станцій; nearest_station() або resource_tiles() підкажуть ціль."
+            "Йди до цілі; {helpers} підкажуть де вона."
         ),
         "feedback.no_branch.title": "Немає логіки рішень у make_turn",
         "feedback.no_branch.message": (
@@ -402,21 +503,21 @@ def _feedback_uk() -> dict[str, str]:
             "Бот не реагує на карту чи стан гри."
         ),
         "feedback.no_branch.fix_hint": (
-            "Додай if/elif за state.on_resource(), state.nearest_station() тощо."
+            "Додай if/elif за {helpers} тощо."
         ),
         "feedback.no_branch.fix_hint_static": (
-            "Додай if/elif за state.on_resource(), state.nearest_station() тощо."
+            "Додай if/elif за {helpers} тощо."
         ),
         "feedback.no_target.title": "Немає пошуку цілі в коді",
         "feedback.no_target.message": (
-            "Бот не використовує on_resource(), nearest_station() або can_gather(). "
+            "Бот не використовує допоміжні методи цілі, як-от {helpers}. "
             "Без цілей рух випадковий і легкі очки губляться."
         ),
         "feedback.no_target.message_static": (
-            "Бот не використовує on_resource() або nearest_station(). "
+            "Бот не використовує допоміжні методи цілі, як-от {helpers}. "
             "Логіка цілей перетворює випадковий рух на ефективну гру."
         ),
-        "feedback.no_target.fix_hint": "Використовуй nearest_station() або resource_tiles() для цілі кожен хід.",
+        "feedback.no_target.fix_hint": "Використовуй {helpers}, щоб обирати ціль кожен хід.",
         "feedback.no_fallback.title": "Немає запасного варіанту при блокуванні",
         "feedback.no_fallback.message": (
             "У допоміжній функції руху немає WAIT чи обходу, коли прямий шлях заблоковано. "
@@ -424,8 +525,9 @@ def _feedback_uk() -> dict[str, str]:
         ),
         "feedback.no_fallback.fix_hint": "Поверни 'WAIT' або перпендикулярний напрямок, якщо is_walkable() — False.",
         "feedback.stuck.range": " (близько ходів {start}–{end})",
-        "feedback.plural.s": "и",
-        "feedback.plural.empty": "",
+        "feedback.plural.one": "",
+        "feedback.plural.few": "и",
+        "feedback.plural.many": "ів",
     }
     for prefix, title in ruff_titles.items():
         d[f"feedback.ruff.{prefix}.title"] = title

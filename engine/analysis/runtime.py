@@ -28,7 +28,12 @@ class RuntimeMetrics:
 
 
 class RuntimeCollector:
-    """Accumulates per-turn sandbox and scenario events."""
+    """Accumulates per-turn sandbox events.
+
+    ``invalid_action_count`` only counts actions the sandbox could not parse. A GATHER that
+    finds nothing is a legal (but wasted) action; it is reported by the movement analysis
+    (``failed_gather_count``) the same way in every scenario.
+    """
 
     def __init__(self) -> None:
         self.metrics = RuntimeMetrics()
@@ -53,8 +58,6 @@ class RuntimeCollector:
         ):
             self.metrics.crash_count += 1
         if any(e.startswith("invalid_action:") for e in events):
-            self.metrics.invalid_action_count += 1
-        if f"{player_id}_gather_failed" in events:
             self.metrics.invalid_action_count += 1
 
     def to_dict(self) -> dict[str, Any]:

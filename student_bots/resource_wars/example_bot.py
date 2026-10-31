@@ -13,7 +13,8 @@ Turn function receives a readonly GameView (state). Common calls:
   state.on_resource()          -> bool
   state.my_x(), state.my_y()   -> int
   state.score()                -> int (resources collected)
-  state.is_walkable(x, y)      -> bool
+  state.is_walkable(x, y)      -> bool (no wall there; ignores other units)
+  state.is_free(x, y)          -> bool (no wall and nobody standing there)
   state.resource_tiles()       -> list of (x, y) for all visible resource tiles
   state.others_positions()     -> list of (player_id, x, y) on classroom maps
 

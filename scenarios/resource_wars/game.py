@@ -8,7 +8,7 @@ from typing import Any
 from engine.core.action import Action
 from engine.core.scenario import ScenarioBase
 from engine.core.scenario_config import load_scenario_section
-from engine.core.turn_order import ordered_action_player_ids
+from engine.core.turn_order import blocked_move_events, ordered_action_player_ids
 from engine.core.turn_result import TurnResult
 from engine.simulation.entity import Entity
 from engine.simulation.map import Map, TileType
@@ -161,17 +161,20 @@ class ResourceWarsScenario(ScenarioBase):
         if missing:
             raise KeyError(f"Missing actions for players: {sorted(missing)}")
 
+        entered: set[tuple[int, int]] = set()
         for player_id in ordered_action_player_ids(self._player_ids, actions):
             action = actions[player_id]
             entity = self._entities[player_id]
             if action in MOVE_DELTAS:
                 dx, dy = MOVE_DELTAS[action]
                 nx, ny = entity.x + dx, entity.y + dy
-                if self._can_move_to(nx, ny, player_id):
+                cause = self._move_block_cause(nx, ny, player_id)
+                if cause is None:
                     entity.x, entity.y = nx, ny
+                    entered.add((nx, ny))
                     events.append(f"{player_id}_moved")
                 else:
-                    events.append(f"{player_id}_blocked")
+                    events.extend(blocked_move_events(player_id, cause, (nx, ny), entered))
             elif action is Action.GATHER:
                 if self._map.get_tile(entity.x, entity.y) is TileType.RESOURCE:
                     self._scores[player_id] += 1
@@ -192,15 +195,18 @@ class ResourceWarsScenario(ScenarioBase):
         )
 
     def _can_move_to(self, x: int, y: int, player_id: str) -> bool:
+        return self._move_block_cause(x, y, player_id) is None
+
+    def _move_block_cause(self, x: int, y: int, player_id: str) -> str | None:
         assert self._map is not None
         if not self._map.in_bounds(x, y):
-            return False
+            return "edge"
         if self._map.get_tile(x, y) is TileType.OBSTACLE:
-            return False
+            return "obstacle"
         for other_id, other in self._entities.items():
             if other_id != player_id and other.x == x and other.y == y:
-                return False
-        return True
+                return "unit"
+        return None
 
     def calculate_score(self) -> dict[str, int]:
         return dict(self._scores)

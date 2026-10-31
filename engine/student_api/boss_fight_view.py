@@ -81,6 +81,10 @@ class BossFightView(GameView):
         """Maximum boss HP."""
         return self._boss_max_hp
 
+    def is_free(self, x: int, y: int) -> bool:
+        """Like ``GameView.is_free`` - the boss's cell is occupied too."""
+        return super().is_free(x, y) and (x, y) != (self._boss_x, self._boss_y)
+
     def is_boss_adjacent(self) -> bool:
         """True when the boss is orthogonally adjacent to this bot."""
         return abs(self._x - self._boss_x) + abs(self._y - self._boss_y) == 1

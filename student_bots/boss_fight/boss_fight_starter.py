@@ -14,7 +14,8 @@ state methods (BossFightView):
   ally_hp(player_id) — HP of a named ally, or None
   weakest_ally_id() — player_id of the living ally with the lowest HP, or None
   my_x(), my_y()    — your position
-  is_walkable(x, y) — True if the tile can be entered
+  is_walkable(x, y) — True if there is no wall (ignores other units)
+  is_free(x, y)     — True if you can step there now (no wall, no unit)
 """
 
 

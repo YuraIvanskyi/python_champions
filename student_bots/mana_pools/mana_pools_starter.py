@@ -10,7 +10,8 @@ state methods (ManaPoolsView):
   pools()         — all remaining pools as list of (x, y, capacity)
   adjacent_pools() — pools you can gather from: (x, y, capacity)
   my_x(), my_y()    — your position
-  is_walkable(x, y) — True if the tile can be entered
+  is_walkable(x, y) — True if there is no wall (ignores other units)
+  is_free(x, y)     — True if you can step there now (no wall, no unit)
   others_positions() — list of (player_id, x, y) for all other bots
 """
 

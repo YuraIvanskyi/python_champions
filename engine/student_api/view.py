@@ -138,12 +138,27 @@ class GameView:
         return self.tile_at(x, y) == TileKind.OBSTACLE
 
     def is_walkable(self, x: int, y: int) -> bool:
+        """True if (x, y) is on the map and is not an obstacle.
+
+        It does NOT look at other units: a walkable cell can still be occupied.
+        Use ``is_free`` to ask "can I step there right now?".
+        """
         if not self.is_inside(x, y):
             return False
         tile = self.tile_at(x, y)
         if tile is None:
             return False
         return tile != TileKind.OBSTACLE
+
+    def is_free(self, x: int, y: int) -> bool:
+        """True if you could step onto (x, y) right now.
+
+        Inside the map, no obstacle (or pool) and no other unit standing there.
+        Two bots can still pick the same free cell on the same turn - one of them is blocked.
+        """
+        if not self.is_walkable(x, y) or self.tile_at(x, y) == TileKind.POOL:
+            return False
+        return (x, y) not in self._others.values()
 
     def has_resource_at(self, x: int, y: int) -> bool:
         return self.tile_at(x, y) == TileKind.RESOURCE

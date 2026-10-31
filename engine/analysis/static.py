@@ -13,6 +13,7 @@ from typing import Any
 from radon.complexity import cc_rank, cc_visit
 from radon.metrics import mi_rank, mi_visit
 
+from engine.core.bot_profile import PROFILE_CONSTANTS
 from engine.paths import bundled_executable, subprocess_no_window_kwargs
 
 
@@ -217,7 +218,7 @@ class _AstAnalyzer(ast.NodeVisitor):
             "StudentBot",
         }
         for name in sorted(self._assigned - self._used):
-            if name.startswith("_") or name in builtins_ignore:
+            if name.startswith("_") or name in builtins_ignore or name in PROFILE_CONSTANTS:
                 continue
             self.unused_names.append(name)
 
@@ -317,14 +318,13 @@ _GOAL_HELPERS = frozenset(
         "on_resource",
         "can_gather",
         "nearest_pool",
-        "nearest_station",
         "has_resource_at",
         "resource_tiles",
         "adjacent_pools",
-        "adjacent_stations",
         "pools",
-        "stations",
         "is_boss_adjacent",
+        "boss_x",
+        "boss_y",
     ]
 )
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class EngineConfig(BaseModel):
     turn_timeout_ms: int = 200
+    worker_startup_timeout_ms: int = 5000
 
 
 class MovementAnalysisConfig(BaseModel):
@@ -20,6 +21,8 @@ class MovementAnalysisConfig(BaseModel):
     score_stall_warn: int = 12
     oscillation_min_cycles: int = 3
     min_turns_for_analysis: int = 5
+    failed_gather_warn: int = 3
+    wait_ratio_warn: float = 0.4
 
 
 class AnalysisConfig(BaseModel):

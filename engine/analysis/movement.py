@@ -25,6 +25,11 @@ BLOCKED_RATIO_WARN: float = 0.35
 SCORE_STALL_WARN: int = 12
 OSCILLATION_MIN_CYCLES: int = 3
 MIN_TURNS_FOR_ANALYSIS: int = 5
+FAILED_GATHER_WARN: int = 3
+WAIT_RATIO_WARN: float = 0.4
+
+
+_MAX_LISTED_TURNS = 8
 
 
 @dataclass
@@ -36,11 +41,17 @@ class MovementConfig:
     score_stall_warn: int = SCORE_STALL_WARN
     oscillation_min_cycles: int = OSCILLATION_MIN_CYCLES
     min_turns_for_analysis: int = MIN_TURNS_FOR_ANALYSIS
+    failed_gather_warn: int = FAILED_GATHER_WARN
+    wait_ratio_warn: float = WAIT_RATIO_WARN
 
 
 @dataclass
 class MovementMetrics:
     blocked_move_ratio: float = 0.0
+    blocked_causes: dict[str, int] = field(default_factory=dict)  # edge/obstacle/unit/conflict
+    failed_gather_count: int = 0
+    failed_gather_turns: list[int] = field(default_factory=list)  # first few turn numbers
+    wait_count: int = 0
     max_consecutive_same_action: int = 0
     wait_ratio: float = 0.0
     position_revisit_count: int = 0
@@ -149,11 +160,22 @@ def _compute_metrics(
     blocked_count = 0
     moved_count = 0
     waited_count = 0
-    for turn in turns:
+    causes: Counter[str] = Counter()
+    failed_gathers: list[int] = []
+    cause_prefix = f"{player_id}_blocked_by_"
+    gather_failed_prefix = f"{player_id}_gather_failed"
+    for i, turn in enumerate(turns):
         events: list[str] = turn.get("events", [])
         action = str(turn.get("actions", {}).get(player_id, ""))
         if f"{player_id}_blocked" in events:
             blocked_count += 1
+            for e in events:
+                if e.startswith(cause_prefix):
+                    causes[e[len(cause_prefix):]] += 1
+        # A failed GATHER (no resource / not next to a pool / pool empty) wastes the turn;
+        # prefix match covers the per-reason events of Mana Pools as well as Resource Wars.
+        if any(e.startswith(gather_failed_prefix) for e in events):
+            failed_gathers.append(int(turn.get("turn", i + 1)))
         if f"{player_id}_moved" in events:
             moved_count += 1
         if f"{player_id}_waited" in events or action == "WAIT":
@@ -164,6 +186,10 @@ def _compute_metrics(
         round(blocked_count / attempted_moves, 3) if attempted_moves else 0.0
     )
     m.wait_ratio = round(waited_count / total, 3) if total else 0.0
+    m.wait_count = waited_count
+    m.blocked_causes = dict(causes)
+    m.failed_gather_count = len(failed_gathers)
+    m.failed_gather_turns = failed_gathers[:_MAX_LISTED_TURNS]
 
     # ── Consecutive same-action streak ───────────────────────────────────────
     m.max_consecutive_same_action = _max_consecutive_action(turns, player_id)

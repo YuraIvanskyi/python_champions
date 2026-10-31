@@ -20,9 +20,12 @@ blocked_ratio_warn = 0.35
 score_stall_warn = 12
 oscillation_min_cycles = 3
 min_turns_for_analysis = 5
+failed_gather_warn = 3
+wait_ratio_warn = 0.4
 
 [engine]
 turn_timeout_ms = 200
+worker_startup_timeout_ms = 5000
 
 [game]
 default_opponent = "greedy"

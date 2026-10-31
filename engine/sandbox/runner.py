@@ -31,6 +31,7 @@ class SandboxedBot:
         self._bot_path = bot_path.resolve()
         self._config = config
         self._timeout_sec = config.engine.turn_timeout_ms / 1000.0
+        self._startup_timeout_sec = config.engine.worker_startup_timeout_ms / 1000.0
         self._proc: subprocess.Popen[str] | None = None
         self._start_worker()
 
@@ -39,11 +40,23 @@ class SandboxedBot:
             _spawn_command(self._bot_path),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1,
             **subprocess_no_window_kwargs(),
         )
+        self._await_ready()
+
+    def _await_ready(self) -> None:
+        """Wait for the worker's handshake so start-up never counts against the turn budget."""
+        data = self._readline_with_timeout(self._startup_timeout_sec)
+        if data is not None and data.get("ready"):
+            return
+        # No handshake (load error, crash or hang): make sure the child is gone;
+        # run_turn restarts dead workers and reports sandbox_dead if that keeps failing.
+        assert self._proc is not None
+        self._proc.kill()
+        self._proc.wait()
 
     def _readline_with_timeout(self, timeout_sec: float) -> dict[str, Any] | None:
         assert self._proc is not None

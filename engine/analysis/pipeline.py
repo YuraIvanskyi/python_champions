@@ -87,6 +87,7 @@ def build_metrics(
         movement=movement_dict,
         movement_cfg=move_cfg,
         language=lang,
+        scenario_id=scenario_id,
     )
     feedback = [item.message for item in items]
 
@@ -124,6 +125,8 @@ def _movement_config(config: AppConfig) -> MovementConfig:
         score_stall_warn=mc.score_stall_warn,
         oscillation_min_cycles=mc.oscillation_min_cycles,
         min_turns_for_analysis=mc.min_turns_for_analysis,
+        failed_gather_warn=mc.failed_gather_warn,
+        wait_ratio_warn=mc.wait_ratio_warn,
     )
 
 

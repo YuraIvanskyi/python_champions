@@ -23,6 +23,9 @@ ALLOWED_ICON_PREFIXES = (
     "ui\\assets\\icons",
 )
 
+# Module-level names the loader reads from a student bot (never used by the bot itself).
+PROFILE_CONSTANTS = frozenset({"BOT_DISPLAY_NAME", "BOT_ICON_INDEX", "BOT_ICON"})
+
 CHAR_ICONS_DIR = resource_path("ui", "assets", "icons")
 CHAR_ICON_COUNT = 100
 DEFAULT_STUDENT_ICON_INDEX = 85  # reserved default portrait (not used for auto-assignment)

@@ -9,6 +9,7 @@ from engine.core.action import Action
 from engine.core.bot_profile import char_icon_path
 from engine.core.config_io import load_scenario_toml
 from engine.core.scenario import ScenarioBase
+from engine.core.turn_order import blocked_move_events
 from engine.core.turn_result import TurnResult
 from engine.simulation.map import Map, TileType
 
@@ -89,6 +90,7 @@ class BossFightScenario(ScenarioBase):
         self._boss_hp = 0
         self._turn = 0
         self._finished = False
+        self._entered_this_turn: set[tuple[int, int]] = set()
 
         # Per-bot combat stats (for scoring and metrics)
         self._damage_dealt: dict[str, int] = {pid: 0 for pid in self._player_ids}
@@ -192,6 +194,7 @@ class BossFightScenario(ScenarioBase):
         assert self._map is not None
         self._turn += 1
         events: list[str] = []
+        self._entered_this_turn = set()
 
         # Count alive turns before applying (bots that survived to this turn)
         for pid in self._player_ids:
@@ -233,11 +236,15 @@ class BossFightScenario(ScenarioBase):
         if action in MOVE_DELTAS:
             dx, dy = MOVE_DELTAS[action]
             nx, ny = x + dx, y + dy
-            if self._can_bot_move_to(nx, ny, pid):
+            cause = self._move_block_cause(nx, ny, pid)
+            if cause is None:
                 self._positions[pid] = (nx, ny)
+                self._entered_this_turn.add((nx, ny))
                 events.append(f"{pid}_moved")
             else:
-                events.append(f"{pid}_blocked")
+                events.extend(
+                    blocked_move_events(pid, cause, (nx, ny), self._entered_this_turn)
+                )
 
         elif action is Action.ATTACK:
             if self._is_adjacent_to_boss(x, y):
@@ -283,18 +290,18 @@ class BossFightScenario(ScenarioBase):
 
         return events
 
-    def _can_bot_move_to(self, x: int, y: int, pid: str) -> bool:
+    def _move_block_cause(self, x: int, y: int, pid: str) -> str | None:
         assert self._map is not None
         if not self._map.in_bounds(x, y):
-            return False
+            return "edge"
         if self._map.get_tile(x, y) is TileType.OBSTACLE:
-            return False
+            return "obstacle"
         if x == self._boss_x and y == self._boss_y:
-            return False
+            return "unit"
         for other_id, (ox, oy) in self._positions.items():
             if other_id != pid and self._alive[other_id] and ox == x and oy == y:
-                return False
-        return True
+                return "unit"
+        return None
 
     def _is_adjacent_to_boss(self, x: int, y: int) -> bool:
         return abs(x - self._boss_x) + abs(y - self._boss_y) == 1

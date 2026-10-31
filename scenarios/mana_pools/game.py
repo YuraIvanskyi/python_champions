@@ -6,7 +6,7 @@ import random
 from typing import Any
 
 from engine.core.action import Action
-from engine.core.turn_order import ordered_action_player_ids
+from engine.core.turn_order import blocked_move_events, ordered_action_player_ids
 from engine.core.scenario import ScenarioBase
 from engine.core.config_io import load_scenario_toml
 from engine.core.turn_result import TurnResult
@@ -88,6 +88,7 @@ class ManaPoolsScenario(ScenarioBase):
         self._pushes_landed: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._pushes_blocked: dict[str, int] = {pid: 0 for pid in self._player_ids}
         self._moves: dict[str, int] = {pid: 0 for pid in self._player_ids}
+        self._entered_this_turn: set[tuple[int, int]] = set()
 
     @staticmethod
     def _load_config() -> dict[str, Any]:
@@ -205,6 +206,7 @@ class ManaPoolsScenario(ScenarioBase):
         assert self._map is not None
         self._turn += 1
         events: list[str] = []
+        self._entered_this_turn = set()
 
         # Resolve actions in setup order for determinism
         for pid in ordered_action_player_ids(self._player_ids, actions):
@@ -231,12 +233,16 @@ class ManaPoolsScenario(ScenarioBase):
         if action in MOVE_DELTAS:
             dx, dy = MOVE_DELTAS[action]
             nx, ny = x + dx, y + dy
-            if self._can_move_to(nx, ny, exclude_pid=pid):
+            cause = self._move_block_cause(nx, ny, exclude_pid=pid)
+            if cause is None:
                 self._positions[pid] = (nx, ny)
                 self._moves[pid] += 1
+                self._entered_this_turn.add((nx, ny))
                 events.append(f"{pid}_moved")
             else:
-                events.append(f"{pid}_blocked")
+                events.extend(
+                    blocked_move_events(pid, cause, (nx, ny), self._entered_this_turn)
+                )
             # Attempting to move always costs energy (even when obstructed)
             self._energy[pid] = max(0, self._energy[pid] - self._move_cost)
 
@@ -312,16 +318,19 @@ class ManaPoolsScenario(ScenarioBase):
         return events
 
     def _can_move_to(self, x: int, y: int, *, exclude_pid: str) -> bool:
+        return self._move_block_cause(x, y, exclude_pid=exclude_pid) is None
+
+    def _move_block_cause(self, x: int, y: int, *, exclude_pid: str) -> str | None:
         assert self._map is not None
         if not self._map.in_bounds(x, y):
-            return False
+            return "edge"
         tile = self._map.get_tile(x, y)
         if tile is TileType.OBSTACLE or tile is TileType.POOL:
-            return False
+            return "obstacle"
         for other_pid, (ox, oy) in self._positions.items():
             if other_pid != exclude_pid and ox == x and oy == y:
-                return False
-        return True
+                return "unit"
+        return None
 
     def _adjacent_pools(self, x: int, y: int) -> list[tuple[int, int]]:
         """Stations orthogonally adjacent to (x, y) with remaining capacity."""
